@@ -34,7 +34,7 @@ function businessState(state: AppState) {
     summary: `${state.business.name}: ${state.shifts.length} shifts, ${impact.warnings.length} active warnings.`,
     business: state.business,
     workers: state.workers.map((worker) => ({ ...worker, weeklyHours: impact.workerWeeklyHours[worker.id] ?? 0 })),
-    shifts: state.shifts,
+    shifts: planShifts,
     incident: state.incident,
     preview: state.preview,
     metrics: {

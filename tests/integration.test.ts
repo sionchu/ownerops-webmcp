@@ -40,6 +40,7 @@ describe("shared UI and WebMCP application path", () => {
     const proposedState = executors.getBusinessState();
     expect(proposedState.workers.find((worker) => worker.id === "jiyoung")?.weeklyHours).toBe(32);
     expect(proposedState.metrics.projectedLaborCost).toBe(2_026_000);
+    expect(proposedState.shifts.find((shift) => shift.id === "fri-minsoo-18")?.workerId).toBe("jiyoung");
 
     web.runAction({ type: "reassign_shift", shiftId: "fri-minsoo-18", workerId: "hana" });
     expect(web.getState().activity.state).toBe("reviewNeeded");
@@ -48,6 +49,7 @@ describe("shared UI and WebMCP application path", () => {
     const editedState = executors.getBusinessState();
     expect(editedState.workers.find((worker) => worker.id === "hana")?.weeklyHours).toBe(32);
     expect(editedState.metrics.projectedLaborCost).toBe(2_028_000);
+    expect(editedState.shifts.find((shift) => shift.id === "fri-minsoo-18")?.workerId).toBe("hana");
 
     const reviewed = executors.evaluateCurrentPlan();
     expect(reviewed.impact.workerWeeklyHours.hana).toBe(32);
