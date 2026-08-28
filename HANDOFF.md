@@ -21,7 +21,7 @@ AC1–AC15 from `docs/09_ACCEPTANCE_TESTS.md` are implemented. Live WebMCP invoc
 
 # Current checkpoint
 
-Local MVP and all feasible checks pass. Repository documentation reflects the implemented app.
+Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` is locally verified. The remaining release gates require an authenticated HTTPS deployment and a WebMCP-capable browser.
 
 # Decisions and reasons
 
@@ -31,22 +31,24 @@ Local MVP and all feasible checks pass. Repository documentation reflects the im
 
 # Verification evidence
 
-- `npm test` — 13/13 tests passed across 3 files.
+- `npm test` — 14/14 tests passed across 3 files (13/13 at the pre-change baseline).
 - `npm run lint` — passed with no findings.
 - `npm run typecheck` — passed.
 - `npm run build` — passed; `/` generated as a static route.
 - `npm audit --omit=dev` — 0 vulnerabilities.
-- Local browser canonical demo — exactly 3 scenarios; preview Jiyoung changed manually to Hana; delta changed from ₩48,000 to ₩50,000; apply cleared preview; reload retained Hana; snapshot reset/import restored Hana; malformed input preserved state; console errors 0.
+- Local browser canonical demo and local production smoke — exactly 3 scenarios; preview Jiyoung changed manually to Hana; delta changed from ₩48,000 to ₩50,000; apply cleared preview; reload retained Hana; snapshot reset/import restored Hana; malformed input preserved state; console errors 0.
 - `tests/integration.test.ts` — shared UI/tool state equivalence, live edited-state evaluation, and exact eight-tool registration covered.
+- Source registration check — exactly 8 `document.modelContext.registerTool` calls and the required eight tool names.
 
 # Not executed
 
 - Live tool invocation from WebMCP-enabled Chrome/ChatGPT browser; no compatible connected browser was available.
-- Public deployment, public repository switch, YouTube demo, and Devpost submission.
+- Private HTTPS deployment and the canonical live WebMCP sequence in a browser exposing `document.modelContext`.
+- Public repository switch, YouTube demo, and Devpost submission.
 
 # Blockers
 
-- Live WebMCP verification requires Chrome with `chrome://flags/#enable-webmcp-testing` enabled or another challenge-compatible browser.
+- No authenticated Vercel or equivalent deployment mechanism is available in the current environment, and no connected Chrome/WebMCP-capable browser is available.
 
 # Modified files
 
@@ -57,4 +59,4 @@ Local MVP and all feasible checks pass. Repository documentation reflects the im
 
 # Next concrete action
 
-Open the local or deployed app in WebMCP-enabled Chrome, confirm all eight registered tools, call `create_schedule_draft`, run the canonical tool sequence, then complete the public-release gate.
+Deploy the private release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` to an authenticated HTTPS host, open that URL in Chrome with `chrome://flags/#enable-webmcp-testing` enabled, confirm `document.modelContext` and all eight tools, then execute the canonical sequence (including the human Jiyoung → Hana edit and `evaluate_current_plan`) and record the live results in `docs/IMPLEMENTATION_STATUS.md`.
