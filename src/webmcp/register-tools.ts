@@ -1,5 +1,5 @@
 import { getResponseOptions, type ApplicationAction } from "@/domain/actions";
-import { calculateImpact } from "@/domain/impact";
+import { applyChanges, calculateImpact } from "@/domain/impact";
 import type { AppState, StaffingChange } from "@/domain/model";
 import { parseSnapshot } from "@/snapshot/snapshot";
 
@@ -28,7 +28,8 @@ const emptySchema = { type: "object", properties: {}, additionalProperties: fals
 const stringField = (description: string) => ({ type: "string", description });
 
 function businessState(state: AppState) {
-  const impact = calculateImpact(state);
+  const planShifts = state.preview ? applyChanges(state.shifts, state.preview.changes) : state.shifts;
+  const impact = calculateImpact(state, planShifts, state.shifts);
   return {
     summary: `${state.business.name}: ${state.shifts.length} shifts, ${impact.warnings.length} active warnings.`,
     business: state.business,
@@ -55,6 +56,9 @@ export function createToolExecutors(bridge: ToolBridge) {
     },
     getResponseOptions: () => {
       const options = getResponseOptions(bridge.getState());
+      if (options.length === 3) {
+        bridge.runAction({ type: "set_activity", activity: { state: "proposalReady", message: "Compared three recovery options.", detail: "Three bounded options are ready to preview." } });
+      }
       return { summary: options.length === 3 ? "Three recovery options are ready." : "No complete three-option set is available for the current incident.", count: options.length, options };
     },
     previewStaffingChange: (input: { scenarioId?: string; title?: string; changes?: StaffingChange[] }) => {
@@ -65,7 +69,10 @@ export function createToolExecutors(bridge: ToolBridge) {
     },
     evaluateCurrentPlan: () => {
       const state = bridge.getState();
-      const impact = calculateImpact(state);
+      const planShifts = state.preview ? applyChanges(state.shifts, state.preview.changes) : state.shifts;
+      const impact = calculateImpact(state, planShifts, state.shifts);
+      const candidate = state.preview?.changes[0] ? state.workers.find((worker) => worker.id === state.preview?.changes[0]?.workerId)?.name : undefined;
+      bridge.runAction({ type: "set_activity", activity: { state: "reviewed", message: "Agent reviewed live plan.", detail: `${candidate ? `${candidate} candidate` : "Current schedule"} reviewed from the exact live state. Ready to apply.` } });
       return { summary: `Current live schedule has ${impact.warnings.length} warnings and a ${(impact.laborRatio * 100).toFixed(1)}% estimated labor ratio.`, impact };
     },
     applyStaffingChange: (input: { previewId: string; version: number }) => {

@@ -13,6 +13,8 @@ States:
 - `listening`
 - `checking`
 - `proposalReady`
+- `reviewNeeded`
+- `reviewed`
 - `warning`
 - `applied`
 - `error`
@@ -42,16 +44,20 @@ Example mapping:
 - no active operation → `idle`
 - WebMCP/read evaluation in progress → `checking`
 - preview scenario available → `proposalReady`
+- human changes a candidate preview → `reviewNeeded`
+- `evaluate_current_plan` reviews the current candidate → `reviewed`
 - current plan has work-rule warning → `warning`
 - apply completed → `applied` briefly, then `idle`
 
 ## Activity rail copy
 Use short operational messages:
 - “Checking the current schedule…”
-- “Three recovery options are ready.”
-- “This edit adds 4 weekly hours.”
-- “Preview only — nothing has been committed.”
-- “Schedule updated.”
+- “Agent proposal ready.”
+- “Human edit detected. Agent review pending.”
+- “Agent reviewed live plan. Ready to apply.”
+- “Plan applied.”
+
+The rail presents the timeline `Agent proposal → Human edit → Agent reviewed → Apply` without introducing an in-app chat history. Local deterministic impact can update immediately after a human edit, but the reviewed state is set only by the shared `evaluate_current_plan` action.
 
 Avoid personality-heavy chatter, emojis, or fake human emotions.
 

@@ -97,7 +97,7 @@ export type StaffingPreview = {
   impact: PlanImpact;
 };
 
-export type AssistantState = "idle" | "listening" | "checking" | "proposalReady" | "warning" | "applied" | "error";
+export type AssistantState = "idle" | "listening" | "checking" | "proposalReady" | "reviewNeeded" | "reviewed" | "warning" | "applied" | "error";
 
 export type Activity = {
   state: AssistantState;

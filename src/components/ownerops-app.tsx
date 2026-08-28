@@ -27,6 +27,42 @@ function Icon({ name }: { name: "copy" | "upload" | "refresh" | "alert" | "check
 
 function formatTime(iso: string) { return iso.slice(11, 16); }
 function shiftDay(shift: Shift) { return shift.start.slice(0, 10); }
+function signedWon(value: number) { return `${value >= 0 ? "+" : "−"}${won.format(Math.abs(value))}`; }
+
+type CandidateStage = "proposal" | "human-edit" | "reviewed";
+
+function candidateStage(state: AppState): CandidateStage {
+  if (state.activity.state === "reviewed") return "reviewed";
+  if (state.activity.state === "reviewNeeded") return "human-edit";
+  return "proposal";
+}
+
+function activityLabel(state: AppState) {
+  switch (state.activity.state) {
+    case "proposalReady": return "Agent proposal";
+    case "reviewNeeded": return "Human edit · review needed";
+    case "reviewed": return "Agent reviewed";
+    case "warning": return "Coverage warning";
+    case "applied": return "Plan applied";
+    case "checking": return "Analyzing live state";
+    case "listening": return "Listening for agent";
+    case "error": return "Connection issue";
+    default: return "Workspace ready";
+  }
+}
+
+function candidateDetails(state: AppState) {
+  const change = state.preview?.changes[0];
+  const shift = change ? state.shifts.find((item) => item.id === change.shiftId) : undefined;
+  const worker = change ? state.workers.find((item) => item.id === change.workerId) : undefined;
+  const start = change?.start ?? shift?.start;
+  const end = change?.end ?? shift?.end;
+  return {
+    worker,
+    shift,
+    label: worker && start && end ? `${worker.name} · ${formatTime(start)}–${formatTime(end)}` : "Current staffing candidate",
+  };
+}
 
 function Metric({ label, value, hint, tone }: { label: string; value: string; hint: string; tone?: "warning" | "good" }) {
   return <div className={`metric ${tone ?? ""}`}><span>{label}</span><strong>{value}</strong><small>{hint}</small></div>;
@@ -52,21 +88,65 @@ function AssistantAvatar({ state }: { state: AppState["activity"]["state"] }) {
   );
 }
 
+type TimelineStatus = "complete" | "active" | "pending";
+
+function TimelineStep({ label, detail, status }: { label: string; detail: string; status: TimelineStatus }) {
+  return <li className={`timeline-step ${status}`}><span className="timeline-marker" aria-hidden="true">{status === "complete" ? "✓" : status === "active" ? "•" : "○"}</span><div><strong>{label}</strong><span>{detail}</span></div></li>;
+}
+
 function AssistantRail({ supported }: { supported: boolean | null }) {
-  const { state, impact, previewImpact, runAction } = useAppState();
+  const { state, impact, previewImpact, scenarios } = useAppState();
   const visibleImpact = previewImpact ?? impact;
+  const applied = state.activity.state === "applied";
+  const reviewed = state.activity.state === "reviewed";
+  const needsReview = state.activity.state === "reviewNeeded";
+  const hasIncident = Boolean(state.incident) || applied;
+  const hasOptions = applied || (Boolean(state.incident) && scenarios.length === 3);
+  const hasProposal = applied || Boolean(state.preview) || needsReview || reviewed;
+  const candidate = candidateDetails(state);
+  const stage = state.preview ? candidateStage(state) : null;
+  const candidateName = candidate.worker?.name ?? "Candidate";
+  const candidateHours = candidate.worker ? visibleImpact.workerWeeklyHours[candidate.worker.id] ?? 0 : 0;
+  const candidateLabel = stage === "human-edit" ? "Human edit" : stage === "reviewed" ? "Reviewed" : "Agent proposal";
+  const timeline = [
+    { label: "Read live schedule", detail: "Canonical schedule loaded", status: "complete" as TimelineStatus },
+    { label: "Marked Minsoo unavailable", detail: hasIncident ? "Fri 18:00–22:00 · coverage gap" : "Waiting for a staffing incident", status: hasIncident ? "complete" as TimelineStatus : "pending" as TimelineStatus },
+    { label: "Compared 3 options", detail: hasOptions ? "Deterministic recovery set ready" : hasIncident ? "Comparing bounded recovery choices" : "Open an incident to compare options", status: hasOptions ? "complete" as TimelineStatus : hasIncident ? "active" as TimelineStatus : "pending" as TimelineStatus },
+    { label: "Agent proposal", detail: state.preview ? `${candidateName} · preview only` : "Choose a recovery option", status: hasProposal ? "complete" as TimelineStatus : state.activity.state === "proposalReady" ? "active" as TimelineStatus : "pending" as TimelineStatus },
+    { label: "Human review", detail: applied || reviewed ? "Candidate edit is part of the reviewed plan" : needsReview ? state.activity.detail ?? "Agent review pending" : state.preview ? "Waiting for your schedule edit" : "Your edit stays uncommitted", status: applied || reviewed ? "complete" as TimelineStatus : needsReview || state.preview ? "active" as TimelineStatus : "pending" as TimelineStatus },
+    { label: "Agent review", detail: applied || reviewed ? "Exact live candidate recalculated" : needsReview ? "Evaluate the edited candidate next" : "Runs after the human edit", status: applied || reviewed ? "complete" as TimelineStatus : needsReview ? "active" as TimelineStatus : "pending" as TimelineStatus },
+    { label: "Apply reviewed plan", detail: applied ? "Committed to the schedule" : reviewed ? "Ready to apply" : "Only after review", status: applied ? "complete" as TimelineStatus : reviewed ? "active" as TimelineStatus : "pending" as TimelineStatus },
+  ];
   return (
-    <aside className="assistant-rail" aria-label="Assistant activity">
-      <div className="assistant-heading"><div><span className="eyebrow">Assistant activity</span><h2>Operations check</h2></div><span className={`status-dot ${state.activity.state}`} /></div>
-      <AssistantAvatar state={state.activity.state} />
-      <div className="activity-copy"><strong>{state.activity.message}</strong>{state.activity.detail && <p>{state.activity.detail}</p>}</div>
-      <button className="secondary full" onClick={() => runAction({ type: "set_activity", activity: { state: impact.warnings.length ? "warning" : "checking", message: "Current plan evaluated.", detail: `${impact.warnings.length} warning${impact.warnings.length === 1 ? "" : "s"}; estimated labor ratio ${(impact.laborRatio * 100).toFixed(1)}%.` } })}>Evaluate live plan</button>
-      <div className="rail-facts">
-        <div><Icon name="users"/><span>Coverage</span><strong>{visibleImpact.uncoveredPeakMinutes ? `${visibleImpact.uncoveredPeakMinutes} min short` : "Peak covered"}</strong></div>
-        <div><Icon name="wallet"/><span>Labor ratio</span><strong>{(visibleImpact.laborRatio * 100).toFixed(1)}%</strong></div>
-        <div><Icon name="clock"/><span>Review flags</span><strong>{visibleImpact.warnings.length}</strong></div>
+    <aside className="assistant-rail" aria-label="Agent activity timeline">
+      <div className="assistant-heading"><div><span className="eyebrow">OwnerOps agent</span><h2>Shared-state activity</h2></div><span className={`status-dot ${state.activity.state}`} /></div>
+      <div className={`connection-state ${supported === null ? "checking" : supported ? "connected" : "disconnected"}`} aria-label={supported ? "Agent connected with eight WebMCP tools" : "Agent connection status"}>
+        <span className="connection-dot" aria-hidden="true" />
+        <div><strong>{supported === null ? "Checking shared state" : supported ? "Live shared state" : "Agent not connected"}</strong><small>{supported === null ? "Checking browser capability" : supported ? "WebMCP · 8 tools" : "Manual scheduling still works"}</small></div>
       </div>
-      <div className={`webmcp-state ${supported ? "supported" : ""}`}><span>{supported === null ? "Checking browser…" : supported ? "WebMCP tools registered" : "WebMCP unavailable in this browser"}</span><small>{supported ? "8 live tools share this schedule state." : "The human schedule remains fully functional."}</small></div>
+      <AssistantAvatar state={state.activity.state} />
+      <div className={`activity-copy activity-${state.activity.state}`} aria-live="polite"><span className="activity-kicker">{activityLabel(state)}</span><strong>{state.activity.message}</strong>{state.activity.detail && <p>{state.activity.detail}</p>}</div>
+      <ol className="activity-timeline" aria-label="OwnerOps agent activity">
+        {timeline.map((step) => <TimelineStep key={step.label} {...step} />)}
+      </ol>
+      {state.preview && previewImpact && <section className={`candidate-card candidate-${stage}`} aria-label={`${candidateLabel} candidate`}>
+        <div className="candidate-card-head"><span>Candidate plan</span><strong>{candidateLabel}</strong></div>
+        <h3>{candidate.label}</h3>
+        <small>{state.preview.title}</small>
+        <div className="candidate-metrics">
+          <div><span>Added payroll</span><strong>{signedWon(visibleImpact.payrollDelta)}</strong></div>
+          <div><span>Weekly hours</span><strong>{candidateHours} h</strong></div>
+          <div><span>Peak coverage</span><strong>{visibleImpact.uncoveredPeakMinutes ? `${visibleImpact.uncoveredPeakMinutes} min gap` : "Covered"}</strong></div>
+          <div><span>Warnings</span><strong>{visibleImpact.warnings.length}</strong></div>
+        </div>
+        <p className="candidate-note">{stage === "human-edit" ? "Local impact updated · agent review pending" : stage === "reviewed" ? "Reviewed from the current live state · ready to apply" : "Preview only · committed schedule unchanged"}</p>
+      </section>}
+      {needsReview && <div className="agent-prompt"><span>Next agent action</span><strong>Evaluate the current plan</strong><small>Ask the agent to re-read the exact edited candidate.</small></div>}
+      <div className="rail-facts">
+        <div><Icon name="users"/><span>Peak coverage</span><strong>{visibleImpact.uncoveredPeakMinutes ? `${visibleImpact.uncoveredPeakMinutes} min gap` : "Covered"}</strong></div>
+        <div><Icon name="wallet"/><span>Labor ratio</span><strong>{(visibleImpact.laborRatio * 100).toFixed(1)}%</strong></div>
+        <div><Icon name="clock"/><span>Warnings</span><strong>{visibleImpact.warnings.length}</strong></div>
+      </div>
     </aside>
   );
 }
@@ -76,6 +156,8 @@ function ScheduleGrid() {
   const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
   const displayShifts = useMemo(() => state.preview ? applyChanges(state.shifts, state.preview.changes) : state.shifts, [state]);
   const previewIds = new Set(state.preview?.changes.map((change) => change.shiftId) ?? []);
+  const previewKind = state.preview ? candidateStage(state) : null;
+  const previewTag = previewKind === "human-edit" ? "HUMAN EDIT" : previewKind === "reviewed" ? "REVIEWED" : "AGENT PROPOSAL";
   const selectedShift = displayShifts.find((item) => item.id === selectedShiftId) ?? null;
 
   const onDrop = (event: React.DragEvent, workerId: string, day: string) => {
@@ -86,7 +168,7 @@ function ScheduleGrid() {
 
   return (
     <section className="schedule-panel" aria-label="Weekly staff schedule">
-      <div className="section-heading"><div><span className="eyebrow">Published schedule · Seoul</span><h1>Week of August 24</h1></div><div className="schedule-legend"><span><i className="legend-scheduled"/>Scheduled</span><span><i className="legend-preview"/>Preview</span><span><i className="legend-gap"/>Uncovered</span></div></div>
+      <div className="section-heading"><div><span className="eyebrow">Published schedule · Seoul</span><h1>Week of August 24</h1></div><div className="schedule-legend"><span><i className="legend-scheduled"/>Committed</span><span><i className="legend-preview"/>Agent proposal</span><span><i className="legend-human"/>Human edit</span><span><i className="legend-gap"/>Uncovered</span></div></div>
       <div className="schedule-scroll">
         <div className="schedule-grid">
           <div className="grid-corner">Team member</div>
@@ -97,7 +179,7 @@ function ScheduleGrid() {
               {DEMO_WEEK.map((day) => {
                 const shifts = displayShifts.filter((item) => item.workerId === worker.id && shiftDay(item) === day);
                 return <div key={day} className={`schedule-cell ${day === "2026-08-28" ? "focus-day" : ""}`} onDragOver={(event) => event.preventDefault()} onDrop={(event) => onDrop(event, worker.id, day)}>
-                  {shifts.map((item) => <button draggable key={item.id} className={`shift-chip ${previewIds.has(item.id) ? "preview" : ""}`} onDragStart={(event) => { event.dataTransfer.setData("text/ownerops-shift", item.id); event.dataTransfer.effectAllowed = "move"; }} title="Drag or press to reassign" onClick={() => setSelectedShiftId(item.id)}><span>{formatTime(item.start)}–{formatTime(item.end)}</span><small>{item.role}</small></button>)}
+                  {shifts.map((item) => { const isPreview = previewIds.has(item.id); return <button draggable key={item.id} className={`shift-chip ${isPreview ? `preview candidate-${previewKind}` : ""}`} onDragStart={(event) => { event.dataTransfer.setData("text/ownerops-shift", item.id); event.dataTransfer.effectAllowed = "move"; }} title={isPreview ? `${previewTag} · drag or press to reassign` : "Drag or press to reassign"} onClick={() => setSelectedShiftId(item.id)}>{isPreview && <small className="chip-tag">{previewTag}</small>}<span>{formatTime(item.start)}–{formatTime(item.end)}</span><small>{item.role}</small></button>; })}
                 </div>;
               })}
             </div>
@@ -159,7 +241,10 @@ function ImpactStrip({ impact }: { impact: PlanImpact }) {
 function PreviewBar() {
   const { state, previewImpact, runAction } = useAppState();
   if (!state.preview || !previewImpact) return null;
-  return <div className="preview-bar"><div><span className="preview-badge">Preview</span><strong>{state.preview.title}</strong><span>{won.format(previewImpact.payrollDelta)} added payroll · {previewImpact.uncoveredPeakMinutes} min peak gap · {previewImpact.warnings.length} warnings</span></div><div><button className="secondary" onClick={() => runAction({ type: "reject_preview" })}>Reject</button><button className="primary" onClick={() => runAction({ type: "apply_preview", previewId: state.preview!.id, version: state.preview!.version })}><Icon name="check"/>Apply reviewed change</button></div></div>;
+  const stage = candidateStage(state);
+  const stageLabel = stage === "human-edit" ? "HUMAN EDIT" : stage === "reviewed" ? "REVIEWED" : "AGENT PROPOSAL";
+  const stageCopy = stage === "human-edit" ? "Local impact updated · agent review pending" : stage === "reviewed" ? "Reviewed from current live state · ready to apply" : "Candidate only · committed schedule unchanged";
+  return <div className={`preview-bar preview-${stage}`}><div className="preview-bar-copy"><div className="preview-bar-title"><span className="preview-badge">{stageLabel}</span><strong>{state.preview.title}</strong><span className="preview-version">v{state.preview.version}</span></div><span>{stageCopy}</span></div><div className="preview-bar-impact"><span>{signedWon(previewImpact.payrollDelta)} payroll</span><span>{previewImpact.uncoveredPeakMinutes ? `${previewImpact.uncoveredPeakMinutes} min gap` : "Peak covered"}</span><span>{previewImpact.warnings.length} warning{previewImpact.warnings.length === 1 ? "" : "s"}</span></div><div className="preview-bar-actions"><button className="secondary" onClick={() => runAction({ type: "reject_preview" })}>Reject</button><button className="primary" onClick={() => runAction({ type: "apply_preview", previewId: state.preview!.id, version: state.preview!.version })}><Icon name="check"/>{stage === "reviewed" ? "Apply reviewed plan" : "Apply after review"}</button></div></div>;
 }
 
 function SnapshotDialog({ onClose }: { onClose: () => void }) {

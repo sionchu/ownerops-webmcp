@@ -73,12 +73,14 @@ Preferred frame:
 
 ## Assistant Activity Rail
 This is not a duplicate ChatGPT client.
-It shows:
-- avatar/status,
-- current activity (“Checking current schedule…”),
-- latest concise conclusion,
-- active preview summary,
-- optionally a compact local demo input if useful outside ChatGPT.
+It is a compact activity timeline for the shared page state. It shows:
+- the live-state/WebMCP connection status and the existing SVG/CSS avatar,
+- the sequence `Read live schedule → Marked absence → Compared 3 options → Agent proposal → Human review → Agent review → Apply`,
+- a concise current activity conclusion,
+- candidate attribution (`AGENT PROPOSAL`, `HUMAN EDIT`, or `REVIEWED`),
+- the current candidate's payroll, weekly hours, peak coverage, and warnings.
+
+The committed schedule remains visually distinct from a candidate preview. A human correction keeps the candidate uncommitted and is explicitly marked as review-needed until `evaluate_current_plan` reviews the same live state.
 
 Natural-language conversation primarily happens in the external ChatGPT browser agent. The app rail explains what the app/agent is doing and what changed.
 

@@ -84,18 +84,20 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
     case "preview_scenario": {
       const scenario = getResponseOptions(state).find((item) => item.id === action.scenarioId);
       if (!scenario) throw new Error("Scenario is not available for the current incident.");
-      return { ...state, preview: { id: `preview-${scenario.id}`, version: 1, scenarioId: scenario.id, title: scenario.title, changes: scenario.changes, impact: scenario.impact }, activity: { state: "proposalReady", message: "Staffing change is ready to review.", detail: "Preview only — nothing has been committed." } };
+      const replacementName = state.workers.find((worker) => worker.id === scenario.changes[0]?.workerId)?.name ?? "Candidate";
+      return { ...state, preview: { id: `preview-${scenario.id}`, version: 1, scenarioId: scenario.id, title: scenario.title, changes: scenario.changes, impact: scenario.impact }, activity: { state: "proposalReady", message: "Agent proposal ready.", detail: `${replacementName} is shown as a preview only. Nothing has been committed.` } };
     }
     case "preview_changes": {
       validateStaffingChanges(state, action.changes);
       const proposed = applyChanges(state.shifts, action.changes);
-      return { ...state, preview: { id: `preview-custom-${Date.now()}`, version: 1, scenarioId: "custom", title: action.title, changes: action.changes, impact: calculateImpact(state, proposed, state.shifts) }, activity: { state: "proposalReady", message: "Custom staffing change is ready to review.", detail: "Preview only — nothing has been committed." } };
+      return { ...state, preview: { id: `preview-custom-${Date.now()}`, version: 1, scenarioId: "custom", title: action.title, changes: action.changes, impact: calculateImpact(state, proposed, state.shifts) }, activity: { state: "proposalReady", message: "Agent proposal ready.", detail: "Custom staffing change is a preview only. Nothing has been committed." } };
     }
     case "reject_preview":
       return { ...state, preview: null, activity: { state: state.incident ? "warning" : "idle", message: "Preview dismissed. Schedule is unchanged." } };
     case "apply_preview": {
       if (!state.preview || state.preview.id !== action.previewId || state.preview.version !== action.version) throw new Error("Preview is missing or stale. Review the current option again.");
-      return { ...state, shifts: applyChanges(state.shifts, state.preview.changes), preview: null, incident: null, activity: { state: "applied", message: "Schedule updated.", detail: "The reviewed staffing change is now committed." } };
+      const appliedWorkerName = state.workers.find((worker) => worker.id === state.preview?.changes[0]?.workerId)?.name ?? "The replacement";
+      return { ...state, shifts: applyChanges(state.shifts, state.preview.changes), preview: null, incident: null, activity: { state: "applied", message: "Plan applied.", detail: `${appliedWorkerName} covers the reviewed shift. Preview cleared.` } };
     }
     case "reassign_shift": {
       const current = state.shifts.find((item) => item.id === action.shiftId);
@@ -103,12 +105,14 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
       if (!current || !worker) throw new Error("Shift or worker was not found.");
       const movedTime = action.targetDay ? shiftToDay(current.start, current.end, action.targetDay) : { start: current.start, end: current.end };
       if (state.preview && state.preview.changes.some((change) => change.shiftId === current.id)) {
+        const currentChange = state.preview.changes.find((change) => change.shiftId === current.id);
+        const previousWorker = state.workers.find((item) => item.id === currentChange?.workerId);
         const changes = state.preview.changes.map((change) => change.shiftId === current.id ? { ...change, workerId: worker.id, ...movedTime } : change);
         const proposed = applyChanges(state.shifts, changes);
-        return { ...state, preview: { ...state.preview, version: state.preview.version + 1, title: `${worker.name} covers the shift`, changes, impact: calculateImpact(state, proposed, state.shifts) }, activity: { state: "checking", message: "Preview updated from your edit.", detail: `Reassigned to ${worker.name}; impact has been recalculated.` } };
+        return { ...state, preview: { ...state.preview, version: state.preview.version + 1, title: `${worker.name} covers the shift`, changes, impact: calculateImpact(state, proposed, state.shifts) }, activity: { state: "reviewNeeded", message: "Human edit detected.", detail: `${previousWorker?.name ?? "Proposed replacement"} → ${worker.name}; local impact updated. Agent review pending.` } };
       }
       const shifts = state.shifts.map((item) => item.id === current.id ? { ...item, workerId: worker.id, ...movedTime, status: "scheduled" as const } : item);
-      return { ...state, shifts, preview: null, incident: state.incident?.shiftId === current.id ? null : state.incident, activity: { state: "checking", message: "Manual edit evaluated.", detail: `${worker.name} now owns the shift in the live schedule.` } };
+      return { ...state, shifts, preview: null, incident: state.incident?.shiftId === current.id ? null : state.incident, activity: { state: "reviewNeeded", message: "Human edit detected.", detail: `${worker.name} now owns the shift in the live schedule. Agent review pending.` } };
     }
     case "import_state":
       return { ...action.state, preview: null, activity: { state: "applied", message: "Schedule snapshot restored." } };
