@@ -21,7 +21,7 @@ AC1–AC15 from `docs/09_ACCEPTANCE_TESTS.md` are implemented. Live WebMCP invoc
 
 # Current checkpoint
 
-Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` is locally verified. The remaining release gates require an authenticated HTTPS deployment and a WebMCP-capable browser.
+Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` and the submission materials are locally verified. The remaining release gates require an authenticated HTTPS deployment and a WebMCP-capable browser.
 
 # Decisions and reasons
 
@@ -40,6 +40,8 @@ Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` is locally 
 - Local browser canonical demo and local production smoke — exactly 3 scenarios; preview Jiyoung changed manually to Hana; delta changed from ₩48,000 to ₩50,000; apply cleared preview; reload retained Hana; snapshot reset/import restored Hana; malformed input preserved state; console errors 0.
 - `tests/integration.test.ts` — shared UI/tool state equivalence, live edited-state evaluation, and exact eight-tool registration covered.
 - Source registration check — exactly 8 `document.modelContext.registerTool` calls and the required eight tool names.
+- Public-repository audit — root MIT `LICENSE`, no tracked environment files, secret patterns, or local absolute Windows paths.
+- Submission assets — `docs/DEVPOST_SUBMISSION.md` and `docs/DEMO_SCRIPT.md` prepared; README release audit updated.
 
 # Not executed
 
@@ -57,7 +59,8 @@ Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` is locally 
 - Application: `src/app/`, `src/components/`, `src/domain/`, `src/state/`, `src/snapshot/`, `src/webmcp/`, `src/styles/`.
 - Tests: `tests/`.
 - Handoff documentation: `README.md`, `docs/IMPLEMENTATION_STATUS.md`, `HANDOFF.md`.
+- Submission preparation: `docs/DEVPOST_SUBMISSION.md`, `docs/DEMO_SCRIPT.md`.
 
 # Next concrete action
 
-Deploy the private release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` to an authenticated HTTPS host, open that URL in Chrome with `chrome://flags/#enable-webmcp-testing` enabled, confirm `document.modelContext` and all eight tools, then execute the canonical sequence (including the human Jiyoung → Hana edit and `evaluate_current_plan`) and record the live results in `docs/IMPLEMENTATION_STATUS.md`.
+Complete the environment-dependent release gates: deploy the private runtime SHA `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` to authenticated HTTPS, open it in Chrome with `chrome://flags/#enable-webmcp-testing` enabled, confirm `document.modelContext` and all eight tools, execute the canonical sequence including the human Jiyoung → Hana edit and `evaluate_current_plan`, then add the verified URL and live evidence to the existing release section before submission.

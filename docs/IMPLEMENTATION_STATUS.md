@@ -1,7 +1,7 @@
 # Implementation Status
 
 ## Current phase
-Hackathon MVP implementation is complete. Release validation is blocked at the deployment and live WebMCP environment gates.
+Final release candidate and submission materials are prepared. Release validation remains blocked at the deployment and live WebMCP environment gates.
 
 ## Acceptance criteria
 - AC1–AC15: implemented.
@@ -21,6 +21,7 @@ Hackathon MVP implementation is complete. Release validation is blocked at the d
 ## Git
 - Private remote: `https://github.com/sionchu/ownerops-webmcp`
 - Runtime release candidate: `a42fa0d221de4881a4ef8163278f1b0ac771bb0a`
+- Repository HEAD before this documentation pass: `24ac612a528f9c035b60be55047fd84d0a6b8a88`
 
 ## Blockers
 - No authenticated Vercel CLI or other supported deployment platform was available in this environment, so no HTTPS deployment URL was created.
@@ -67,3 +68,37 @@ BLOCKED
 
 ### Remaining Blocker
 No authenticated HTTPS deployment path or connected WebMCP-capable browser is available in this environment; deploy the private release candidate and run the canonical live sequence in Chrome before release.
+
+## Release Candidate Record
+- Runtime release SHA: `a42fa0d221de4881a4ef8163278f1b0ac771bb0a`
+- Repository HEAD recorded before submission-document commits: `24ac612a528f9c035b60be55047fd84d0a6b8a88`
+- Validation date: 2026-08-28
+- Production URL: NOT_RUN
+- Chrome version: NOT_RUN
+- WebMCP discovery: NOT_RUN live; source registration verified 8/8.
+
+## Final Runtime Audit
+- Duplicate AppState: KEEP — one React-owned provider and one domain `AppState` model serve UI, persistence, snapshots, and tools.
+- Duplicate WebMCP action path: KEEP — `src/webmcp/register-tools.ts` bridges to the shared application actions.
+- Duplicate schemas: KEEP — the eight tool schemas are defined at the single WebMCP registration surface.
+- Dependencies: KEEP — `package.json` contains only the verified runtime, test, lint, and typecheck dependencies; no unused manifest dependency was found.
+- Debug logging / temporary test UI: KEEP — no application debug logging or release-only test UI is present; the unsupported-browser notice is an intentional product state.
+- TODO/FIXME release residue: KEEP — no release-relevant TODO/FIXME was found.
+- Secrets / machine paths / private files: KEEP — no tracked environment files, secret patterns, or local absolute paths were found.
+- Dead release workaround / unused avatar implementation / stale configuration: KEEP — no dead workaround was found; the local SVG/CSS avatar and origin-isolation header remain in use.
+- P0/P1 runtime changes: none after release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a`.
+
+## Submission Assets
+- README: updated with problem, WebMCP rationale, canonical demo, tool entry point, and live-URL status.
+- `docs/DEVPOST_SUBMISSION.md`: ready-to-paste English submission copy with private judge mapping.
+- `docs/DEMO_SCRIPT.md`: 2:20–2:25 demo script under the three-minute limit.
+
+## Public Repository Readiness
+- Root `LICENSE`: PASS — MIT license detected.
+- Tracked environment files: PASS — none found.
+- Tracked secret patterns: PASS — none found.
+- Tracked local absolute Windows paths: PASS — none found in public-facing files.
+- Source, install, and run instructions: PASS — local production build and verification commands pass.
+- WebMCP source visibility: PASS — `src/webmcp/register-tools.ts` contains the explicit eight-tool registration.
+- Repository visibility: NOT_CHANGED — private remote preserved.
+- Production URL and live WebMCP evidence: NOT_RUN.

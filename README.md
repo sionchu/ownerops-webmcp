@@ -4,6 +4,14 @@
 
 The MVP is intentionally focused on one operational incident: Minsoo becomes unavailable for the Friday 18:00–22:00 shift at Paperthin Cafe.
 
+## Problem
+
+A small business can publish a credible weekly schedule and still lose coverage when a worker calls out at the last minute. The owner needs to compare who can cover the shift, what the change costs, and whether any coverage or work-rule warning remains before committing it.
+
+## Why WebMCP
+
+Humans are effective at visually manipulating a schedule. Agents are effective at reasoning across exact workers, shifts, labor cost, coverage, and constraints. WebMCP lets both operate on the same live application state: the owner edits the visible grid, and the agent reads or changes that canonical state through structured tools without reconstructing the UI from a screenshot.
+
 ## Run locally
 
 Requirements: Node.js 20.9 or newer and npm.
@@ -24,6 +32,7 @@ npm test
 npm run lint
 npm run typecheck
 npm run build
+npm audit --omit=dev
 ```
 
 `npm run start` serves the production build after `npm run build`.
@@ -36,9 +45,10 @@ npm run build
 4. Compare the three deterministic recovery scenarios.
 5. Preview the recommended option; the committed schedule remains unchanged.
 6. Manually change the candidate replacement and review the recalculated impact.
-7. Apply the reviewed preview.
-8. Refresh to confirm `localStorage` persistence.
-9. Copy a portable snapshot, reset, and import it to restore the schedule.
+7. Ask the agent to evaluate the current plan; it reads the exact human-edited candidate.
+8. Apply the reviewed preview.
+9. Refresh to confirm `localStorage` persistence.
+10. Copy a portable snapshot, reset, and import it to restore the schedule.
 
 ## WebMCP
 
@@ -55,7 +65,13 @@ The client registers these eight user-intent tools through `document.modelContex
 
 Tool handlers and human UI controls call the same deterministic application actions. The page remains fully functional when `document.modelContext` is absent.
 
+Implementation entry point: [`src/webmcp/register-tools.ts`](src/webmcp/register-tools.ts). The eight tools are intentionally bounded to state inspection, schedule drafting, incident handling, recovery comparison, preview, evaluation, apply, and snapshot restore.
+
 For local Chrome testing, enable `chrome://flags/#enable-webmcp-testing`, relaunch Chrome, open the app, and inspect/call the registered tools with a WebMCP-capable agent or the Model Context Tool Inspector. WebMCP requires an origin-isolated context; the app sends `Origin-Agent-Cluster: ?1`.
+
+## Live application
+
+No production URL has been verified in this release-preparation pass. The repository is ready for an authenticated HTTPS deployment; complete that deployment and the live WebMCP browser check before using a URL for submission.
 
 ## Architecture
 
