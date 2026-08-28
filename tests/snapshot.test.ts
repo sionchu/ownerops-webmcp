@@ -5,10 +5,18 @@ import { parseSnapshot, serializeSnapshot, snapshotStateEquals } from "@/snapsho
 
 describe("portable schedule snapshot", () => {
   it("round-trips snapshot-governed state", () => {
-    const state = dispatchApplicationAction(createDemoState(), { type: "mark_unavailable", workerId: "minsoo", shiftId: "fri-minsoo-18", reason: "Demo absence" });
+    const state = dispatchApplicationAction(createDemoState("pizza"), { type: "mark_unavailable", workerId: "minsoo", shiftId: "fri-minsoo-18", reason: "Demo absence" });
     const restored = parseSnapshot(serializeSnapshot(state));
     expect(snapshotStateEquals(state, restored)).toBe(true);
+    expect(restored.business.industry).toBe("pizza");
     expect(restored.preview).toBeNull();
+  });
+
+  it("migrates a legacy v1 snapshot without industry to coffee", () => {
+    const value = JSON.parse(serializeSnapshot(createDemoState()).split("\n").slice(1, -1).join("\n"));
+    delete value.business.industry;
+    const restored = parseSnapshot(`OWNEROPS_SNAPSHOT v1\n${JSON.stringify(value)}\nEND_OWNEROPS_SNAPSHOT`);
+    expect(restored.business.industry).toBe("coffee");
   });
 
   it("reports malformed input without mutating the current state", () => {
@@ -23,5 +31,11 @@ describe("portable schedule snapshot", () => {
     const value = JSON.parse(serializeSnapshot(createDemoState()).split("\n").slice(1, -1).join("\n"));
     value.shifts[0].workerId = "missing-worker";
     expect(() => parseSnapshot(`OWNEROPS_SNAPSHOT v1\n${JSON.stringify(value)}\nEND_OWNEROPS_SNAPSHOT`)).toThrow(/unknown worker/);
+  });
+
+  it("rejects an unsupported industry without returning partial state", () => {
+    const value = JSON.parse(serializeSnapshot(createDemoState()).split("\n").slice(1, -1).join("\n"));
+    value.business.industry = "hospital";
+    expect(() => parseSnapshot(`OWNEROPS_SNAPSHOT v1\n${JSON.stringify(value)}\nEND_OWNEROPS_SNAPSHOT`)).toThrow(/not supported/);
   });
 });

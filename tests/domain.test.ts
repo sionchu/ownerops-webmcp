@@ -4,6 +4,18 @@ import { createDemoState } from "@/domain/fixtures";
 import { calculateImpact, collectWarnings, estimatedPayroll, weeklyHours } from "@/domain/impact";
 
 describe("OwnerOps deterministic domain", () => {
+  it("uses the diner profile by default and preserves fixture identity across profiles", () => {
+    const diner = createDemoState();
+    const pizza = createDemoState("pizza");
+    expect(diner.business.industry).toBe("diner");
+    expect(diner.business.name).toBe("Good Shift Diner");
+    expect(pizza.business.industry).toBe("pizza");
+    expect(pizza.business.name).toBe("Slice House");
+    expect(pizza.workers.map((worker) => worker.id)).toEqual(diner.workers.map((worker) => worker.id));
+    expect(pizza.shifts.map((shift) => shift.id)).toEqual(diner.shifts.map((shift) => shift.id));
+    expect(estimatedPayroll(pizza.workers, pizza.shifts)).toBe(estimatedPayroll(diner.workers, diner.shifts));
+  });
+
   it("calculates weekly hours from scheduled shifts", () => {
     const state = createDemoState();
     expect(weeklyHours(state.workers, state.shifts)).toMatchObject({ minsoo: 24, jiyoung: 28, younghee: 48, chulsoo: 26, hana: 28 });

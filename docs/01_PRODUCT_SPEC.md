@@ -3,6 +3,9 @@
 ## Product promise
 When a staffing disruption happens, OwnerOps helps the owner answer: **“What should I do now, and what will each choice cost or break?”**
 
+## Adaptive demo profiles
+The staffing workspace can be re-contextualized as one of six generic industries: diner, pizza, coffee, salon, sushi, or curry. A profile changes business identity, operational copy, display role labels, a restrained accent palette, the suggested agent prompt, and the assistant accessory. Workers, shifts, rates, calculations, incident semantics, and the shared AppState remain the same. Healthcare and other industry-specific rule engines are outside this MVP.
+
 ## Primary workflow
 ### A. Start / create
 The app may start with demo data or an empty/demo-reset state. The agent can create a rough weekly schedule from a structured instruction. This is onboarding, not an “optimal schedule generator.”
@@ -53,7 +56,8 @@ Suggested workers:
 Suggested incident:
 - Friday 18:00–22:00 Minsoo becomes unavailable.
 
-Suggested business context:
+Default business context:
+- Good Shift Diner — Seoul
 - Friday expected sales: ₩2,400,000
 - Target labor-cost ratio: 22%
 - Peak window: 19:00–21:00

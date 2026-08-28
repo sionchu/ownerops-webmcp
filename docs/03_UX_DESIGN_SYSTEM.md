@@ -84,6 +84,9 @@ The committed schedule remains visually distinct from a candidate preview. A hum
 
 Natural-language conversation primarily happens in the external ChatGPT browser agent. The app rail explains what the app/agent is doing and what changed.
 
+## Adaptive industry context
+OwnerOps uses one schedule UI and one staffing model for six lightweight generic demo profiles: diner, pizza, coffee, salon, sushi, and curry. The selected profile supplies the business name, display vocabulary, role labels, suggested prompt, assistant accessory, and a restrained accent/surface tint through CSS custom properties. It does not introduce a second dashboard, a domain-specific scheduler, or a second state store. Internal capability keys (`barista` and `manager`) remain stable for calculations and snapshots.
+
 ## Anti-AI-slop checklist
 Reject a design if it has several of these:
 - giant hero greeting inside the app,

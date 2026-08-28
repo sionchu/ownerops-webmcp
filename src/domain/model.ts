@@ -1,5 +1,7 @@
 export type WorkerRole = "barista" | "manager";
 
+export type IndustryId = "diner" | "pizza" | "coffee" | "salon" | "sushi" | "curry";
+
 export type AvailabilityWindow = {
   start: string;
   end: string;
@@ -31,6 +33,7 @@ export type PeakWindow = {
 };
 
 export type Business = {
+  industry: IndustryId;
   name: string;
   employeeCount: number;
   targetLaborRatio: number;

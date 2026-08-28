@@ -61,5 +61,8 @@ The rail presents the timeline `Agent proposal → Human edit → Agent reviewed
 
 Avoid personality-heavy chatter, emojis, or fake human emotions.
 
+## Current local implementation
+The shipped Tier 1 avatar is an inline SVG with semantic groups for shadow, body, head/face/eyes/mouth, accessory, and signal. CSS supplies a barely visible breathing/blink rhythm and state signal; the component uses the native Web Animations API for one-shot attentive, scan, notice, review, warning, and apply gestures. `prefers-reduced-motion` disables ambient and semantic motion. The same base assistant receives a small registry-driven work-context detail: diner cap/name tag, pizza chef cap, coffee apron, salon apron/tool mark, sushi headband, or curry apron/badge.
+
 ## WebMCP linkage
 A tool execution may set a transient activity status before/after calling the shared domain action. This visual status is UI feedback only; the tool must not modify business state through an avatar-specific path.

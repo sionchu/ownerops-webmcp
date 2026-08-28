@@ -1,10 +1,10 @@
 import { createDemoState } from "./fixtures";
 import { applyChanges, calculateImpact } from "./impact";
-import type { AppState, StaffingChange, StaffingScenario } from "./model";
+import type { AppState, IndustryId, StaffingChange, StaffingScenario } from "./model";
 
 export type ApplicationAction =
   | { type: "reset_demo" }
-  | { type: "create_schedule_draft"; preset: "demo" }
+  | { type: "create_schedule_draft"; preset: "demo"; industry?: IndustryId }
   | { type: "mark_unavailable"; workerId: string; shiftId: string; reason?: string }
   | { type: "preview_scenario"; scenarioId: string }
   | { type: "preview_changes"; title: string; changes: StaffingChange[] }
@@ -62,8 +62,9 @@ function shiftToDay(start: string, end: string, targetDay: string) {
 export function dispatchApplicationAction(state: AppState, action: ApplicationAction): AppState {
   switch (action.type) {
     case "reset_demo":
-    case "create_schedule_draft":
       return createDemoState();
+    case "create_schedule_draft":
+      return createDemoState(action.industry ?? "diner");
     case "set_activity":
       return { ...state, activity: action.activity };
     case "mark_unavailable": {

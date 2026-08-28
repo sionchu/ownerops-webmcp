@@ -2,7 +2,7 @@
 
 **OwnerOps** is a WebMCP-powered staffing decision workbench for small-business owners with hourly teams. A human can edit the weekly schedule directly while an agent reads and acts on the same live application state. Every recovery option is compared on coverage, weekly hours, estimated payroll, labor ratio, warnings, and schedule-change count before the owner applies it.
 
-The MVP is intentionally focused on one operational incident: Minsoo becomes unavailable for the Friday 18:00–22:00 shift at Paperthin Cafe.
+The MVP is intentionally focused on one operational incident: Minsoo becomes unavailable for the Friday 18:00–22:00 shift. The default demo context is **Good Shift Diner** in Seoul; the same staffing fixture can be re-contextualized as a generic diner, pizza shop, coffee shop, salon, sushi restaurant, or curry house.
 
 ## Problem
 
@@ -50,6 +50,8 @@ npm audit --omit=dev
 9. Refresh to confirm `localStorage` persistence.
 10. Copy a portable snapshot, reset, and import it to restore the schedule.
 
+Industry profiles change only the business identity, operational labels, restrained accent palette, suggested prompt, and assistant accessory. Staffing IDs, hours, rates, calculations, and the canonical workflow remain shared.
+
 ## WebMCP
 
 The client registers these eight user-intent tools through `document.modelContext.registerTool`:
@@ -65,17 +67,20 @@ The client registers these eight user-intent tools through `document.modelContex
 
 Tool handlers and human UI controls call the same deterministic application actions. The page remains fully functional when `document.modelContext` is absent.
 
+`create_schedule_draft` accepts the required `preset: "demo"` plus an optional generic `industry` enum: `diner`, `pizza`, `coffee`, `salon`, `sushi`, or `curry`. Branded requests should be mapped by the external agent to the nearest generic category; OwnerOps does not reproduce branded identities.
+
 Implementation entry point: [`src/webmcp/register-tools.ts`](src/webmcp/register-tools.ts). The eight tools are intentionally bounded to state inspection, schedule drafting, incident handling, recovery comparison, preview, evaluation, apply, and snapshot restore.
 
 For local Chrome testing, enable `chrome://flags/#enable-webmcp-testing`, relaunch Chrome, open the app, and inspect/call the registered tools with a WebMCP-capable agent or the Model Context Tool Inspector. WebMCP requires an origin-isolated context; the app sends `Origin-Agent-Cluster: ?1`.
 
 ## Live application
 
-No production URL has been verified in this release-preparation pass. The repository is ready for an authenticated HTTPS deployment; complete the deferred manual Chrome/WebMCP check first, then deploy and use the verified URL for submission.
+The current production deployment is [ownerops-webmcp.vercel.app](https://ownerops-webmcp.vercel.app). The HTTPS page and origin-isolation header are verified; live tool invocation still requires a WebMCP-capable Chrome/ChatGPT browser.
 
 ## Architecture
 
 - `src/domain/` — canonical model, fixture, calculations, scenarios, and shared actions
+- `src/industry/` — one registry for the six lightweight generic industry profiles
 - `src/state/` — the single React-owned `AppState` and `localStorage` persistence
 - `src/components/` — schedule, scenario comparison, preview/apply flow, and assistant rail
 - `src/snapshot/` — strict versioned text serialization and transactional parsing
@@ -86,4 +91,4 @@ Product scope and acceptance criteria remain governed by `AGENTS.md` and `docs/`
 
 ## Release gate
 
-Development uses the private repository. Before Devpost submission, run the verification commands from a clean clone, review the repository for secrets/private data, publish a production URL, make the repository public, and confirm that the root `LICENSE` is detected.
+Development uses the private repository. Before Devpost submission, run the verification commands from a clean clone, complete live WebMCP validation in a compatible browser, review the repository for secrets/private data, then make the repository public and confirm that the root `LICENSE` is detected.

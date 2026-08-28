@@ -21,6 +21,19 @@ describe("shared UI and WebMCP application path", () => {
     expect(web.getState()).toEqual(ui);
   });
 
+  it("creates a profile-aware demo draft without changing stable fixture ids", () => {
+    const web = bridge();
+    const before = web.getState();
+    const result = createToolExecutors(web).createScheduleDraft({ preset: "demo", industry: "pizza" });
+    expect(result.business.industry).toBe("pizza");
+    expect(result.business.industryLabel).toBe("Neighborhood pizza shop");
+    expect(result.business.name).toBe("Slice House");
+    expect(result.workers.find((worker) => worker.id === "jiyoung")?.roleLabel).toBe("Counter crew");
+    expect(result.shifts.find((shift) => shift.id === "fri-minsoo-18")?.roleLabel).toBe("Counter crew");
+    expect(web.getState().workers.map((worker) => worker.id)).toEqual(before.workers.map((worker) => worker.id));
+    expect(web.getState().shifts.map((shift) => shift.id)).toEqual(before.shifts.map((shift) => shift.id));
+  });
+
   it("evaluate_current_plan reads a human-edited live state", () => {
     const web = bridge();
     web.runAction({ type: "reassign_shift", shiftId: "mon-minsoo-open", workerId: "hana", targetDay: "2026-08-25" });
@@ -84,6 +97,9 @@ describe("shared UI and WebMCP application path", () => {
       "import_schedule_snapshot",
     ]);
     expect(registrations.every(({ tool }) => typeof tool.inputSchema === "object")).toBe(true);
+    const draftSchema = registrations.find(({ tool }) => tool.name === "create_schedule_draft")?.tool.inputSchema as { properties?: { industry?: { enum?: unknown[] } }; required?: unknown[] };
+    expect(draftSchema.properties?.industry?.enum).toEqual(["diner", "pizza", "coffee", "salon", "sushi", "curry"]);
+    expect(draftSchema.required).toEqual(["preset"]);
     expect(registrations.find(({ tool }) => tool.name === "evaluate_current_plan")?.tool.annotations?.readOnlyHint).toBe(true);
     registration.dispose();
     expect(registrations.every(({ signal }) => signal?.aborted)).toBe(true);
@@ -98,6 +114,7 @@ describe("shared UI and WebMCP application path", () => {
     expect(() => executors.markWorkerUnavailable({ workerId: "minsoo", shiftId: "missing-shift" })).toThrow(/match/);
     expect(() => executors.previewStaffingChange({ changes: [{ shiftId: "missing-shift", workerId: "minsoo" }] })).toThrow(/not found/);
     expect(() => executors.previewStaffingChange({ changes: [{ shiftId: "fri-minsoo-18", workerId: "missing-worker" }] })).toThrow(/not found/);
+    expect(() => executors.createScheduleDraft({ preset: "demo", industry: "hospital" })).toThrow(/unsupported industry/i);
     expect(JSON.stringify(web.getState())).toBe(before);
   });
 });

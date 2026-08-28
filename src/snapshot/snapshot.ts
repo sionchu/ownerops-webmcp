@@ -1,4 +1,5 @@
-import type { AppState, SnapshotState } from "@/domain/model";
+import { isIndustryId } from "@/industry/profiles";
+import type { AppState, Business, SnapshotState } from "@/domain/model";
 
 const HEADER = "OWNEROPS_SNAPSHOT v1";
 const FOOTER = "END_OWNEROPS_SNAPSHOT";
@@ -36,7 +37,11 @@ export function parseSnapshot(text: string): AppState {
   required(typeof value === "object" && value !== null, "Snapshot body must be an object.");
   const snapshot = value as Partial<SnapshotState>;
   required(snapshot.schemaVersion === 1, "Unsupported snapshot schemaVersion; expected 1.");
-  required(typeof snapshot.business?.name === "string", "Snapshot business.name is required.");
+  required(typeof snapshot.business === "object" && snapshot.business !== null, "Snapshot business is required.");
+  required(typeof snapshot.business.name === "string", "Snapshot business.name is required.");
+  const business = snapshot.business as Partial<Business>;
+  const industry = business.industry === undefined ? "coffee" : business.industry;
+  required(isIndustryId(industry), `Snapshot business.industry '${String(industry)}' is not supported.`);
   required(Array.isArray(snapshot.workers) && snapshot.workers.length > 0, "Snapshot workers must be a non-empty array.");
   required(Array.isArray(snapshot.shifts), "Snapshot shifts must be an array.");
   required(Array.isArray(snapshot.demand), "Snapshot demand must be an array.");
@@ -52,7 +57,7 @@ export function parseSnapshot(text: string): AppState {
   }
   return {
     schemaVersion: 1,
-    business: snapshot.business,
+    business: { ...business, industry } as Business,
     workers: snapshot.workers,
     shifts: snapshot.shifts,
     demand: snapshot.demand,

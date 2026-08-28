@@ -1,4 +1,5 @@
-import type { AppState, Shift, Worker } from "./model";
+import { getIndustryProfile, isIndustryId } from "@/industry/profiles";
+import type { AppState, IndustryId, Shift, Worker } from "./model";
 
 export const DEMO_WEEK = ["2026-08-24", "2026-08-25", "2026-08-26", "2026-08-27", "2026-08-28", "2026-08-29", "2026-08-30"];
 
@@ -44,7 +45,9 @@ export const DEMO_SHIFTS: Shift[] = [
   shift("sun-hana", "hana", DEMO_WEEK[6], "14:00", "22:00"),
 ];
 
-export function createDemoState(): AppState {
+export function createDemoState(industry: IndustryId = "diner"): AppState {
+  if (!isIndustryId(industry)) throw new Error(`Unsupported industry profile: ${String(industry)}.`);
+  const profile = getIndustryProfile(industry);
   const expectedSalesByDay: Record<string, number> = {
     "2026-08-24": 1300000,
     "2026-08-25": 1400000,
@@ -61,7 +64,8 @@ export function createDemoState(): AppState {
   return {
     schemaVersion: 1,
     business: {
-      name: "Paperthin Cafe",
+      industry: profile.id,
+      name: profile.businessName,
       employeeCount: DEMO_WORKERS.length,
       targetLaborRatio: 0.22,
       weeklyHourWarningThreshold: 40,

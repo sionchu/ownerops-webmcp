@@ -32,10 +32,12 @@ Output includes:
 - expected sales/labor ratio summary,
 - active warnings.
 
+The business includes its canonical `industry` plus a presentation `industryLabel`. Workers and shifts retain their internal `role` keys and may include the current profile's `roleLabel` for agent-readable output. When a preview exists, `workers`, `shifts`, and `metrics` describe the preview-aware plan while the committed state remains unchanged.
+
 ## Tool 2 — `create_schedule_draft`
 Create a rough weekly schedule from a bounded structured staff/business instruction for onboarding/demo use.
 
-Accept a minimal set of worker availability/preferences or a `preset: 'demo'` path. Natural language is translated by the agent into structured input.
+Accept a minimal set of worker availability/preferences or a `preset: 'demo'` path. The required `preset` is currently `"demo"`; the optional `industry` enum is `diner`, `pizza`, `coffee`, `salon`, `sushi`, or `curry` and defaults to `diner`. Natural language, including branded requests, is translated by the external agent into the nearest generic category. OwnerOps does not reproduce branded visual identities.
 
 Modifies state.
 

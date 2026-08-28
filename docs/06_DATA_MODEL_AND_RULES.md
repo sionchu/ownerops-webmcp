@@ -12,7 +12,10 @@ type AppState = {
   demand: DemandWindow[];
   preview: StaffingPreview | null;
   incident: StaffingIncident | null;
+  activity: Activity;
 };
+
+type IndustryId = 'diner' | 'pizza' | 'coffee' | 'salon' | 'sushi' | 'curry';
 ```
 
 ## Worker
@@ -41,6 +44,7 @@ type Shift = {
 ## Business
 ```ts
 type Business = {
+  industry: IndustryId;
   name: string;
   employeeCount: number;
   targetLaborRatio: number;
@@ -48,6 +52,8 @@ type Business = {
   peakWindows: Array<{ day: string; start: string; end: string; minCoverage: number }>;
 };
 ```
+
+The six industry profiles are presentation context stored on the canonical business object. They do not alter the staffing fixture, internal worker-role keys, calculations, or rule semantics. The default new demo is `diner`; a v1 snapshot without `business.industry` migrates to `coffee` because it represents the legacy Paperthin Cafe fixture. Unsupported present values are rejected transactionally.
 
 ## Incident
 ```ts

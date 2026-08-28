@@ -1,6 +1,7 @@
 import { getResponseOptions, type ApplicationAction } from "@/domain/actions";
 import { applyChanges, calculateImpact } from "@/domain/impact";
-import type { AppState, StaffingChange } from "@/domain/model";
+import { getIndustryProfile, isIndustryId } from "@/industry/profiles";
+import type { AppState, IndustryId, StaffingChange } from "@/domain/model";
 import { parseSnapshot } from "@/snapshot/snapshot";
 
 type JsonSchema = Record<string, unknown>;
@@ -30,11 +31,12 @@ const stringField = (description: string) => ({ type: "string", description });
 function businessState(state: AppState) {
   const planShifts = state.preview ? applyChanges(state.shifts, state.preview.changes) : state.shifts;
   const impact = calculateImpact(state, planShifts, state.shifts);
+  const profile = getIndustryProfile(state.business.industry);
   return {
     summary: `${state.business.name}: ${state.shifts.length} shifts, ${impact.warnings.length} active warnings.`,
-    business: state.business,
-    workers: state.workers.map((worker) => ({ ...worker, weeklyHours: impact.workerWeeklyHours[worker.id] ?? 0 })),
-    shifts: planShifts,
+    business: { ...state.business, industryLabel: profile.label },
+    workers: state.workers.map((worker) => ({ ...worker, roleLabel: profile.roleLabels[worker.role], weeklyHours: impact.workerWeeklyHours[worker.id] ?? 0 })),
+    shifts: planShifts.map((shift) => ({ ...shift, roleLabel: profile.roleLabels[shift.role] })),
     incident: state.incident,
     preview: state.preview,
     metrics: {
@@ -49,7 +51,11 @@ function businessState(state: AppState) {
 export function createToolExecutors(bridge: ToolBridge) {
   return {
     getBusinessState: () => businessState(bridge.getState()),
-    createScheduleDraft: () => businessState(bridge.runAction({ type: "create_schedule_draft", preset: "demo" })),
+    createScheduleDraft: (input: { preset?: unknown; industry?: unknown } = { preset: "demo" }) => {
+      if (input.preset !== "demo") throw new Error("Only preset 'demo' is supported.");
+      if (input.industry !== undefined && !isIndustryId(input.industry)) throw new Error(`Unsupported industry profile: ${String(input.industry)}.`);
+      return businessState(bridge.runAction({ type: "create_schedule_draft", preset: "demo", industry: input.industry as IndustryId | undefined }));
+    },
     markWorkerUnavailable: (input: { workerId: string; shiftId: string; reason?: string }) => {
       const next = bridge.runAction({ type: "mark_unavailable", ...input });
       return { summary: "The shift is uncovered; no replacement was assigned.", incident: next.incident, shift: next.shifts.find((item) => item.id === input.shiftId) };
@@ -107,11 +113,10 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "create_schedule_draft",
     title: "Create demo schedule draft",
-    description: "Create the bounded Paperthin Cafe weekly demo schedule in the live OwnerOps page. This replaces the current schedule with the documented demo fixture.",
-    inputSchema: { type: "object", properties: { preset: { type: "string", enum: ["demo"], description: "The only supported MVP draft preset." } }, required: ["preset"], additionalProperties: false },
+    description: "Create the bounded weekly demo schedule in the live OwnerOps page. The optional industry selects a generic business profile; external agents should map branded language to the nearest generic category without reproducing a branded visual identity.",
+    inputSchema: { type: "object", properties: { preset: { type: "string", enum: ["demo"], description: "The only supported MVP draft preset." }, industry: { type: "string", enum: ["diner", "pizza", "coffee", "salon", "sushi", "curry"], description: "Optional generic industry profile; defaults to diner." } }, required: ["preset"], additionalProperties: false },
     execute: async (input) => {
-      if (input.preset !== "demo") throw new Error("Only preset 'demo' is supported.");
-      return tools.createScheduleDraft();
+      return tools.createScheduleDraft({ preset: input.preset, industry: input.industry });
     },
   }, { signal: controller.signal }));
 

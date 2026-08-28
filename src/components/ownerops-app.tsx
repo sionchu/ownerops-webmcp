@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
+import { AssistantAvatar } from "@/components/assistant-avatar";
 import { DEMO_WEEK } from "@/domain/fixtures";
 import { applyChanges } from "@/domain/impact";
 import type { AppState, PlanImpact, Shift } from "@/domain/model";
+import { getIndustryProfile } from "@/industry/profiles";
 import { parseSnapshot, serializeSnapshot } from "@/snapshot/snapshot";
 import { useAppState } from "@/state/app-state";
 import { useWebMcpRegistration } from "@/webmcp/use-webmcp";
@@ -68,26 +70,6 @@ function Metric({ label, value, hint, tone }: { label: string; value: string; hi
   return <div className={`metric ${tone ?? ""}`}><span>{label}</span><strong>{value}</strong><small>{hint}</small></div>;
 }
 
-function AssistantAvatar({ state }: { state: AppState["activity"]["state"] }) {
-  return (
-    <div className={`avatar avatar-${state}`} aria-label={`Assistant status: ${state}`}>
-      <svg viewBox="0 0 120 120" role="img" aria-hidden="true">
-        <defs>
-          <linearGradient id="avatarFace" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stopColor="#d9e7e1"/><stop offset="1" stopColor="#9fbcb1"/></linearGradient>
-          <filter id="avatarShadow"><feDropShadow dx="0" dy="4" stdDeviation="5" floodOpacity=".16"/></filter>
-        </defs>
-        <ellipse cx="60" cy="103" rx="37" ry="9" fill="#1f3930" opacity=".12"/>
-        <path d="M30 99c2-24 13-35 30-35s28 11 30 35" fill="#344f46" filter="url(#avatarShadow)"/>
-        <rect x="34" y="18" width="52" height="56" rx="25" fill="url(#avatarFace)" filter="url(#avatarShadow)"/>
-        <path d="M42 29c9-10 29-12 39 1" fill="none" stroke="#eef5f2" strokeWidth="5" strokeLinecap="round" opacity=".75"/>
-        <g className="avatar-eyes"><circle cx="51" cy="47" r="3.5" fill="#203c33"/><circle cx="69" cy="47" r="3.5" fill="#203c33"/></g>
-        <path d="M53 59c4 3 10 3 14 0" fill="none" stroke="#49675d" strokeWidth="2.5" strokeLinecap="round"/>
-        <circle className="avatar-signal" cx="88" cy="25" r="7" fill="#39775f" stroke="#f6f8f7" strokeWidth="3"/>
-      </svg>
-    </div>
-  );
-}
-
 type TimelineStatus = "complete" | "active" | "pending";
 
 function TimelineStep({ label, detail, status }: { label: string; detail: string; status: TimelineStatus }) {
@@ -96,6 +78,7 @@ function TimelineStep({ label, detail, status }: { label: string; detail: string
 
 function AssistantRail({ supported }: { supported: boolean | null }) {
   const { state, impact, previewImpact, scenarios } = useAppState();
+  const profile = getIndustryProfile(state.business.industry);
   const visibleImpact = previewImpact ?? impact;
   const applied = state.activity.state === "applied";
   const reviewed = state.activity.state === "reviewed";
@@ -110,7 +93,7 @@ function AssistantRail({ supported }: { supported: boolean | null }) {
   const candidateLabel = stage === "human-edit" ? "Human edit" : stage === "reviewed" ? "Reviewed" : "Agent proposal";
   const timeline = [
     { label: "Read live schedule", detail: "Canonical schedule loaded", status: "complete" as TimelineStatus },
-    { label: "Marked Minsoo unavailable", detail: hasIncident ? "Fri 18:00–22:00 · coverage gap" : "Waiting for a staffing incident", status: hasIncident ? "complete" as TimelineStatus : "pending" as TimelineStatus },
+    { label: `${profile.copy.incidentLabel} · Minsoo unavailable`, detail: hasIncident ? `Fri 18:00–22:00 · ${profile.copy.peakLabel} gap` : "Waiting for a staffing incident", status: hasIncident ? "complete" as TimelineStatus : "pending" as TimelineStatus },
     { label: "Compared 3 options", detail: hasOptions ? "Deterministic recovery set ready" : hasIncident ? "Comparing bounded recovery choices" : "Open an incident to compare options", status: hasOptions ? "complete" as TimelineStatus : hasIncident ? "active" as TimelineStatus : "pending" as TimelineStatus },
     { label: "Agent proposal", detail: state.preview ? `${candidateName} · preview only` : "Choose a recovery option", status: hasProposal ? "complete" as TimelineStatus : state.activity.state === "proposalReady" ? "active" as TimelineStatus : "pending" as TimelineStatus },
     { label: "Human review", detail: applied || reviewed ? "Candidate edit is part of the reviewed plan" : needsReview ? state.activity.detail ?? "Agent review pending" : state.preview ? "Waiting for your schedule edit" : "Your edit stays uncommitted", status: applied || reviewed ? "complete" as TimelineStatus : needsReview || state.preview ? "active" as TimelineStatus : "pending" as TimelineStatus },
@@ -124,7 +107,7 @@ function AssistantRail({ supported }: { supported: boolean | null }) {
         <span className="connection-dot" aria-hidden="true" />
         <div><strong>{supported === null ? "Checking shared state" : supported ? "Live shared state" : "Agent not connected"}</strong><small>{supported === null ? "Checking browser capability" : supported ? "WebMCP · 8 tools" : "Manual scheduling still works"}</small></div>
       </div>
-      <AssistantAvatar state={state.activity.state} />
+      <AssistantAvatar state={state.activity.state} accessory={profile.visual.avatarAccessory} detail={profile.visual.avatarDetail} />
       <div className={`activity-copy activity-${state.activity.state}`} aria-live="polite"><span className="activity-kicker">{activityLabel(state)}</span><strong>{state.activity.message}</strong>{state.activity.detail && <p>{state.activity.detail}</p>}</div>
       <ol className="activity-timeline" aria-label="OwnerOps agent activity">
         {timeline.map((step) => <TimelineStep key={step.label} {...step} />)}
@@ -136,14 +119,15 @@ function AssistantRail({ supported }: { supported: boolean | null }) {
         <div className="candidate-metrics">
           <div><span>Added payroll</span><strong>{signedWon(visibleImpact.payrollDelta)}</strong></div>
           <div><span>Weekly hours</span><strong>{candidateHours} h</strong></div>
-          <div><span>Peak coverage</span><strong>{visibleImpact.uncoveredPeakMinutes ? `${visibleImpact.uncoveredPeakMinutes} min gap` : "Covered"}</strong></div>
+          <div><span>{profile.copy.coverageLabel}</span><strong>{visibleImpact.uncoveredPeakMinutes ? `${visibleImpact.uncoveredPeakMinutes} min gap` : "Covered"}</strong></div>
           <div><span>Warnings</span><strong>{visibleImpact.warnings.length}</strong></div>
         </div>
         <p className="candidate-note">{stage === "human-edit" ? "Local impact updated · agent review pending" : stage === "reviewed" ? "Reviewed from the current live state · ready to apply" : "Preview only · committed schedule unchanged"}</p>
       </section>}
       {needsReview && <div className="agent-prompt"><span>Next agent action</span><strong>Evaluate the current plan</strong><small>Ask the agent to re-read the exact edited candidate.</small></div>}
+      {!state.preview && !needsReview && <div className="agent-prompt agent-suggestion"><span>Try asking your agent</span><strong>{profile.copy.suggestedPrompt}</strong><small>Structured review stays on the same live schedule.</small></div>}
       <div className="rail-facts">
-        <div><Icon name="users"/><span>Peak coverage</span><strong>{visibleImpact.uncoveredPeakMinutes ? `${visibleImpact.uncoveredPeakMinutes} min gap` : "Covered"}</strong></div>
+        <div><Icon name="users"/><span>{profile.copy.coverageLabel}</span><strong>{visibleImpact.uncoveredPeakMinutes ? `${visibleImpact.uncoveredPeakMinutes} min gap` : "Covered"}</strong></div>
         <div><Icon name="wallet"/><span>Labor ratio</span><strong>{(visibleImpact.laborRatio * 100).toFixed(1)}%</strong></div>
         <div><Icon name="clock"/><span>Warnings</span><strong>{visibleImpact.warnings.length}</strong></div>
       </div>
@@ -153,6 +137,7 @@ function AssistantRail({ supported }: { supported: boolean | null }) {
 
 function ScheduleGrid() {
   const { state, runAction } = useAppState();
+  const profile = getIndustryProfile(state.business.industry);
   const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
   const displayShifts = useMemo(() => state.preview ? applyChanges(state.shifts, state.preview.changes) : state.shifts, [state]);
   const previewIds = new Set(state.preview?.changes.map((change) => change.shiftId) ?? []);
@@ -168,23 +153,23 @@ function ScheduleGrid() {
 
   return (
     <section className="schedule-panel" aria-label="Weekly staff schedule">
-      <div className="section-heading"><div><span className="eyebrow">Published schedule · Seoul</span><h1>Week of August 24</h1></div><div className="schedule-legend"><span><i className="legend-scheduled"/>Committed</span><span><i className="legend-preview"/>Agent proposal</span><span><i className="legend-human"/>Human edit</span><span><i className="legend-gap"/>Uncovered</span></div></div>
+      <div className="section-heading"><div><span className="eyebrow">{profile.copy.scheduleContext}</span><h1>Week of August 24</h1></div><div className="schedule-legend"><span><i className="legend-scheduled"/>Committed</span><span><i className="legend-preview"/>Agent proposal</span><span><i className="legend-human"/>Human edit</span><span><i className="legend-gap"/>Uncovered</span></div></div>
       <div className="schedule-scroll">
         <div className="schedule-grid">
           <div className="grid-corner">Team member</div>
-          {DEMO_WEEK.map((day) => <div key={day} className={`day-head ${day === "2026-08-28" ? "focus-day" : ""}`}><strong>{dayFormatter.format(new Date(`${day}T12:00:00`)).split(",")[0]}</strong><span>{day.slice(5).replace("-", "/")}</span>{day === "2026-08-28" && state.incident && <em>Incident</em>}</div>)}
+          {DEMO_WEEK.map((day) => <div key={day} className={`day-head ${day === "2026-08-28" ? "focus-day" : ""}`}><strong>{dayFormatter.format(new Date(`${day}T12:00:00`)).split(",")[0]}</strong><span>{day.slice(5).replace("-", "/")}</span>{day === "2026-08-28" && state.incident && <em>{profile.copy.incidentLabel}</em>}</div>)}
           {state.workers.map((worker) => (
             <div className="worker-row-fragment" key={worker.id}>
-              <div className="worker-label"><span className={`worker-avatar role-${worker.role}`}>{worker.name.slice(0, 1)}</span><div><strong>{worker.name}</strong><span>{worker.role} · {won.format(worker.hourlyRate)}/h</span></div></div>
+              <div className="worker-label"><span className={`worker-avatar role-${worker.role}`}>{worker.name.slice(0, 1)}</span><div><strong>{worker.name}</strong><span>{profile.roleLabels[worker.role]} · {won.format(worker.hourlyRate)}/h</span></div></div>
               {DEMO_WEEK.map((day) => {
                 const shifts = displayShifts.filter((item) => item.workerId === worker.id && shiftDay(item) === day);
                 return <div key={day} className={`schedule-cell ${day === "2026-08-28" ? "focus-day" : ""}`} onDragOver={(event) => event.preventDefault()} onDrop={(event) => onDrop(event, worker.id, day)}>
-                  {shifts.map((item) => { const isPreview = previewIds.has(item.id); return <button draggable key={item.id} className={`shift-chip ${isPreview ? `preview candidate-${previewKind}` : ""}`} onDragStart={(event) => { event.dataTransfer.setData("text/ownerops-shift", item.id); event.dataTransfer.effectAllowed = "move"; }} title={isPreview ? `${previewTag} · drag or press to reassign` : "Drag or press to reassign"} onClick={() => setSelectedShiftId(item.id)}>{isPreview && <small className="chip-tag">{previewTag}</small>}<span>{formatTime(item.start)}–{formatTime(item.end)}</span><small>{item.role}</small></button>; })}
+                  {shifts.map((item) => { const isPreview = previewIds.has(item.id); return <button draggable key={item.id} className={`shift-chip ${isPreview ? `preview candidate-${previewKind}` : ""}`} onDragStart={(event) => { event.dataTransfer.setData("text/ownerops-shift", item.id); event.dataTransfer.effectAllowed = "move"; }} title={isPreview ? `${previewTag} · drag or press to reassign` : "Drag or press to reassign"} onClick={() => setSelectedShiftId(item.id)}>{isPreview && <small className="chip-tag">{previewTag}</small>}<span>{formatTime(item.start)}–{formatTime(item.end)}</span><small>{profile.roleLabels[item.role]}</small></button>; })}
                 </div>;
               })}
             </div>
           ))}
-          <div className="gap-label"><span className="worker-avatar gap">!</span><div><strong>Open coverage</strong><span>Needs assignment</span></div></div>
+          <div className="gap-label"><span className="worker-avatar gap">!</span><div><strong>Open {profile.copy.coverageLabel.toLowerCase()}</strong><span>Needs assignment</span></div></div>
           {DEMO_WEEK.map((day) => {
             const gaps = state.shifts.filter((item) => item.status === "uncovered" && shiftDay(item) === day && !previewIds.has(item.id));
             return <div key={day} className={`schedule-cell gap-cell ${day === "2026-08-28" ? "focus-day" : ""}`}>{gaps.map((item) => <button draggable key={item.id} className="shift-chip uncovered" onDragStart={(event) => event.dataTransfer.setData("text/ownerops-shift", item.id)}><Icon name="alert"/><span>{formatTime(item.start)}–{formatTime(item.end)}</span><small>Uncovered</small></button>)}</div>;
@@ -199,20 +184,22 @@ function ScheduleGrid() {
 
 function ManualShiftEditor({ shift, onClose, onSave }: { shift: Shift; onClose: () => void; onSave: (workerId: string, targetDay: string) => void }) {
   const { state } = useAppState();
+  const profile = getIndustryProfile(state.business.industry);
   const [workerId, setWorkerId] = useState(shift.workerId ?? state.workers[0].id);
   const [targetDay, setTargetDay] = useState(shiftDay(shift));
-  return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="shift-editor" role="dialog" aria-modal="true" aria-labelledby="shift-editor-title"><div className="dialog-head"><div><span className="eyebrow">Manual schedule edit</span><h2 id="shift-editor-title">Reassign {formatTime(shift.start)}–{formatTime(shift.end)}</h2></div><button className="icon-button" onClick={onClose} aria-label="Close">×</button></div><label>Team member<select value={workerId} onChange={(event) => setWorkerId(event.target.value)}>{state.workers.map((worker) => <option value={worker.id} key={worker.id}>{worker.name} · {worker.role}</option>)}</select></label><label>Work day<select value={targetDay} onChange={(event) => setTargetDay(event.target.value)}>{DEMO_WEEK.map((day) => <option value={day} key={day}>{dayFormatter.format(new Date(`${day}T12:00:00`))}</option>)}</select></label><p>This uses the same live action as drag/drop and WebMCP. If a preview is open, only the candidate changes.</p><div className="dialog-actions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" onClick={() => onSave(workerId, targetDay)}>Save assignment</button></div></section></div>;
+  return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="shift-editor" role="dialog" aria-modal="true" aria-labelledby="shift-editor-title"><div className="dialog-head"><div><span className="eyebrow">Manual schedule edit</span><h2 id="shift-editor-title">Reassign {formatTime(shift.start)}–{formatTime(shift.end)}</h2></div><button className="icon-button" onClick={onClose} aria-label="Close">×</button></div><label>Team member<select value={workerId} onChange={(event) => setWorkerId(event.target.value)}>{state.workers.map((worker) => <option value={worker.id} key={worker.id}>{worker.name} · {profile.roleLabels[worker.role]}</option>)}</select></label><label>Work day<select value={targetDay} onChange={(event) => setTargetDay(event.target.value)}>{DEMO_WEEK.map((day) => <option value={day} key={day}>{dayFormatter.format(new Date(`${day}T12:00:00`))}</option>)}</select></label><p>This uses the same live action as drag/drop and WebMCP. If a preview is open, only the candidate changes.</p><div className="dialog-actions"><button className="secondary" onClick={onClose}>Cancel</button><button className="primary" onClick={() => onSave(workerId, targetDay)}>Save assignment</button></div></section></div>;
 }
 
 function ScenarioPanel() {
   const { state, scenarios, runAction } = useAppState();
+  const profile = getIndustryProfile(state.business.industry);
   const incidentShift = state.shifts.find((item) => item.id === state.incident?.shiftId);
   if (!state.incident) {
-    return <section className="scenario-panel pre-incident"><div><span className="eyebrow">Canonical disruption</span><h2>Friday evening coverage</h2><p>Minsoo is currently assigned 18:00–22:00. Mark the absence to compare the bounded recovery choices.</p></div><button className="danger-soft" onClick={() => runAction({ type: "mark_unavailable", workerId: "minsoo", shiftId: "fri-minsoo-18", reason: "Last-minute absence" })}><Icon name="alert"/>Mark Minsoo unavailable</button></section>;
+    return <section className="scenario-panel pre-incident"><div><span className="eyebrow">{profile.copy.incidentLabel} · canonical disruption</span><h2>{profile.copy.disruptionTitle}</h2><p>{profile.copy.disruptionBody}</p></div><button className="danger-soft" onClick={() => runAction({ type: "mark_unavailable", workerId: "minsoo", shiftId: "fri-minsoo-18", reason: "Last-minute absence" })}><Icon name="alert"/>Mark Minsoo unavailable</button></section>;
   }
   return (
     <section className="scenario-panel">
-      <div className="scenario-title"><div><span className="eyebrow">Recovery comparison</span><h2>Three response options</h2></div><p>{incidentShift ? `${formatTime(incidentShift.start)}–${formatTime(incidentShift.end)} Friday` : "Current incident"} · Ranked by coverage, warnings, cost, and changes</p></div>
+      <div className="scenario-title"><div><span className="eyebrow">{profile.copy.coverageLabel} · recovery comparison</span><h2>Three response options</h2></div><p>{incidentShift ? `${formatTime(incidentShift.start)}–${formatTime(incidentShift.end)} Friday` : "Current incident"} · Ranked by {profile.copy.peakLabel.toLowerCase()}, warnings, cost, and changes</p></div>
       <div className="scenario-list">
         {scenarios.map((scenario, index) => {
           const replacementId = scenario.changes[0]?.workerId;
@@ -221,7 +208,7 @@ function ScenarioPanel() {
             <div className="rank">{index + 1}</div><div className="scenario-main"><div><strong>{scenario.title}</strong>{index === 0 && <span className="recommended">Recommended</span>}</div><p>{scenario.summary}</p><small>{scenario.rationale}</small></div>
             <div className="scenario-stat"><span>Added payroll</span><strong>{won.format(scenario.impact.payrollDelta)}</strong></div>
             <div className="scenario-stat"><span>Weekly hours</span><strong>{replacement ? `${scenario.impact.workerWeeklyHours[replacement.id]} h` : "—"}</strong></div>
-            <div className="scenario-stat"><span>Peak gap</span><strong>{scenario.impact.uncoveredPeakMinutes} min</strong></div>
+            <div className="scenario-stat"><span>{profile.copy.peakLabel} gap</span><strong>{scenario.impact.uncoveredPeakMinutes} min</strong></div>
             <div className="scenario-stat optional"><span>Warnings</span><strong>{scenario.impact.warnings.length}</strong></div>
             <div className="scenario-stat optional"><span>Changes</span><strong>{scenario.impact.scheduleChangeCount}</strong></div>
             <button className="secondary compact" onClick={() => runAction({ type: "preview_scenario", scenarioId: scenario.id })}>{state.preview?.scenarioId === scenario.id ? "Previewing" : "Preview"}</button>
@@ -234,8 +221,9 @@ function ScenarioPanel() {
 
 function ImpactStrip({ impact }: { impact: PlanImpact }) {
   const { state } = useAppState();
+  const profile = getIndustryProfile(state.business.industry);
   const fridaySales = state.business.expectedSalesByDay["2026-08-28"];
-  return <section className="impact-strip" aria-label="Business context"><Metric label="Estimated weekly labor" value={won.format(impact.projectedLaborCost)} hint={`${impact.payrollDelta >= 0 ? "+" : ""}${won.format(impact.payrollDelta)} in current comparison`} /><Metric label="Friday expected sales" value={won.format(fridaySales)} hint="Peak window 19:00–21:00"/><Metric label="Estimated labor ratio" value={`${(impact.laborRatio * 100).toFixed(1)}%`} hint={`${(state.business.targetLaborRatio * 100).toFixed(0)}% target`} tone={impact.laborRatio > state.business.targetLaborRatio ? "warning" : "good"}/><Metric label="Coverage status" value={impact.uncoveredPeakMinutes ? `${impact.uncoveredPeakMinutes} min gap` : "Peak covered"} hint={`${impact.warnings.length} review flag${impact.warnings.length === 1 ? "" : "s"}`} tone={impact.uncoveredPeakMinutes ? "warning" : "good"}/></section>;
+  return <section className="impact-strip" aria-label="Business context"><Metric label="Estimated weekly labor" value={won.format(impact.projectedLaborCost)} hint={`${impact.payrollDelta >= 0 ? "+" : ""}${won.format(impact.payrollDelta)} in current comparison`} /><Metric label="Friday expected sales" value={won.format(fridaySales)} hint={`${profile.copy.peakLabel} · 19:00–21:00`}/><Metric label="Estimated labor ratio" value={`${(impact.laborRatio * 100).toFixed(1)}%`} hint={`${(state.business.targetLaborRatio * 100).toFixed(0)}% target`} tone={impact.laborRatio > state.business.targetLaborRatio ? "warning" : "good"}/><Metric label={`${profile.copy.coverageLabel} status`} value={impact.uncoveredPeakMinutes ? `${impact.uncoveredPeakMinutes} min gap` : "Peak covered"} hint={`${impact.warnings.length} review flag${impact.warnings.length === 1 ? "" : "s"}`} tone={impact.uncoveredPeakMinutes ? "warning" : "good"}/></section>;
 }
 
 function PreviewBar() {
@@ -260,10 +248,11 @@ export function OwnerOpsApp() {
   const { state, impact, previewImpact, hydrated, runAction } = useAppState();
   const supported = useWebMcpRegistration();
   const [snapshotOpen, setSnapshotOpen] = useState(false);
+  const profile = getIndustryProfile(state.business.industry);
   const visibleImpact = previewImpact ?? impact;
   return (
-    <main className={`app-shell ${hydrated ? "hydrated" : ""}`}>
-      <header className="topbar"><div className="brand"><span className="brand-mark">O</span><div><strong>OwnerOps</strong><span>{state.business.name}</span></div></div><div className="topbar-center"><span className="live-dot"/>Live operating schedule<span className="divider"/>Aug 24–30, 2026</div><nav><button className="top-action" onClick={() => setSnapshotOpen(true)}><Icon name="copy"/>Snapshot</button><button className="top-action" onClick={() => runAction({ type: "reset_demo" })}><Icon name="refresh"/>Reset demo</button></nav></header>
+    <main className={`app-shell ${hydrated ? "hydrated" : ""}`} data-industry={profile.id} style={{ "--oo-accent": profile.visual.accent, "--oo-accent-hover": profile.visual.accentHover, "--oo-accent-soft": profile.visual.accentSoft, "--oo-surface-tint": profile.visual.surfaceTint } as CSSProperties}>
+      <header className="topbar"><div className="brand"><span className="brand-mark">O</span><div><strong>OwnerOps</strong><span>{state.business.name}</span></div></div><div className="topbar-center"><span className="live-dot"/>{profile.label} · live schedule<span className="divider"/>Aug 24–30, 2026</div><nav><button className="top-action" onClick={() => setSnapshotOpen(true)}><Icon name="copy"/>Snapshot</button><button className="top-action" onClick={() => runAction({ type: "reset_demo" })}><Icon name="refresh"/>Reset demo</button></nav></header>
       <PreviewBar />
       <div className="workspace"><div className="primary-workspace"><ImpactStrip impact={visibleImpact}/><ScheduleGrid/><ScenarioPanel/></div><AssistantRail supported={supported}/></div>
       {snapshotOpen && <SnapshotDialog onClose={() => setSnapshotOpen(false)}/>} 
