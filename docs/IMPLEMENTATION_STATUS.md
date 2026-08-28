@@ -109,11 +109,11 @@ No authenticated HTTPS deployment path or connected WebMCP-capable browser is av
 ## HTTPS Deployment
 
 - Provider: Vercel
-- Deployment URL: NOT_RUN — no authenticated Vercel deployment path is available in this environment.
+- Deployment URL: NOT_RUN — Vercel device authorization is awaiting user approval.
 - Source repository: private
 - Runtime SHA: `a42fa0d221de4881a4ef8163278f1b0ac771bb0a`
 - Repository HEAD: `c2b4752567cc8df6f945ce838be5730fca336d6f`
-- Deployment status: BLOCKED
+- Deployment status: BLOCKED — authentication approval required.
 - `Origin-Agent-Cluster: ?1`: NOT_RUN — no deployed response exists to inspect.
 - Production page load: NOT_RUN
 - Visible UI smoke test: NOT_RUN
@@ -128,4 +128,4 @@ No authenticated HTTPS deployment path or connected WebMCP-capable browser is av
 
 ### Exact Deployment Blocker
 
-Vercel CLI is not installed, `VERCEL_TOKEN` is absent, and no authenticated Vercel integration is connected. Authenticate a Vercel deployment path (or authorize the private GitHub integration), then deploy the runtime SHA above.
+`npx vercel login` started Vercel device authorization and is waiting for user approval. Open the device URL printed by that command, enter its one-time code, and approve the request; then deploy the runtime SHA above. No token or credential was written to the repository.
