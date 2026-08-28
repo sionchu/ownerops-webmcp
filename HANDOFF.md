@@ -21,7 +21,7 @@ AC1–AC15 from `docs/09_ACCEPTANCE_TESTS.md` are implemented. Live WebMCP invoc
 
 # Current checkpoint
 
-Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` and the submission materials are locally verified. The runtime source snapshot at repository HEAD `7aa18c19ecaeb9fb1b8b466ec53a419c8814ab5b` is deployed and READY at `https://ownerops-webmcp.vercel.app`. Chrome/WebMCP live validation remains intentionally deferred to a later manual pass.
+Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` and the submission materials are locally verified. The runtime source snapshot used for the deployment was `7aa18c19ecaeb9fb1b8b466ec53a419c8814ab5b`, and it is deployed and READY at `https://ownerops-webmcp.vercel.app`. Chrome/WebMCP live validation remains intentionally deferred to a later manual pass.
 
 # Decisions and reasons
 
