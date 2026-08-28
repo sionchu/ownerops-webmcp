@@ -9,6 +9,7 @@ Hackathon MVP implementation is complete. Release validation is blocked at the d
 - AC2, AC4, and AC14 are covered by the shared action/registration integration tests and explicit eight-tool source registration.
 
 ## Verification
+- `npm install` — PASS, audited 383 packages; no dependency diff retained.
 - `npm test` — PASS, 3 files and 14 tests for the release candidate (13/13 at the pre-change baseline).
 - `npm run lint` — PASS, no findings.
 - `npm run typecheck` — PASS.

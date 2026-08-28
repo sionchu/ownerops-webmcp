@@ -31,6 +31,7 @@ Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` is locally 
 
 # Verification evidence
 
+- `npm install` — completed; audited 383 packages with no dependency diff retained.
 - `npm test` — 14/14 tests passed across 3 files (13/13 at the pre-change baseline).
 - `npm run lint` — passed with no findings.
 - `npm run typecheck` — passed.
