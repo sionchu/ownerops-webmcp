@@ -20,8 +20,8 @@ UX RE0 release candidate is deployed to Vercel over HTTPS. Chrome/WebMCP live va
 
 ## Git
 - Private remote: `https://github.com/sionchu/ownerops-webmcp`
-- Runtime release candidate: `e3b5ef439b4dbcf2417536d64d139b35e2f54723`
-- Repository HEAD used for the deployment source snapshot: `e3b5ef439b4dbcf2417536d64d139b35e2f54723`
+- Runtime release candidate: `5099b59e6dc2538bf4dbc7ea8a920e25e5e1cdbd`
+- Repository HEAD used for the deployment source snapshot: `5099b59e6dc2538bf4dbc7ea8a920e25e5e1cdbd`
 
 ## Blockers
 - Live Chrome/WebMCP validation is pending a later manual pass; no live WebMCP invocation was attempted in this UX RE0 task.
@@ -63,8 +63,8 @@ BLOCKED
 Live Chrome/WebMCP validation is deferred to the later manual Chrome pass; the HTTPS deployment is complete.
 
 ## Release Candidate Record
-- Runtime release SHA: `e3b5ef439b4dbcf2417536d64d139b35e2f54723`
-- Repository HEAD used for the deployment source snapshot: `e3b5ef439b4dbcf2417536d64d139b35e2f54723`
+- Runtime release SHA: `5099b59e6dc2538bf4dbc7ea8a920e25e5e1cdbd`
+- Repository HEAD used for the deployment source snapshot: `5099b59e6dc2538bf4dbc7ea8a920e25e5e1cdbd`
 - Validation date: 2026-08-28
 - Production URL: `https://ownerops-webmcp.vercel.app`
 - Chrome version: NOT_RUN
@@ -79,7 +79,7 @@ Live Chrome/WebMCP validation is deferred to the later manual Chrome pass; the H
 - TODO/FIXME release residue: KEEP — no release-relevant TODO/FIXME was found.
 - Secrets / machine paths / private files: KEEP — no tracked environment files, secret patterns, or local absolute paths were found.
 - Dead release workaround / unused avatar implementation / stale configuration: KEEP — no dead workaround was found; the local SVG/CSS avatar and origin-isolation header remain in use.
-- UX RE0 runtime changes: `e3b5ef439b4dbcf2417536d64d139b35e2f54723` — activity timeline, candidate attribution, preview-aware WebMCP impact, and human-edited preview review state.
+- UX RE0 runtime changes: `5099b59e6dc2538bf4dbc7ea8a920e25e5e1cdbd` — activity timeline, candidate attribution, preview-aware WebMCP impact, and human-edited preview review state.
 
 ## Submission Assets
 - README: updated with problem, WebMCP rationale, canonical demo, tool entry point, and live-URL status.
@@ -112,9 +112,9 @@ Live Chrome/WebMCP validation is deferred to the later manual Chrome pass; the H
 - Provider: Vercel
 - Deployment URL: `https://ownerops-webmcp.vercel.app`
 - Source repository: private
-- Runtime SHA: `e3b5ef439b4dbcf2417536d64d139b35e2f54723`
-- Repository HEAD: `e3b5ef439b4dbcf2417536d64d139b35e2f54723` (source snapshot deployed)
-- Deployment ID: `dpl_2RcaXksk3gTEFAyTJPnnWqDECK1s`
+- Runtime SHA: `5099b59e6dc2538bf4dbc7ea8a920e25e5e1cdbd`
+- Repository HEAD: `5099b59e6dc2538bf4dbc7ea8a920e25e5e1cdbd` (source snapshot deployed)
+- Deployment ID: `dpl_6GXw54oLLDBEZA9m6KLCU2iny1hB`
 - Deployment status: PASS — Vercel production deployment is READY.
 - `Origin-Agent-Cluster: ?1`: PASS — returned by `curl.exe -I`.
 - Production page load: PASS — HTTPS GET returned 200 twice; `X-Matched-Path: /`.
