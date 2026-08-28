@@ -46,6 +46,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setState(next);
     return next;
   }, []);
+  const getState = useCallback(() => stateRef.current, []);
 
   const value = useMemo<AppStateContextValue>(() => ({
     state,
@@ -54,8 +55,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     scenarios: getResponseOptions(state),
     hydrated,
     runAction,
-    getState: () => stateRef.current,
-  }), [state, hydrated, runAction]);
+    getState,
+  }), [state, hydrated, runAction, getState]);
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }

@@ -54,4 +54,15 @@ describe("shared UI and WebMCP application path", () => {
     expect(registrations.every(({ signal }) => signal?.aborted)).toBe(true);
     delete (globalThis as { document?: unknown }).document;
   });
+
+  it("rejects invalid worker or shift ids without mutating state", () => {
+    const web = bridge();
+    const before = JSON.stringify(web.getState());
+    const executors = createToolExecutors(web);
+    expect(() => executors.markWorkerUnavailable({ workerId: "missing-worker", shiftId: "fri-minsoo-18" })).toThrow(/match/);
+    expect(() => executors.markWorkerUnavailable({ workerId: "minsoo", shiftId: "missing-shift" })).toThrow(/match/);
+    expect(() => executors.previewStaffingChange({ changes: [{ shiftId: "missing-shift", workerId: "minsoo" }] })).toThrow(/not found/);
+    expect(() => executors.previewStaffingChange({ changes: [{ shiftId: "fri-minsoo-18", workerId: "missing-worker" }] })).toThrow(/not found/);
+    expect(JSON.stringify(web.getState())).toBe(before);
+  });
 });

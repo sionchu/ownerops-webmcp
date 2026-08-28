@@ -18,6 +18,14 @@ function unavailable(worker: AppState["workers"][number], start: string, end: st
   return Boolean(worker.availability?.some((window) => !window.available && new Date(window.start) < new Date(end) && new Date(window.end) > new Date(start)));
 }
 
+function validateStaffingChanges(state: AppState, changes: StaffingChange[]): void {
+  if (changes.length === 0 || changes.length > 3) throw new Error("A staffing preview needs one to three bounded changes.");
+  for (const change of changes) {
+    if (!state.shifts.some((shift) => shift.id === change.shiftId)) throw new Error(`Shift ${change.shiftId} was not found in the current schedule.`);
+    if (!state.workers.some((worker) => worker.id === change.workerId)) throw new Error(`Worker ${change.workerId} was not found in the current schedule.`);
+  }
+}
+
 export function getResponseOptions(state: AppState): StaffingScenario[] {
   if (!state.incident) return [];
   const shift = state.shifts.find((item) => item.id === state.incident?.shiftId);
@@ -79,6 +87,7 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
       return { ...state, preview: { id: `preview-${scenario.id}`, version: 1, scenarioId: scenario.id, title: scenario.title, changes: scenario.changes, impact: scenario.impact }, activity: { state: "proposalReady", message: "Staffing change is ready to review.", detail: "Preview only — nothing has been committed." } };
     }
     case "preview_changes": {
+      validateStaffingChanges(state, action.changes);
       const proposed = applyChanges(state.shifts, action.changes);
       return { ...state, preview: { id: `preview-custom-${Date.now()}`, version: 1, scenarioId: "custom", title: action.title, changes: action.changes, impact: calculateImpact(state, proposed, state.shifts) }, activity: { state: "proposalReady", message: "Custom staffing change is ready to review.", detail: "Preview only — nothing has been committed." } };
     }
