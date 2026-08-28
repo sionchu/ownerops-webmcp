@@ -21,7 +21,7 @@ AC1–AC15 from `docs/09_ACCEPTANCE_TESTS.md` are implemented. Live WebMCP invoc
 
 # Current checkpoint
 
-Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` and the submission materials are locally verified. `npx vercel login` has started device authorization and is waiting for user approval; Chrome/WebMCP live validation remains intentionally deferred to a later manual pass.
+Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` and the submission materials are locally verified. The runtime source snapshot at repository HEAD `7aa18c19ecaeb9fb1b8b466ec53a419c8814ab5b` is deployed and READY at `https://ownerops-webmcp.vercel.app`. Chrome/WebMCP live validation remains intentionally deferred to a later manual pass.
 
 # Decisions and reasons
 
@@ -46,14 +46,13 @@ Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` and the sub
 # Not executed
 
 - Live tool invocation from WebMCP-enabled Chrome/ChatGPT browser; no compatible connected browser was available.
-- Private HTTPS deployment and the canonical live WebMCP sequence in a browser exposing `document.modelContext`.
+- The canonical deployed WebMCP sequence in a browser exposing `document.modelContext`.
 - Public repository switch, YouTube demo, and Devpost submission.
 
 # Blockers
 
 - Live Chrome/WebMCP validation is pending a later manual pass; no live result is recorded in this preparation task.
-- HTTPS deployment is blocked pending the Vercel device-authorization approval; no token or credential was written to the repository.
-- Deployed WebMCP re-check, public repository switch, video recording, and Devpost submission remain pending deployment and the later live pass.
+- Deployed WebMCP re-check, public repository switch, video recording, and Devpost submission remain pending the later live pass.
 
 # Modified files
 
@@ -65,4 +64,4 @@ Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` and the sub
 
 # Next concrete action
 
-Open the Vercel device URL printed by the `npx vercel login` attempt, enter its one-time code, and approve the request. Then deploy the private runtime SHA `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` to HTTPS, perform the manual Chrome/WebMCP validation against the local and deployed URLs, repeat the critical deployed WebMCP checks, make the repository public, record the video, and submit to Devpost. Record the URL, browser version, and live evidence in the existing release sections.
+Perform the later manual Chrome/WebMCP validation against the deployed URL, repeat the critical deployed WebMCP checks, make the repository public, record the video, and submit to Devpost. Record the browser version and live evidence in the existing release sections.

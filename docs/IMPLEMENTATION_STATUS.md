@@ -1,7 +1,7 @@
 # Implementation Status
 
 ## Current phase
-Final release candidate and submission materials are prepared. Chrome/WebMCP live validation is intentionally deferred; deployment and public submission remain pending.
+Final release candidate is deployed to Vercel over HTTPS. Chrome/WebMCP live validation is intentionally deferred; public submission remains pending.
 
 ## Acceptance criteria
 - AC1–AC15: implemented.
@@ -21,11 +21,11 @@ Final release candidate and submission materials are prepared. Chrome/WebMCP liv
 ## Git
 - Private remote: `https://github.com/sionchu/ownerops-webmcp`
 - Runtime release candidate: `a42fa0d221de4881a4ef8163278f1b0ac771bb0a`
-- Repository HEAD before this documentation pass: `b36dacfc18722f64c92b1f80507b896eb2f17197`
+- Repository HEAD used for the deployment source snapshot: `7aa18c19ecaeb9fb1b8b466ec53a419c8814ab5b`
 
 ## Blockers
 - Live Chrome/WebMCP validation is pending a later manual pass; no new browser validation was attempted in this task.
-- HTTPS deployment, deployed WebMCP re-check, public repository switch, video, and Devpost submission remain pending that pass.
+- Deployed WebMCP re-check, public repository switch, video, and Devpost submission remain pending that pass.
 
 ## Live Release Validation
 
@@ -60,13 +60,13 @@ Final release candidate and submission materials are prepared. Chrome/WebMCP liv
 BLOCKED
 
 ### Remaining Blocker
-No authenticated HTTPS deployment path or connected WebMCP-capable browser is available in this environment; deploy the private release candidate and run the canonical live sequence in Chrome before release.
+Live Chrome/WebMCP validation is deferred to the later manual Chrome pass; the HTTPS deployment is complete.
 
 ## Release Candidate Record
 - Runtime release SHA: `a42fa0d221de4881a4ef8163278f1b0ac771bb0a`
-- Repository HEAD recorded before this submission-preparation pass: `b36dacfc18722f64c92b1f80507b896eb2f17197`
+- Repository HEAD used for the deployment source snapshot: `7aa18c19ecaeb9fb1b8b466ec53a419c8814ab5b`
 - Validation date: 2026-08-28
-- Production URL: NOT_RUN
+- Production URL: `https://ownerops-webmcp.vercel.app`
 - Chrome version: NOT_RUN
 - WebMCP discovery: NOT_RUN live; source registration verified 8/8.
 
@@ -94,14 +94,15 @@ No authenticated HTTPS deployment path or connected WebMCP-capable browser is av
 - Source, install, and run instructions: PASS — local production build and verification commands pass.
 - WebMCP source visibility: PASS — `src/webmcp/register-tools.ts` contains the explicit eight-tool registration.
 - Repository visibility: NOT_CHANGED — private remote preserved.
-- Production URL and live WebMCP evidence: NOT_RUN.
+- Production URL: PASS — `https://ownerops-webmcp.vercel.app`.
+- Live WebMCP evidence: NOT_RUN — deferred to the later manual Chrome pass.
 
 ## Submission State
 - Runtime MVP: PASS
 - Local canonical workflow: PASS
 - Tests/lint/typecheck/build/audit: PASS
 - Live WebMCP Chrome validation: PENDING — deferred to a later manual Chrome pass.
-- HTTPS deployment: PENDING — perform after the manual live pass.
+- HTTPS deployment: PASS — Vercel production deployment is available.
 - Public repository: PENDING — keep the remote private until release approval.
 - Video: PENDING.
 - Devpost submission: PENDING.
@@ -109,15 +110,16 @@ No authenticated HTTPS deployment path or connected WebMCP-capable browser is av
 ## HTTPS Deployment
 
 - Provider: Vercel
-- Deployment URL: NOT_RUN — Vercel device authorization is awaiting user approval.
+- Deployment URL: `https://ownerops-webmcp.vercel.app`
 - Source repository: private
 - Runtime SHA: `a42fa0d221de4881a4ef8163278f1b0ac771bb0a`
-- Repository HEAD: `c2b4752567cc8df6f945ce838be5730fca336d6f`
-- Deployment status: BLOCKED — authentication approval required.
-- `Origin-Agent-Cluster: ?1`: NOT_RUN — no deployed response exists to inspect.
-- Production page load: NOT_RUN
-- Visible UI smoke test: NOT_RUN
-- Console/runtime errors: NOT_RUN for a deployed URL.
+- Repository HEAD: `7aa18c19ecaeb9fb1b8b466ec53a419c8814ab5b` (source snapshot deployed)
+- Deployment ID: `dpl_4xK5vWxbEANrynKynvKAYfh6yaZa`
+- Deployment status: PASS — Vercel production deployment is READY.
+- `Origin-Agent-Cluster: ?1`: PASS — returned by `curl.exe -I`.
+- Production page load: PASS — HTTPS GET returned 200 twice; `X-Matched-Path: /`.
+- Visible UI smoke test: PASS — returned HTML contains the OwnerOps title, weekly schedule, Paperthin Cafe, Minsoo, assistant activity, and scenario text; interactive browser smoke was not run.
+- Console/runtime errors: NOT_INSPECTED — no browser console was used; Vercel build completed without errors.
 
 ### Remaining Release Gate
 
@@ -128,4 +130,4 @@ No authenticated HTTPS deployment path or connected WebMCP-capable browser is av
 
 ### Exact Deployment Blocker
 
-`npx vercel login` started Vercel device authorization and is waiting for user approval. Open the device URL printed by that command, enter its one-time code, and approve the request; then deploy the runtime SHA above. No token or credential was written to the repository.
+None for HTTPS deployment. The remaining release gate is the deferred live Chrome/WebMCP validation.
