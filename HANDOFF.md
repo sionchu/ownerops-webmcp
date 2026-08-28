@@ -21,7 +21,7 @@ AC1–AC15 from `docs/09_ACCEPTANCE_TESTS.md` are implemented. Live WebMCP invoc
 
 # Current checkpoint
 
-Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` and the submission materials are locally verified. The remaining release gates require an authenticated HTTPS deployment and a WebMCP-capable browser.
+Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` and the submission materials are locally verified. Chrome/WebMCP live validation is intentionally deferred to a later manual pass; deployment and submission follow that pass.
 
 # Decisions and reasons
 
@@ -51,7 +51,8 @@ Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` and the sub
 
 # Blockers
 
-- No authenticated Vercel or equivalent deployment mechanism is available in the current environment, and no connected Chrome/WebMCP-capable browser is available.
+- Live Chrome/WebMCP validation is pending a later manual pass; no live result is recorded in this preparation task.
+- HTTPS deployment, deployed WebMCP re-check, public repository switch, video recording, and Devpost submission remain pending that pass.
 
 # Modified files
 
@@ -63,4 +64,4 @@ Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` and the sub
 
 # Next concrete action
 
-Complete the environment-dependent release gates: deploy the private runtime SHA `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` to authenticated HTTPS, open it in Chrome with `chrome://flags/#enable-webmcp-testing` enabled, confirm `document.modelContext` and all eight tools, execute the canonical sequence including the human Jiyoung → Hana edit and `evaluate_current_plan`, then add the verified URL and live evidence to the existing release section before submission.
+Complete the remaining release sequence in order: (1) perform the manual Chrome/WebMCP validation against `http://localhost:3000`, (2) deploy the private runtime SHA `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` to HTTPS, (3) repeat the critical WebMCP checks against the deployed URL, (4) make the repository public, (5) record the video, and (6) submit to Devpost. Record the URL, browser version, and live evidence in the existing release section after the manual pass.

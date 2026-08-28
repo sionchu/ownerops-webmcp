@@ -73,7 +73,7 @@ WebMCP is an emerging browser capability, so the product had to remain useful wh
 
 ## What's next
 
-Complete the private HTTPS deployment and live WebMCP browser validation, then publish the reviewed URL, repository, and demo recording.
+Complete the deferred manual Chrome/WebMCP validation, deploy the private runtime to HTTPS, repeat the WebMCP check against the deployed URL, then publish the reviewed repository, video, and Devpost submission.
 
 ## Judge Mapping
 

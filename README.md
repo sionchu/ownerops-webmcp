@@ -71,7 +71,7 @@ For local Chrome testing, enable `chrome://flags/#enable-webmcp-testing`, relaun
 
 ## Live application
 
-No production URL has been verified in this release-preparation pass. The repository is ready for an authenticated HTTPS deployment; complete that deployment and the live WebMCP browser check before using a URL for submission.
+No production URL has been verified in this release-preparation pass. The repository is ready for an authenticated HTTPS deployment; complete the deferred manual Chrome/WebMCP check first, then deploy and use the verified URL for submission.
 
 ## Architecture
 

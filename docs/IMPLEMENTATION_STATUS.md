@@ -1,7 +1,7 @@
 # Implementation Status
 
 ## Current phase
-Final release candidate and submission materials are prepared. Release validation remains blocked at the deployment and live WebMCP environment gates.
+Final release candidate and submission materials are prepared. Chrome/WebMCP live validation is intentionally deferred; deployment and public submission remain pending.
 
 ## Acceptance criteria
 - AC1–AC15: implemented.
@@ -21,11 +21,11 @@ Final release candidate and submission materials are prepared. Release validatio
 ## Git
 - Private remote: `https://github.com/sionchu/ownerops-webmcp`
 - Runtime release candidate: `a42fa0d221de4881a4ef8163278f1b0ac771bb0a`
-- Repository HEAD before this documentation pass: `24ac612a528f9c035b60be55047fd84d0a6b8a88`
+- Repository HEAD before this documentation pass: `b36dacfc18722f64c92b1f80507b896eb2f17197`
 
 ## Blockers
-- No authenticated Vercel CLI or other supported deployment platform was available in this environment, so no HTTPS deployment URL was created.
-- A WebMCP-enabled Chrome/ChatGPT browser is required for the remaining live agent invocation check.
+- Live Chrome/WebMCP validation is pending a later manual pass; no new browser validation was attempted in this task.
+- HTTPS deployment, deployed WebMCP re-check, public repository switch, video, and Devpost submission remain pending that pass.
 
 ## Live Release Validation
 
@@ -71,7 +71,7 @@ No authenticated HTTPS deployment path or connected WebMCP-capable browser is av
 
 ## Release Candidate Record
 - Runtime release SHA: `a42fa0d221de4881a4ef8163278f1b0ac771bb0a`
-- Repository HEAD recorded before submission-document commits: `24ac612a528f9c035b60be55047fd84d0a6b8a88`
+- Repository HEAD recorded before this submission-preparation pass: `b36dacfc18722f64c92b1f80507b896eb2f17197`
 - Validation date: 2026-08-28
 - Production URL: NOT_RUN
 - Chrome version: NOT_RUN
@@ -102,3 +102,13 @@ No authenticated HTTPS deployment path or connected WebMCP-capable browser is av
 - WebMCP source visibility: PASS — `src/webmcp/register-tools.ts` contains the explicit eight-tool registration.
 - Repository visibility: NOT_CHANGED — private remote preserved.
 - Production URL and live WebMCP evidence: NOT_RUN.
+
+## Submission State
+- Runtime MVP: PASS
+- Local canonical workflow: PASS
+- Tests/lint/typecheck/build/audit: PASS
+- Live WebMCP Chrome validation: PENDING — deferred to a later manual Chrome pass.
+- HTTPS deployment: PENDING — perform after the manual live pass.
+- Public repository: PENDING — keep the remote private until release approval.
+- Video: PENDING.
+- Devpost submission: PENDING.
