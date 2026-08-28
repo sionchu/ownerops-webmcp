@@ -1,7 +1,7 @@
 # Implementation Status
 
 ## Current phase
-Final release candidate is deployed to Vercel over HTTPS. Chrome/WebMCP live validation is intentionally deferred; public submission remains pending.
+UX RE0 release candidate is deployed to Vercel over HTTPS. Chrome/WebMCP live validation is intentionally deferred; public submission remains pending.
 
 ## Acceptance criteria
 - AC1–AC15: implemented.
@@ -10,21 +10,21 @@ Final release candidate is deployed to Vercel over HTTPS. Chrome/WebMCP live val
 
 ## Verification
 - `npm install` — PASS, audited 383 packages; no dependency diff retained.
-- `npm test` — PASS, 3 files and 14 tests for the release candidate (13/13 at the pre-change baseline).
+- `npm test` — PASS, 3 files and 15 tests for the UX RE0 release candidate.
 - `npm run lint` — PASS, no findings.
 - `npm run typecheck` — PASS.
 - `npm run build` — PASS, static `/` route generated with Next.js 16.3.3.
 - `npm audit --omit=dev` — PASS, 0 vulnerabilities.
-- Browser demo — PASS for incident, exactly three scenarios, preview isolation, manual candidate correction, stale-safe apply, refresh persistence, snapshot round-trip, and malformed-import preservation. The local production build smoke after release hardening also passed with 0 browser console errors.
-- WebMCP-capable browser invocation — NOT_RUN because this Codex desktop session exposed no connected Chrome environment and its in-app browser did not provide `document.modelContext`.
+- Browser demo — PASS for incident, exactly three scenarios, preview isolation, manual candidate correction, stale-safe apply, refresh persistence, snapshot round-trip, and malformed-import preservation. Local Playwright UI inspection at 1249px, 1024px, 700px, and 600px also passed for the Agent Proposal → HUMAN EDIT rail/schedule attribution; no application/runtime console errors were observed, with only the existing favicon 404.
+- WebMCP-capable browser invocation — NOT_RUN by task scope; live Chrome validation remains deferred to the later manual pass.
 
 ## Git
 - Private remote: `https://github.com/sionchu/ownerops-webmcp`
-- Runtime release candidate: `a42fa0d221de4881a4ef8163278f1b0ac771bb0a`
-- Repository HEAD used for the deployment source snapshot: `7aa18c19ecaeb9fb1b8b466ec53a419c8814ab5b`
+- Runtime release candidate: `e3b5ef439b4dbcf2417536d64d139b35e2f54723`
+- Repository HEAD used for the deployment source snapshot: `e3b5ef439b4dbcf2417536d64d139b35e2f54723`
 
 ## Blockers
-- Live Chrome/WebMCP validation is pending a later manual pass; no new browser validation was attempted in this task.
+- Live Chrome/WebMCP validation is pending a later manual pass; no live WebMCP invocation was attempted in this UX RE0 task.
 - Deployed WebMCP re-check, public repository switch, video, and Devpost submission remain pending that pass.
 
 ## Live Release Validation
@@ -50,7 +50,7 @@ Final release candidate is deployed to Vercel over HTTPS. Chrome/WebMCP live val
 - `import_schedule_snapshot`: PASS in local production smoke, including malformed-input preservation; live sequence NOT_RUN.
 
 ### Verification
-- `npm test`: PASS — 14/14.
+- `npm test`: PASS — 15/15.
 - `npm run lint`: PASS.
 - `npm run typecheck`: PASS.
 - `npm run build`: PASS.
@@ -63,8 +63,8 @@ BLOCKED
 Live Chrome/WebMCP validation is deferred to the later manual Chrome pass; the HTTPS deployment is complete.
 
 ## Release Candidate Record
-- Runtime release SHA: `a42fa0d221de4881a4ef8163278f1b0ac771bb0a`
-- Repository HEAD used for the deployment source snapshot: `7aa18c19ecaeb9fb1b8b466ec53a419c8814ab5b`
+- Runtime release SHA: `e3b5ef439b4dbcf2417536d64d139b35e2f54723`
+- Repository HEAD used for the deployment source snapshot: `e3b5ef439b4dbcf2417536d64d139b35e2f54723`
 - Validation date: 2026-08-28
 - Production URL: `https://ownerops-webmcp.vercel.app`
 - Chrome version: NOT_RUN
@@ -79,7 +79,7 @@ Live Chrome/WebMCP validation is deferred to the later manual Chrome pass; the H
 - TODO/FIXME release residue: KEEP — no release-relevant TODO/FIXME was found.
 - Secrets / machine paths / private files: KEEP — no tracked environment files, secret patterns, or local absolute paths were found.
 - Dead release workaround / unused avatar implementation / stale configuration: KEEP — no dead workaround was found; the local SVG/CSS avatar and origin-isolation header remain in use.
-- P0/P1 runtime changes: none after release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a`.
+- UX RE0 runtime changes: `e3b5ef439b4dbcf2417536d64d139b35e2f54723` — activity timeline, candidate attribution, preview-aware WebMCP impact, and human-edited preview review state.
 
 ## Submission Assets
 - README: updated with problem, WebMCP rationale, canonical demo, tool entry point, and live-URL status.
@@ -112,9 +112,9 @@ Live Chrome/WebMCP validation is deferred to the later manual Chrome pass; the H
 - Provider: Vercel
 - Deployment URL: `https://ownerops-webmcp.vercel.app`
 - Source repository: private
-- Runtime SHA: `a42fa0d221de4881a4ef8163278f1b0ac771bb0a`
-- Repository HEAD: `7aa18c19ecaeb9fb1b8b466ec53a419c8814ab5b` (source snapshot deployed)
-- Deployment ID: `dpl_4xK5vWxbEANrynKynvKAYfh6yaZa`
+- Runtime SHA: `e3b5ef439b4dbcf2417536d64d139b35e2f54723`
+- Repository HEAD: `e3b5ef439b4dbcf2417536d64d139b35e2f54723` (source snapshot deployed)
+- Deployment ID: `dpl_2RcaXksk3gTEFAyTJPnnWqDECK1s`
 - Deployment status: PASS — Vercel production deployment is READY.
 - `Origin-Agent-Cluster: ?1`: PASS — returned by `curl.exe -I`.
 - Production page load: PASS — HTTPS GET returned 200 twice; `X-Matched-Path: /`.

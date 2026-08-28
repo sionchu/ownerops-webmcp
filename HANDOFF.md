@@ -14,14 +14,14 @@ AC1–AC15 from `docs/09_ACCEPTANCE_TESTS.md` are implemented. Live WebMCP invoc
 
 - Implemented one canonical `AppState` shared by UI, calculations, persistence, snapshots, and WebMCP.
 - Implemented manual reassignment, incident, scenario comparison, preview correction, stale-safe apply, and reset.
-- Implemented the local SVG/CSS assistant status surface and responsive operational UI.
+- Implemented the local SVG/CSS assistant activity timeline and responsive operational UI for the Agent proposal → Human edit → Agent review → Apply lifecycle.
 - Implemented strict `OWNEROPS_SNAPSHOT v1` round-trip import/export.
 - Registered the exact eight-tool imperative WebMCP contract with abort cleanup and JSON Schemas.
 - Created and pushed the private GitHub repository.
 
 # Current checkpoint
 
-Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` and the submission materials are locally verified. The runtime source snapshot used for the deployment was `7aa18c19ecaeb9fb1b8b466ec53a419c8814ab5b`, and it is deployed and READY at `https://ownerops-webmcp.vercel.app`. Chrome/WebMCP live validation remains intentionally deferred to a later manual pass.
+UX RE0 runtime release candidate `e3b5ef439b4dbcf2417536d64d139b35e2f54723` is locally verified and deployed READY at `https://ownerops-webmcp.vercel.app` through Vercel deployment `dpl_2RcaXksk3gTEFAyTJPnnWqDECK1s`. Chrome/WebMCP live validation remains intentionally deferred to a later manual pass.
 
 # Decisions and reasons
 
@@ -32,26 +32,26 @@ Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` and the sub
 # Verification evidence
 
 - `npm install` — completed; audited 383 packages with no dependency diff retained.
-- `npm test` — 14/14 tests passed across 3 files (13/13 at the pre-change baseline).
+- `npm test` — 15/15 tests passed across 3 files, including preview-aware `get_business_state` and human-edited preview review/apply coverage.
 - `npm run lint` — passed with no findings.
 - `npm run typecheck` — passed.
 - `npm run build` — passed; `/` generated as a static route.
 - `npm audit --omit=dev` — 0 vulnerabilities.
-- Local browser canonical demo and local production smoke — exactly 3 scenarios; preview Jiyoung changed manually to Hana; delta changed from ₩48,000 to ₩50,000; apply cleared preview; reload retained Hana; snapshot reset/import restored Hana; malformed input preserved state; console errors 0.
-- `tests/integration.test.ts` — shared UI/tool state equivalence, live edited-state evaluation, and exact eight-tool registration covered.
+- Local Playwright UI inspection at 1249px, 1024px, 700px, and 600px — incident, exactly 3 scenarios, Agent Proposal attribution, Jiyoung → Hana manual candidate edit, HUMAN EDIT attribution, updated ₩50,000/32 h impact, responsive rail/grid layout, and no application/runtime console errors; only the existing favicon 404 was reported.
+- `tests/integration.test.ts` — shared UI/tool state equivalence, preview-aware live edited-state evaluation, human edit/review/apply lifecycle, and exact eight-tool registration covered.
 - Source registration check — exactly 8 `document.modelContext.registerTool` calls and the required eight tool names.
 - Public-repository audit — root MIT `LICENSE`, no tracked environment files, secret patterns, or local absolute Windows paths.
 - Submission assets — `docs/DEVPOST_SUBMISSION.md` and `docs/DEMO_SCRIPT.md` prepared; README release audit updated.
 
 # Not executed
 
-- Live tool invocation from WebMCP-enabled Chrome/ChatGPT browser; no compatible connected browser was available.
+- Live tool invocation from WebMCP-enabled Chrome/ChatGPT browser; intentionally deferred to the later manual pass.
 - The canonical deployed WebMCP sequence in a browser exposing `document.modelContext`.
 - Public repository switch, YouTube demo, and Devpost submission.
 
 # Blockers
 
-- Live Chrome/WebMCP validation is pending a later manual pass; no live result is recorded in this preparation task.
+- Live Chrome/WebMCP validation is pending a later manual pass; no live result is recorded in this UX RE0 task.
 - Deployed WebMCP re-check, public repository switch, video recording, and Devpost submission remain pending the later live pass.
 
 # Modified files
