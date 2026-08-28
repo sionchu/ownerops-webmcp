@@ -26,7 +26,7 @@ Adaptive industry profiles and the live SVG assistant are implemented and deploy
 - Repository HEAD used for the deployment source snapshot: `857c17f9a0c5ffa2190f3c364cbc7905575e83f9`
 
 ## Blockers
-- Live Chrome/WebMCP validation is pending a later manual pass; no live WebMCP invocation was attempted in this UX RE0 task.
+- Live Chrome/WebMCP validation is pending a later manual pass; no live WebMCP invocation was attempted in this adaptive-profile task.
 - Deployed WebMCP re-check, public repository switch, video, and Devpost submission remain pending that pass.
 
 ## Live Release Validation
