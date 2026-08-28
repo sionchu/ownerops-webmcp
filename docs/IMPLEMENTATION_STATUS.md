@@ -1,27 +1,29 @@
 # Implementation Status
 
 ## Current phase
-UX RE0 release candidate is deployed to Vercel over HTTPS. Chrome/WebMCP live validation is intentionally deferred; public submission remains pending.
+Adaptive industry profiles and the live SVG assistant are implemented and deployed to Vercel over HTTPS. Chrome/WebMCP live validation is intentionally deferred; public submission remains pending.
 
 ## Acceptance criteria
 - AC1–AC15: implemented.
+- Adaptive profile acceptance: implemented for six generic contexts (`diner`, `pizza`, `coffee`, `salon`, `sushi`, `curry`) without changing the staffing model.
 - AC1, AC3, AC5–AC13, and AC15 were exercised in the local browser through the canonical demo.
 - AC2, AC4, and AC14 are covered by the shared action/registration integration tests and explicit eight-tool source registration.
 
 ## Verification
 - `npm install` — PASS, audited 383 packages; no dependency diff retained.
-- `npm test` — PASS, 3 files and 15 tests for the UX RE0 release candidate.
+- `npm test` — PASS, 3 files and 19 tests for the adaptive profile release candidate.
 - `npm run lint` — PASS, no findings.
 - `npm run typecheck` — PASS.
 - `npm run build` — PASS, static `/` route generated with Next.js 16.3.3.
 - `npm audit --omit=dev` — PASS, 0 vulnerabilities.
-- Browser demo — PASS for incident, exactly three scenarios, preview isolation, manual candidate correction, stale-safe apply, refresh persistence, snapshot round-trip, and malformed-import preservation. Local Playwright UI inspection at 1249px, 1024px, 700px, and 600px also passed for the Agent Proposal → HUMAN EDIT rail/schedule attribution; no application/runtime console errors were observed, with only the existing favicon 404.
+- Browser demo — PASS for incident, exactly three scenarios, preview isolation, manual candidate correction, stale-safe apply, refresh persistence, snapshot round-trip, and malformed-import preservation. Playwright UI inspection passed for the default diner (`Good Shift Diner`, `Crew`/`Shift lead`, diner copy, cap/name-tag), pizza (`Slice House`, `Counter crew`, chef cap), salon (`Cut & Co.`, `Stylist`, salon apron), the `Jiyoung → Hana` HUMAN EDIT lifecycle, and the 700px single-column layout. No application/runtime console errors were observed; only the existing favicon 404 was reported.
+- Profile tests — PASS for default diner identity, pizza draft identity/role labels, exact six-value industry schema, stable worker/shift ids, snapshot round-trip, legacy v1 migration to coffee, and invalid-industry rejection.
 - WebMCP-capable browser invocation — NOT_RUN by task scope; live Chrome validation remains deferred to the later manual pass.
 
 ## Git
 - Private remote: `https://github.com/sionchu/ownerops-webmcp`
-- Runtime release candidate: `5099b59b8d29039d67d6f3397a81463612f5fd49`
-- Repository HEAD used for the deployment source snapshot: `5099b59b8d29039d67d6f3397a81463612f5fd49`
+- Runtime release candidate: `857c17f9a0c5ffa2190f3c364cbc7905575e83f9`
+- Repository HEAD used for the deployment source snapshot: `857c17f9a0c5ffa2190f3c364cbc7905575e83f9`
 
 ## Blockers
 - Live Chrome/WebMCP validation is pending a later manual pass; no live WebMCP invocation was attempted in this UX RE0 task.
@@ -30,10 +32,10 @@ UX RE0 release candidate is deployed to Vercel over HTTPS. Chrome/WebMCP live va
 ## Live Release Validation
 
 ### WebMCP Environment
-- Browser: Codex In-app Browser for local production smoke; connected Chrome was unavailable.
-- Browser version: Not exposed by the available browser integration.
-- WebMCP testing flag: NOT_AVAILABLE in the in-app browser; Chrome flag could not be enabled without a connected Chrome instance.
-- `document.modelContext`: NOT_RUN against a deployment; local in-app browser returned `undefined`.
+- Browser: Playwright Chromium for local and deployed UI smoke; no WebMCP-capable Chrome session was used.
+- Browser version: Not exposed by the available Playwright/browser integration.
+- WebMCP testing flag: NOT_RUN in a compatible Chrome; the live flag state was not inspected in this implementation pass.
+- `document.modelContext`: NOT_RUN against a deployment; the available non-WebMCP browser context did not expose it.
 - Tool inspector: NOT_RUN.
 - Tools discovered: 0/8 live; source registration and integration coverage: 8/8.
 
@@ -50,7 +52,7 @@ UX RE0 release candidate is deployed to Vercel over HTTPS. Chrome/WebMCP live va
 - `import_schedule_snapshot`: PASS in local production smoke, including malformed-input preservation; live sequence NOT_RUN.
 
 ### Verification
-- `npm test`: PASS — 15/15.
+- `npm test`: PASS — 19/19.
 - `npm run lint`: PASS.
 - `npm run typecheck`: PASS.
 - `npm run build`: PASS.
@@ -63,8 +65,8 @@ BLOCKED
 Live Chrome/WebMCP validation is deferred to the later manual Chrome pass; the HTTPS deployment is complete.
 
 ## Release Candidate Record
-- Runtime release SHA: `5099b59b8d29039d67d6f3397a81463612f5fd49`
-- Repository HEAD used for the deployment source snapshot: `5099b59b8d29039d67d6f3397a81463612f5fd49`
+- Runtime release SHA: `857c17f9a0c5ffa2190f3c364cbc7905575e83f9`
+- Repository HEAD used for the deployment source snapshot: `857c17f9a0c5ffa2190f3c364cbc7905575e83f9`
 - Validation date: 2026-08-28
 - Production URL: `https://ownerops-webmcp.vercel.app`
 - Chrome version: NOT_RUN
@@ -79,7 +81,7 @@ Live Chrome/WebMCP validation is deferred to the later manual Chrome pass; the H
 - TODO/FIXME release residue: KEEP — no release-relevant TODO/FIXME was found.
 - Secrets / machine paths / private files: KEEP — no tracked environment files, secret patterns, or local absolute paths were found.
 - Dead release workaround / unused avatar implementation / stale configuration: KEEP — no dead workaround was found; the local SVG/CSS avatar and origin-isolation header remain in use.
-- UX RE0 runtime changes: `5099b59b8d29039d67d6f3397a81463612f5fd49` — activity timeline, candidate attribution, preview-aware WebMCP impact, and human-edited preview review state.
+- UX RE0 and adaptive-profile runtime changes: `857c17f9a0c5ffa2190f3c364cbc7905575e83f9` — activity timeline, candidate attribution, preview-aware WebMCP impact, human-edited preview review state, six generic industry profiles, and the live SVG/WAAPI assistant.
 
 ## Submission Assets
 - README: updated with problem, WebMCP rationale, canonical demo, tool entry point, and live-URL status.
@@ -112,14 +114,14 @@ Live Chrome/WebMCP validation is deferred to the later manual Chrome pass; the H
 - Provider: Vercel
 - Deployment URL: `https://ownerops-webmcp.vercel.app`
 - Source repository: private
-- Runtime SHA: `5099b59b8d29039d67d6f3397a81463612f5fd49`
-- Repository HEAD: `5099b59b8d29039d67d6f3397a81463612f5fd49` (source snapshot deployed)
-- Deployment ID: `dpl_6GXw54oLLDBEZA9m6KLCU2iny1hB`
+- Runtime SHA: `857c17f9a0c5ffa2190f3c364cbc7905575e83f9`
+- Repository HEAD: `857c17f9a0c5ffa2190f3c364cbc7905575e83f9` (source snapshot deployed)
+- Deployment ID: `dpl_9Srevj6zJ3UNTK4YmmExyo5ZtRN6`
 - Deployment status: PASS — Vercel production deployment is READY.
 - `Origin-Agent-Cluster: ?1`: PASS — returned by `curl.exe -I`.
 - Production page load: PASS — HTTPS GET returned 200 twice; `X-Matched-Path: /`.
-- Visible UI smoke test: PASS — returned HTML contains the OwnerOps title, weekly schedule, Paperthin Cafe, Minsoo, assistant activity, and scenario text; interactive browser smoke was not run.
-- Console/runtime errors: NOT_INSPECTED — no browser console was used; Vercel build completed without errors.
+- Visible UI smoke test: PASS — deployed Playwright inspection found Good Shift Diner, the published weekly schedule, Crew role labels, assistant activity, and scenario UI; refresh returned the same page successfully.
+- Console/runtime errors: PASS — no application/runtime console errors were observed; only the existing favicon 404 was reported.
 
 ### Remaining Release Gate
 

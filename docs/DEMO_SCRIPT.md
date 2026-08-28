@@ -2,23 +2,23 @@
 
 Target duration: 2:20–2:25. Keep the recording under 3:00.
 
-Run the script on the verified production URL once the HTTPS and live WebMCP gates are complete. Until then, the local production build is the rehearsal surface; do not present it as the public submission URL.
+Run the script on the verified production URL after the live WebMCP gate is complete. Until then, the local production build is the rehearsal surface; do not present it as the public submission URL.
 
 ## 0:00–0:15 — Problem
 
 **On screen:** OwnerOps weekly schedule, Friday evening highlighted.
 
-**Narration:** “Friday evening is the café's peak window. Minsoo calls out for the 18:00–22:00 shift after the schedule is already published. I need a decision that is fast, visible, and cost-aware.”
+**Narration:** “Friday evening is the diner's peak window. Minsoo calls out for the 18:00–22:00 shift after the schedule is already published. I need a decision that is fast, visible, and cost-aware.”
 
 ## 0:15–0:30 — Product thesis
 
 **On screen:** Move a shift with the schedule UI, then show the impact panel.
 
-**Narration:** “The owner works visually in the schedule. The agent works structurally across workers, shifts, coverage, hours, cost, and warnings. WebMCP gives both sides access to the same live application state.”
+**Narration:** “The owner works visually in the schedule. The agent works structurally across workers, shifts, coverage, hours, cost, and warnings. WebMCP gives both sides access to the same live application state. If needed, the agent can also switch the generic demo context without creating a second app.”
 
 ## 0:30–1:30 — Actual demo
 
-1. **0:30–0:40 — Show the schedule.** Point out the five workers, hourly rates, and Friday peak window.
+1. **0:30–0:40 — Show the schedule.** Point out Good Shift Diner, the five workers, hourly rates, and Friday peak window. If demonstrating adaptation, call `create_schedule_draft` with `{ "preset": "demo", "industry": "pizza" }`, show Slice House and the chef-cap accessory, then reset to diner for the staffing sequence.
 2. **0:40–0:50 — Create the incident.** Click “Mark Minsoo unavailable.” The Friday shift becomes uncovered; no replacement is silently committed.
 3. **0:50–1:00 — Request options.** Ask the agent for recovery options. Show exactly three deterministic cards.
 4. **1:00–1:10 — Preview the recommendation.** Preview Jiyoung. Point out the candidate styling and the unchanged committed schedule.
@@ -43,4 +43,4 @@ Briefly show the eight names in `src/webmcp/register-tools.ts`. Do not spend the
 
 **On screen:** Final schedule, then copy the portable snapshot.
 
-**Narration:** “OwnerOps makes a stressful staffing disruption more legible and reviewable. The same pattern can extend to other shift-based operations, while this MVP stays focused on the café case. A versioned snapshot keeps the reviewed schedule portable across sessions.”
+**Narration:** “OwnerOps makes a stressful staffing disruption more legible and reviewable. The same workspace can be re-contextualized for other generic shift-based businesses while this MVP keeps one shared staffing model. A versioned snapshot keeps the reviewed schedule portable across sessions.”

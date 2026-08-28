@@ -14,7 +14,7 @@ Small businesses often publish a workable schedule and then lose coverage when a
 
 ## What it does
 
-OwnerOps presents a weekly Paperthin Cafe schedule and a canonical Friday 18:00–22:00 Minsoo absence. The owner can edit the visible schedule, mark the incident, compare exactly three deterministic recovery options, preview a candidate, change the proposed replacement manually, ask for a fresh evaluation, and apply only the reviewed result. A portable snapshot can restore the schedule in another session.
+OwnerOps presents a weekly Good Shift Diner schedule by default and a canonical Friday 18:00–22:00 Minsoo absence. The same staffing fixture can be re-contextualized as six generic profiles—diner, pizza, coffee, salon, sushi, or curry—without creating separate applications or changing the calculations. The owner can edit the visible schedule, mark the incident, compare exactly three deterministic recovery options, preview a candidate, change the proposed replacement manually, ask for a fresh evaluation, and apply only the reviewed result. A portable snapshot can restore the schedule in another session.
 
 ## Why WebMCP is essential
 
@@ -47,7 +47,7 @@ Tool handlers call the same deterministic application actions used by the human 
 
 ## Impact
 
-OwnerOps targets small-business owners managing hourly teams, beginning with a café staffing disruption where a quick decision has visible coverage and labor-cost consequences. The same decision pattern could later apply to restaurants, retail, manufacturing shifts, healthcare, and other shift-based operations; those domains are not part of this implementation.
+OwnerOps targets small-business owners managing hourly teams, beginning with a neighborhood-diner staffing disruption where a quick decision has visible coverage and labor-cost consequences. Lightweight generic profiles make the same workspace legible for pizza, coffee, salon, sushi, and curry operations; manufacturing, healthcare, and other shift-based domains are future potential, not implemented domain engines.
 
 ## Built with
 
@@ -69,11 +69,12 @@ WebMCP is an emerging browser capability, so the product had to remain useful wh
 - Added preview/apply safety so the owner can inspect a change before committing it.
 - Preserved the exact human edit for agent re-evaluation through a shared `AppState` bridge.
 - Added a portable, versioned snapshot with transactional import validation.
-- Verified the exact eight-tool source contract, shared-path integration tests, local production workflow, lint, typecheck, build, and dependency audit. A production HTTPS URL and live browser WebMCP invocation are the remaining environment-dependent release checks and are not claimed in this draft.
+- Added six lightweight industry contexts and a restrained SVG assistant that adapts its labels, palette, prompt, and accessory while keeping one shared staffing model.
+- Verified the exact eight-tool source contract, shared-path integration tests, local production workflow, lint, typecheck, build, dependency audit, and the production HTTPS page. Live browser WebMCP invocation remains the environment-dependent release check and is not claimed here.
 
 ## What's next
 
-Complete the deferred manual Chrome/WebMCP validation, deploy the private runtime to HTTPS, repeat the WebMCP check against the deployed URL, then publish the reviewed repository, video, and Devpost submission.
+Complete the deferred manual Chrome/WebMCP validation, repeat the WebMCP check against the deployed URL, then publish the reviewed repository, video, and Devpost submission.
 
 ## Judge Mapping
 
@@ -83,7 +84,7 @@ The strongest evidence is the shared action/state path in `src/state/`, `src/dom
 
 ### Execution
 
-The local production build renders the complete workflow: weekly schedule, incident, three options, preview, manual correction, re-evaluation, apply, persistence, and snapshot restore. Automated tests, lint, typecheck, build, and production dependency audit pass. The production URL is intentionally not stated until it has been deployed and verified.
+The local production build and verified Vercel deployment render the complete workflow: weekly schedule, incident, three options, preview, manual correction, re-evaluation, apply, persistence, and snapshot restore. Automated tests (19/19), lint, typecheck, build, and production dependency audit pass. Live WebMCP invocation remains the explicit pending browser gate.
 
 ### Potential Impact
 
