@@ -29,13 +29,6 @@ Final release candidate and submission materials are prepared. Chrome/WebMCP liv
 
 ## Live Release Validation
 
-### Deployment
-- Provider: NOT_RUN — Vercel CLI and other supported deployment CLIs were not available or authenticated in this environment.
-- URL: NOT_RUN — no deployment URL was created.
-- Commit: `a42fa0d221de4881a4ef8163278f1b0ac771bb0a`
-- HTTPS: NOT_RUN
-- Console errors: NOT_RUN for a deployed URL; local production smoke recorded 0 browser console errors.
-
 ### WebMCP Environment
 - Browser: Codex In-app Browser for local production smoke; connected Chrome was unavailable.
 - Browser version: Not exposed by the available browser integration.
@@ -112,3 +105,27 @@ No authenticated HTTPS deployment path or connected WebMCP-capable browser is av
 - Public repository: PENDING — keep the remote private until release approval.
 - Video: PENDING.
 - Devpost submission: PENDING.
+
+## HTTPS Deployment
+
+- Provider: Vercel
+- Deployment URL: NOT_RUN — no authenticated Vercel deployment path is available in this environment.
+- Source repository: private
+- Runtime SHA: `a42fa0d221de4881a4ef8163278f1b0ac771bb0a`
+- Repository HEAD: `c2b4752567cc8df6f945ce838be5730fca336d6f`
+- Deployment status: BLOCKED
+- `Origin-Agent-Cluster: ?1`: NOT_RUN — no deployed response exists to inspect.
+- Production page load: NOT_RUN
+- Visible UI smoke test: NOT_RUN
+- Console/runtime errors: NOT_RUN for a deployed URL.
+
+### Remaining Release Gate
+
+- Live WebMCP Chrome validation: PENDING
+- GitHub public visibility: PENDING
+- Demo video: PENDING
+- Devpost submission: PENDING
+
+### Exact Deployment Blocker
+
+Vercel CLI is not installed, `VERCEL_TOKEN` is absent, and no authenticated Vercel integration is connected. Authenticate a Vercel deployment path (or authorize the private GitHub integration), then deploy the runtime SHA above.

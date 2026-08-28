@@ -21,7 +21,7 @@ AC1–AC15 from `docs/09_ACCEPTANCE_TESTS.md` are implemented. Live WebMCP invoc
 
 # Current checkpoint
 
-Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` and the submission materials are locally verified. Chrome/WebMCP live validation is intentionally deferred to a later manual pass; deployment and submission follow that pass.
+Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` and the submission materials are locally verified. The Vercel deployment attempt is blocked by missing CLI/authentication; Chrome/WebMCP live validation remains intentionally deferred to a later manual pass.
 
 # Decisions and reasons
 
@@ -52,7 +52,8 @@ Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` and the sub
 # Blockers
 
 - Live Chrome/WebMCP validation is pending a later manual pass; no live result is recorded in this preparation task.
-- HTTPS deployment, deployed WebMCP re-check, public repository switch, video recording, and Devpost submission remain pending that pass.
+- HTTPS deployment is blocked because Vercel CLI is not installed, `VERCEL_TOKEN` is absent, and no authenticated Vercel integration is connected.
+- Deployed WebMCP re-check, public repository switch, video recording, and Devpost submission remain pending deployment and the later live pass.
 
 # Modified files
 
@@ -64,4 +65,4 @@ Runtime release candidate `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` and the sub
 
 # Next concrete action
 
-Complete the remaining release sequence in order: (1) perform the manual Chrome/WebMCP validation against `http://localhost:3000`, (2) deploy the private runtime SHA `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` to HTTPS, (3) repeat the critical WebMCP checks against the deployed URL, (4) make the repository public, (5) record the video, and (6) submit to Devpost. Record the URL, browser version, and live evidence in the existing release section after the manual pass.
+Authenticate a Vercel deployment path (or authorize the private GitHub integration) and deploy the private runtime SHA `a42fa0d221de4881a4ef8163278f1b0ac771bb0a` to HTTPS. Then perform the manual Chrome/WebMCP validation against the local and deployed URLs, repeat the critical deployed WebMCP checks, make the repository public, record the video, and submit to Devpost. Record the URL, browser version, and live evidence in the existing release sections.
