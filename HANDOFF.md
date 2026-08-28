@@ -21,7 +21,7 @@ AC1–AC15 from `docs/09_ACCEPTANCE_TESTS.md` are implemented. Live WebMCP invoc
 
 # Current checkpoint
 
-UX RE0 runtime release candidate `5099b59e6dc2538bf4dbc7ea8a920e25e5e1cdbd` is locally verified and deployed READY at `https://ownerops-webmcp.vercel.app` through Vercel deployment `dpl_6GXw54oLLDBEZA9m6KLCU2iny1hB`. Chrome/WebMCP live validation remains intentionally deferred to a later manual pass.
+UX RE0 runtime release candidate `5099b59b8d29039d67d6f3397a81463612f5fd49` is locally verified and deployed READY at `https://ownerops-webmcp.vercel.app` through Vercel deployment `dpl_6GXw54oLLDBEZA9m6KLCU2iny1hB`. Chrome/WebMCP live validation remains intentionally deferred to a later manual pass.
 
 # Decisions and reasons
 
