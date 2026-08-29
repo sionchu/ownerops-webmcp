@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "../styles/locale-timeline.css";
 
 export const metadata: Metadata = {
   title: "OwnerOps — Staffing decision workbench",
