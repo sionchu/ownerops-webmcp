@@ -111,6 +111,30 @@
   overflow-wrap: anywhere;
 }
 
+.context-stage p {
+  display: block;
+  max-width: 760px;
+  margin-top: 5px;
+  color: var(--oo-secondary-ink, var(--muted));
+  font-size: 11px;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-shell[data-operating-tone="warning"] .context-stage .eyebrow,
+.app-shell[data-operating-tone="error"] .context-stage .eyebrow {
+  color: var(--warning);
+}
+
+.app-shell[data-operating-tone="proposal"] .context-stage .eyebrow,
+.app-shell[data-operating-tone="applied"] .context-stage .eyebrow {
+  color: var(--oo-accent);
+}
+
+.app-shell[data-operating-tone="review"] .context-stage .eyebrow {
+  color: #a2652f;
+}
+
 @media (max-width: 900px) {
   .topbar-center { max-width: 42vw; }
 }
@@ -118,4 +142,5 @@
 @media (max-width: 650px) {
   .timeline-step { grid-template-columns: 22px minmax(0, 1fr); }
   .topbar-center { max-width: 38vw; font-size: 10px; }
+  .context-stage p { display: none; }
 }
