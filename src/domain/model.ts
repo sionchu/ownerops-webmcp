@@ -34,6 +34,7 @@ export type Worker = {
   id: string;
   name: string;
   displayName?: string;
+  contactLabel?: string;
   role: WorkerRole;
   hourlyRate: number;
   /** Legacy one-off availability exceptions kept during StoreState migration. */
@@ -82,6 +83,14 @@ export type OccupancyCost = {
   nextEscalationRate?: number;
 };
 
+export type CalloutPayPolicy = "unpaid_hours" | "paid_scheduled_hours" | "manual_review";
+
+export type StorePolicies = {
+  calloutPayPolicy: CalloutPayPolicy;
+  externalContactMode: "draft_only";
+  complianceMode: "review_flags_only";
+};
+
 export type Business = {
   industry: IndustryId;
   market: MarketId;
@@ -96,6 +105,7 @@ export type Business = {
   openingHours?: Record<string, { open: string; close: string } | null>;
   occupancy?: OccupancyCost;
   targetFoodCostRatio?: number;
+  policies?: StorePolicies;
 };
 
 export type DemandWindow = {
