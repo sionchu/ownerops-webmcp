@@ -4,6 +4,7 @@ export type IndustryId = "diner" | "pizza" | "coffee" | "salon" | "sushi" | "cur
 
 export type MarketId = "kr-seoul" | "us-nyc" | "jp-tokyo" | "es-madrid" | "cn-shanghai";
 export type CurrencyCode = "KRW" | "USD" | "JPY" | "EUR" | "CNY";
+export type PlanKind = "incident_recovery" | "week_rebuild" | "custom";
 
 export type AvailabilityWindow = {
   start: string;
@@ -70,6 +71,13 @@ export type StaffingChange = {
   end?: string;
 };
 
+export type CapacityGap = {
+  role: WorkerRole;
+  hoursPerWeek: number;
+  shiftIds: string[];
+  reason: string;
+};
+
 export type RuleWarning = {
   code: "weekly_hours" | "night_work" | "availability" | "role_mismatch" | "peak_coverage";
   severity: "info" | "warning";
@@ -90,20 +98,24 @@ export type PlanImpact = {
 
 export type StaffingScenario = {
   id: string;
+  kind: PlanKind;
   title: string;
   summary: string;
   rationale: string;
   changes: StaffingChange[];
   impact: PlanImpact;
+  capacityGap?: CapacityGap | null;
 };
 
 export type StaffingPreview = {
   id: string;
   version: number;
   scenarioId: string;
+  kind: PlanKind;
   title: string;
   changes: StaffingChange[];
   impact: PlanImpact;
+  capacityGap?: CapacityGap | null;
 };
 
 export type AssistantState = "idle" | "listening" | "checking" | "proposalReady" | "reviewNeeded" | "reviewed" | "warning" | "applied" | "error";
@@ -112,6 +124,7 @@ export type Activity = {
   state: AssistantState;
   message: string;
   detail?: string;
+  context?: PlanKind;
 };
 
 export type AppState = {
