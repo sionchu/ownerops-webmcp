@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { dispatchApplicationAction, getResponseOptions, type ApplicationAction } from "@/domain/actions";
 import { createDemoState } from "@/domain/fixtures";
 import { applyChanges, calculateImpact } from "@/domain/impact";
-import type { AppState, PlanImpact, StaffingScenario } from "@/domain/model";
+import type { AppState, PlanImpact, ReferenceObservation, StaffingScenario } from "@/domain/model";
 import { normalizeUiLocale, type UiLocale } from "@/i18n";
 
 type AppStateContextValue = {
@@ -21,6 +21,17 @@ type AppStateContextValue = {
 };
 
 const AppStateContext = createContext<AppStateContextValue | null>(null);
+
+function referenceIdentity(reference: ReferenceObservation) {
+  return `${reference.kind}:${reference.referenceKey}`;
+}
+
+function mergeCachedReferences(state: AppState, incoming: ReferenceObservation[]): AppState {
+  if (incoming.length === 0) return state;
+  const replacementKeys = new Set(incoming.map(referenceIdentity));
+  const retained = (state.references ?? []).filter((reference) => !replacementKeys.has(referenceIdentity(reference)));
+  return { ...state, references: [...retained, ...incoming] };
+}
 
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(() => createDemoState());
@@ -45,6 +56,28 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }, 0);
     return () => window.clearTimeout(hydrationTimer);
   }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const controller = new AbortController();
+    const market = state.business.market;
+    void fetch(`/api/references?market=${encodeURIComponent(market)}`, { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return response.json() as Promise<{ references?: ReferenceObservation[] }>;
+      })
+      .then((payload) => {
+        if (!payload?.references?.length || controller.signal.aborted) return;
+        const next = mergeCachedReferences(stateRef.current, payload.references);
+        stateRef.current = next;
+        setState(next);
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        console.warn("OwnerOps reference cache unavailable; deterministic seed retained.", error);
+      });
+    return () => controller.abort();
+  }, [hydrated, state.business.market]);
 
   const runAction = useCallback((action: ApplicationAction) => {
     const next = dispatchApplicationAction(stateRef.current, action);
