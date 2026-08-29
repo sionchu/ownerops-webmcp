@@ -1,53 +1,81 @@
 # 11 — Devpost / Hackathon Submission Requirements
 
-## Judging priorities to optimize
-1. **WebMCP leverage** — thorough, skillful, non-trivial implementation.
-2. **Execution** — complete coherent product experience, not a technical proof of concept.
-3. **Potential impact** — credible real audience and real problem.
-4. **Creativity and ambition** — meaningfully different from existing concepts.
+## Judging priorities
+1. **WebMCP leverage** — structured, stateful, non-trivial browser-agent integration.
+2. **Execution** — one coherent product, not a collection of mock dashboards.
+3. **Potential impact** — obvious value for real independent-business operators.
+4. **Creativity and ambition** — Agent coordinates multiple store domains through one live UI.
 
-## Submission requirements
-Before final submission:
-- Working live URL accessible from ChatGPT in-app browser or WebMCP-enabled Chrome.
-- Text explanation covering:
-  - why the use case is a strong WebMCP fit,
-  - how UX is improved,
-  - what humans and agents can do together that was difficult before,
-  - how WebMCP is implemented.
-- Public YouTube demo under the challenge time limit.
-- Public code repository with all source/assets/instructions.
-- Detectable open-source license in repository root.
-- Repo visibly includes `document.modelContext.registerTool({ ... })` implementation.
-
-## Private-to-public repository gate
-Development may remain private. Final release checklist must include:
-1. remove secrets/private data,
-2. confirm license,
-3. ensure README run instructions work from clean clone,
-4. make repo public,
-5. verify public URL and repository URL from an incognito session.
+## Core pitch
+**OwnerOps is an AI Store Manager.** Instead of forcing an owner to navigate scheduling, inventory, supplier cost, sales, weather and tasks separately, the owner says what they need in natural language. The Agent reads the exact live store, prioritizes issues, and materializes a reviewable operating plan through WebMCP.
 
 ## Demo-video spine
-### 0–15 sec — problem
-“Friday 5 PM. Minsoo calls out for the evening shift.”
+### 0–15 sec — owner problem
+Show a live café workspace, not a landing page.
 
-### 15–35 sec — human + agent shared state
-Owner drags/edits schedule; asks agent if it works. Agent evaluates exact current page state.
+Owner asks:
+> “오늘 장사 준비해줘.”
 
-### 35–70 sec — recovery options
-Mark absence; agent exposes three options with money/hours/coverage differences.
+### 15–40 sec — Agent reads one live store
+Daily Brief appears with three concrete issues, for example:
+1. Minsoo call-out threatens Friday peak coverage.
+2. Milk stock will not last to the next delivery/weekend.
+3. Pastry waste is above recent baseline; rain is expected later.
 
-### 70–100 sec — preview + human correction
-Preview recommended option. Owner rejects/changes it manually. Agent re-evaluates.
+Emphasize that People, Stock, Sales, Context and Cost came from the same StoreState.
 
-### 100–125 sec — commit
-Owner applies final option; schedule and impact update.
+### 40–75 sec — coordinated Agent plan
+Owner:
+> “알아서 정리해. 직원 변경은 적용 전에 보여줘.”
 
-### 125–145 sec — portability
-Copy schedule snapshot; explain it can be pasted into a later ChatGPT session.
+Agent plans:
+- replacement staffing candidate;
+- milk reorder quantity;
+- pastry prep reduction;
+- optional closing task.
 
-### final — why WebMCP / vision
-Human-friendly visual manipulation + agent-friendly structured operations on one shared application state.
+The changes materialize in OwnerOps as one candidate plan, not a text-only recommendation.
+
+### 75–100 sec — human edit + exact re-read
+Owner manually changes one staffing choice or quantity in the visual UI.
+
+Owner:
+> “내가 바꾼 상태 다시 검토해.”
+
+Agent uses `evaluate_current_plan` on exact live candidate and shows updated coverage/cost/stock evidence.
+
+### 100–120 sec — apply reviewed plan
+Apply the reviewed plan. Committed StoreState updates; preview clears; incident remains historically resolved rather than disappearing as though it never happened.
+
+### 120–140 sec — natural-language breadth
+Rapid examples without opening new SaaS modules:
+- “원두 너무 비싸게 사고 있어?” → store purchase cost vs sourced market reference.
+- “월세 10% 오르면 어떻게 메우지?” → occupancy pressure scenario.
+- “이번 주 40시간 안으로 다시 짜줘.” → availability-aware full-week plan.
+
+### final — why WebMCP
+Human-friendly operational UI + agent-friendly structured store capabilities on the same live state. The agent does not need screenshot reconstruction, raw snapshot JSON, or a separate backend assistant state.
+
+## Submission checklist
+- working live URL;
+- public YouTube demo within time limit;
+- public repository and detected open-source license;
+- source visibly contains current `document.modelContext.registerTool` implementation;
+- README explains StoreState, natural-language demo, data provenance/fallback and how to run locally;
+- no secrets/API keys committed;
+- demo does not depend on a live external provider being healthy.
 
 ## Claim discipline
-Do not claim OwnerOps prevents business closures or guarantees legal compliance. Claim that it makes staffing decisions more legible, reviewable, and faster under operational pressure.
+Allowed claims:
+- helps owners prioritize store issues;
+- coordinates staffing/stock/operating decisions on one live state;
+- compares purchase/reference, wage and occupancy estimates;
+- makes changes reviewable through preview/apply;
+- can use external market/weather context when available.
+
+Do not claim:
+- audited profitability/accounting;
+- legal payroll/compliance guarantee;
+- guaranteed demand forecast;
+- exact market value from a broad benchmark;
+- real supplier order/message/payment when the prototype only updates StoreState.
