@@ -6,19 +6,11 @@ import { resolve } from "node:path";
 const args = process.argv.slice(2);
 const fileIndex = args.indexOf("--file");
 const dryRun = args.includes("--dry-run");
+const MARKET_IDS = new Set(["kr-seoul", "us-nyc", "jp-tokyo", "es-madrid", "cn-shanghai"]);
 
 function usage() {
   console.log(`Usage:\n  node scripts/import-fnb-master.mjs --file <canonical-market.json> [--dry-run]\n\nThe JSON is an exported market template from the supplied global F&B master workbook.\nThis command is admin-only and requires OWNEROPS_SUPABASE_URL + OWNEROPS_SUPABASE_SERVICE_ROLE_KEY unless --dry-run is used.`);
 }
-
-if (fileIndex < 0 || !args[fileIndex + 1]) {
-  usage();
-  process.exitCode = 1;
-} else {
-  await main(args[fileIndex + 1]);
-}
-
-const MARKET_IDS = new Set(["kr-seoul", "us-nyc", "jp-tokyo", "es-madrid", "cn-shanghai"]);
 
 function requireArray(value, label) {
   if (!Array.isArray(value)) throw new Error(`${label} must be an array.`);
@@ -219,4 +211,11 @@ async function main(file) {
   for (const table of Object.keys(tables)) await deleteMarket(db, table, doc.marketId);
   for (const [table, rows] of Object.entries(tables)) await insertRows(db, table, rows);
   console.log(JSON.stringify({ imported: true, marketId: doc.marketId, tables: summary }, null, 2));
+}
+
+if (fileIndex < 0 || !args[fileIndex + 1]) {
+  usage();
+  process.exitCode = 1;
+} else {
+  await main(args[fileIndex + 1]);
 }
