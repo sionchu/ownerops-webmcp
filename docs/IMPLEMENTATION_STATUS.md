@@ -88,20 +88,31 @@ Primary route:
 Snapshot is backup/restore only.
 
 ## Latest verified baseline
-Verified by GitHub Actions on the PR merge ref for source head:
+Verified source head:
 
-`ae17ba19e4d885e0492716421242bf1f1912e891`
+`5f9e2d973529f1bbaba43742f8e8183a7c7e927e`
 
-Workflow run: `33275367937`
+GitHub Actions run: `33275558531`
 
-Results:
+### Application job — PASS
 - `npm run data:sources` — PASS
 - Master template importer `--dry-run` — PASS
 - `npm test` — PASS: **57/57 tests, 7 files**
 - `npm run lint` — PASS with 6 warnings / 0 errors
 - `npm run typecheck` — PASS
 - `npm run build` — PASS
-- npm install audit in CI — 0 vulnerabilities
+
+### Database job — PASS
+PostgreSQL 16 service was started in CI and the real migration SQL was executed in order:
+1. `001_ownerops_store_ssot.sql`
+2. `002_working_store_projection_rpc.sql`
+3. `003_fnb_template_catalog.sql`
+
+Verification also confirmed:
+- `oo_get_working_store_projection` exists and returns null for a missing store;
+- the external price-source registry seed was created.
+
+This proves the migrations are valid against PostgreSQL 16. It does **not** replace the remaining requirement to apply and exercise them on a real Supabase project.
 
 Build routes include:
 - `/`
@@ -112,13 +123,14 @@ Lint warnings are non-blocking: one data-sync unused parameter and five legacy i
 
 ## Not yet live-verified
 Do **not** claim these are complete yet:
-1. Supabase migrations applied to a real connected project;
+1. migrations applied to a real connected Supabase project;
 2. all five master-market JSON templates imported into a live DB;
-3. KAMIS sync run with real `KAMIS_CERT_KEY` / `KAMIS_CERT_ID` and DB persistence;
-4. normalized e-Stat / USDA item mapping beyond their current raw-fetch foundation;
-5. current RE0 deployed to the production Vercel URL;
-6. current nine-tool WebMCP natural-language flow tested end-to-end in a capable browser;
-7. authenticated per-owner RLS/write persistence.
+3. persisted store projection + cached references exercised against live Supabase/PostgREST;
+4. KAMIS sync run with real `KAMIS_CERT_KEY` / `KAMIS_CERT_ID` and DB persistence;
+5. normalized e-Stat / USDA item mapping beyond their current raw-fetch foundation;
+6. current RE0 deployed to the production Vercel URL;
+7. current nine-tool WebMCP natural-language flow tested end-to-end in a capable browser;
+8. authenticated per-owner RLS/write persistence.
 
 ## Current release blockers
 ### P0
