@@ -50,28 +50,57 @@ async function fetchText(url, options = {}) {
   return { contentType: response.headers.get("content-type") ?? "", text: await response.text() };
 }
 
+function buildKamisParams(action) {
+  return new URLSearchParams({
+    action,
+    p_cert_key: process.env.KAMIS_CERT_KEY,
+    p_cert_id: process.env.KAMIS_CERT_ID,
+    p_returntype: "json",
+  });
+}
+
 async function syncKamis(source) {
   const required = ["KAMIS_CERT_KEY", "KAMIS_CERT_ID"];
   const missing = missingEnv(required);
   if (missing.length > 0) return { status: "skipped", reason: `missing ${missing.join(", ")}` };
 
-  const params = new URLSearchParams({
-    action: "dailyPriceByCategoryList",
-    p_cert_key: process.env.KAMIS_CERT_KEY,
-    p_cert_id: process.env.KAMIS_CERT_ID,
-    p_returntype: "json",
-    p_product_cls_code: process.env.KAMIS_PRODUCT_CLASS ?? "02",
-    p_item_category_code: process.env.KAMIS_CATEGORY_CODE ?? "200",
-    p_country_code: process.env.KAMIS_COUNTRY_CODE ?? "1101",
-    p_convert_kg_yn: "Y",
-  });
-  if (process.env.KAMIS_REGDAY) params.set("p_regday", process.env.KAMIS_REGDAY);
+  const itemCode = process.env.KAMIS_ITEM_CODE?.trim();
+  const categoryCode = process.env.KAMIS_CATEGORY_CODE ?? (itemCode ? "" : "200");
+  const productClass = process.env.KAMIS_PRODUCT_CLASS ?? "02";
+  const countryCode = process.env.KAMIS_COUNTRY_CODE ?? "1101";
+  const regday = process.env.KAMIS_REGDAY;
+
+  if (itemCode) {
+    if (!categoryCode) return { status: "skipped", reason: "KAMIS_CATEGORY_CODE is required when KAMIS_ITEM_CODE is set" };
+    const params = buildKamisParams("ItemInfo");
+    params.set("p_productclscode", productClass);
+    params.set("p_itemcategorycode", categoryCode);
+    params.set("p_itemcode", itemCode);
+    params.set("p_kindcode", process.env.KAMIS_KIND_CODE ?? "00");
+    params.set("p_productrankcode", process.env.KAMIS_RANK_CODE ?? "04");
+    params.set("p_countycode", countryCode);
+    if (regday) params.set("p_regday", regday);
+    const requestUrl = `${source.endpoint}?${params}`;
+    return {
+      status: "ok",
+      requestUrl,
+      metadata: { mode: "item", itemCode, categoryCode, productClass, countryCode },
+      payload: await fetchJson(requestUrl),
+    };
+  }
+
+  const params = buildKamisParams("dailyPriceByCategoryList");
+  params.set("p_product_cls_code", productClass);
+  params.set("p_item_category_code", categoryCode);
+  params.set("p_country_code", countryCode);
+  params.set("p_convert_kg_yn", "Y");
+  if (regday) params.set("p_regday", regday);
 
   const requestUrl = `${source.endpoint}?${params}`;
   return {
     status: "ok",
     requestUrl,
-    metadata: { requestedItemCode: process.env.KAMIS_ITEM_CODE ?? null },
+    metadata: { mode: "category", categoryCode, productClass, countryCode },
     payload: await fetchJson(requestUrl),
   };
 }
