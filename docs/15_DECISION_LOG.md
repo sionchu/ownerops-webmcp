@@ -47,3 +47,6 @@ Applying a staffing preview requires the canonical activity state to be `reviewe
 
 ## D016 — Industry visual token refinement
 The six presentation profiles use the shared industry token specification for canvas, surfaces, state-safe accents, incident-lane focus, rail glow, shape language, motif opacity, and theme timing. These values are consumed only by the UI layer; staffing data, calculations, snapshots, and WebMCP remain unchanged.
+
+## D017 — F&B cost-data boundary
+External food-price and merchant data may be added as an **offline/prebuild read-only context**. The hackathon runtime keeps its no-backend constraint, and canonical staffing `AppState` remains unchanged. Source adapters must write normalized snapshots outside staffing state; any future Supabase/Postgres or POS integration is post-MVP and must preserve provenance, deterministic calculations, and the existing application-action/WebMCP boundary.

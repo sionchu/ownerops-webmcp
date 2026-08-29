@@ -22,6 +22,7 @@ Build a polished WebMCP hackathon product called **OwnerOps**: an operations cop
 14. `docs/13_PAPERTHIN_REVIEW.md`
 15. `docs/14_CODEX_EXECUTION_PLAN.md`
 16. `docs/15_DECISION_LOG.md`
+17. `docs/16_FNB_COST_DATA_FOUNDATION.md`
 
 ## Non-negotiable engineering rules
 - **Scope is frozen.** Do not invent features because they look useful.
