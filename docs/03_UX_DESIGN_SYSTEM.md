@@ -1,114 +1,188 @@
 # 03 — UX and Design System
 
 ## Design intent
-OwnerOps should look like a serious operational web product that a café manager could keep open all day. It should not look like a generic AI dashboard or hackathon landing page.
+OwnerOps should feel like a serious operating workspace an independent-business owner can leave open all day. Broad capability must make the product feel **simpler**, not like a six-module ERP.
 
-## Reference blend
-### Linear — information hierarchy and calm density
-Reference: https://linear.app/changelog/2026-03-12-ui-refresh
-Borrow:
-- consistent headers/navigation controls,
-- scan-friendly density,
-- restrained/dim secondary chrome,
-- main content visually dominant,
-- contextual actions near the object being edited.
-Do not copy branding, proprietary icons, or exact layouts.
+## UX principle
+**Issue first, evidence second, module never required.**
 
-### Homebase — workforce scheduling interaction
-References:
-- https://www.joinhomebase.com/employee-scheduling
-- https://www.joinhomebase.com/employee-scheduling/auto-scheduling
-- https://www.joinhomebase.com/employee-scheduling/labor-forecasting
-Borrow:
-- people × time grid mental model,
-- drag/drop shifts,
-- visible hours and labor-cost feedback,
-- coverage and overtime warnings close to the schedule.
-Do not reproduce the full HR/product suite.
+The owner should not need to decide whether a question belongs to Schedule, Inventory, Payroll, Tasks, Analytics or Weather. Natural-language intent and the Daily Brief bring the relevant operating surface forward.
 
-## Layout
-Desktop-first for judging; responsive enough for narrower windows.
+## Preferred desktop frame
+1. **Context header** — store identity, business date, market/currency, live-state status.
+2. **Today / Daily Brief** — 3–5 prioritized issues and concise recommended actions.
+3. **Candidate plan bar/surface** — appears when Agent has materialized a multi-domain plan.
+4. **Operational workspace** — schedule, stock, cost or task evidence according to current issue/focus.
+5. **Assistant Activity Rail** — shared-state steps, evidence and next allowed action.
 
-Preferred frame:
-- Top bar: product, demo date, reset/import/export.
-- Main content: schedule grid (dominant, ~65–72% width).
-- Right rail: Assistant Activity Rail (~280–320px).
-- Bottom/secondary area: scenario comparison / impact diff; avoid giant detached cards.
+The schedule remains important but is no longer permanently 70% of the product identity.
 
-## Visual language
-### Typography
-- Use a neutral modern sans-serif available through normal web packages/system fonts.
-- Favor tabular numerals for money, hours, and schedule times.
-- Strong hierarchy via weight/size, not colored labels everywhere.
+## Daily Brief
+A brief is not a KPI dashboard. It should answer:
+- what changed;
+- what is at risk;
+- what has a deadline;
+- what costs meaningful money;
+- what action is recommended.
 
-### Color
-- Neutral base (warm or cool gray/near-white).
-- One primary operational accent.
-- Warning/error colors only for real state meaning.
-- No purple/blue gradient AI identity.
+Example:
+```text
+TODAY · 3 things need attention
 
-### Surfaces
-- Reduce number of “cards.” Prefer table/grid/panel boundaries.
-- Corners modest, not pill-shaped everywhere.
-- Avoid glassmorphism and blur-heavy surfaces.
+STAFFING
+Minsoo unavailable Fri 18–22
+Peak coverage short by 1
+[Prepare recovery]
 
-### Icons
-- Use one coherent icon set if needed.
-- No sparkle/wand/brain icons as generic “AI” decoration.
+STOCK
+Whole milk 11.4 L
+Projected stockout Sat 16:00
+[Prepare reorder]
 
-### Motion
-- Motion must communicate status, focus, preview, or state transition.
-- 120–240ms for normal UI transitions.
-- Avatar idle motion may be slower/subtle.
-- Respect `prefers-reduced-motion`.
+WASTE
+Croissant waste 18% vs 9% baseline
+[Adjust prep]
+```
 
-### Visual token hierarchy
-The interface uses a small layered token system: global foundation tokens (type, shadows, timing), stable semantic state tokens (warning, uncovered, human edit, reviewed), and one profile object per industry. A profile supplies canvas, surface, elevated surface, ink, border, accent, incident-lane tint, agent glow, card/shift radius, motif opacity, and theme timing through CSS custom properties. Derived proposal, edit, and reviewed surfaces use `color-mix()` so state meaning stays consistent across industries.
+Do not render four giant KPI cards across the top.
 
-Industry motifs remain outside the core schedule cells: diner grid, pizza checker, coffee steam arcs, salon diagonals, sushi rules, and curry rings. They are deliberately faint and do not replace operational borders or labels.
+## Operational evidence surfaces
+### People / schedule
+- weekly schedule grid;
+- worker hours;
+- availability conflicts;
+- call-out/resolution state;
+- candidate shifts;
+- scheduled vs actual attendance evidence where relevant.
 
-## Schedule grid
-- Rows: workers.
-- Columns/time bands: days and/or hour ranges; optimize for the canonical week demo.
-- Shift blocks must show start/end and role or worker via context.
-- Unavailable/absence state must be obvious.
-- Drag/drop target affordance should be precise, not playful.
-- Candidate preview must visually differ from committed shift.
-- Maintain keyboard-accessible fallback where practical.
+### Stock / purchasing
+Use a compact table/drawer, for example:
+- item;
+- on hand;
+- days cover;
+- reorder status;
+- last actual purchase cost;
+- market reference when mapped;
+- supplier/lead time.
+
+### Cost
+Contextual cost surface may show:
+- scheduled/actual wage estimate;
+- food/material cost evidence;
+- occupancy cost;
+- simple break-even or scenario delta.
+
+Avoid building an accounting dashboard.
+
+### Tasks / log
+Use concise timeline/checklist in the shift/day context. Do not recreate a project-management product.
+
+## Candidate StorePlan
+A multi-domain plan should be obvious as **candidate, not committed truth**.
+
+Example plan summary:
+```text
+AGENT PLAN · 3 changes
+
+People   Hana covers Fri 18–22
+Stock    Order 12 L whole milk
+Prep     Croissant target 24 → 19
+
+Estimated effects
+Peak coverage   restored
+Scheduled wage  −₩2,000 vs original shift
+Milk cover      through Mon delivery
+Waste exposure  lower
+```
+
+A human edit changes the same candidate and moves status to `HUMAN EDIT · REVIEW NEEDED`. `evaluate_current_plan` moves it to `REVIEWED`.
+
+## Contextual detail over top-level modules
+Employee click/drawer may show:
+- role/skills;
+- hourly rate;
+- regular availability;
+- exceptions;
+- scheduled/actual hours.
+
+Inventory click/drawer may show:
+- supplier;
+- recent purchases;
+- market reference provenance;
+- recipe/menu links;
+- waste history.
+
+This is preferred over permanent `People | Payroll | Inventory | Tasks | Analytics` navigation for the hackathon.
+
+## External reference visual language
+Actual vs external reference must never look identical.
+
+Example:
+```text
+Recent purchase        ₩24,000 / kg
+Market reference       ₩21,800 / kg
+                       KAMIS · Seoul · Aug 29 · recent
+Difference             +10.1%
+```
+
+Use `Reference`/provider label and freshness. Stale/seed references are visually quieter and explicitly labeled.
+
+## Occupancy
+Rent is a fixed-cost context, not a day-to-day slider. Show actual lease cost and scenario impacts when asked; external area benchmark remains a secondary reference.
+
+## Weather
+Weather should appear only when it affects today's decision or the owner asks. Do not add a permanent weather-app panel.
 
 ## Assistant Activity Rail
-This is not a duplicate ChatGPT client.
-It is a compact activity timeline for the shared page state. It shows:
-- the live-state/WebMCP connection status and the existing SVG/CSS avatar,
-- the sequence `Read live schedule → Marked absence → Compared 3 options → Agent proposal → Human review → Agent review → Apply`,
-- a concise current activity conclusion,
-- candidate attribution (`AGENT PROPOSAL`, `HUMAN EDIT`, or `REVIEWED`),
-- the current candidate's payroll, weekly hours, peak coverage, and warnings.
+The rail remains a functional status surface, not an in-app chat.
 
-The committed schedule remains visually distinct from a candidate preview. A human correction keeps the candidate uncommitted and is explicitly marked as review-needed until `evaluate_current_plan` reviews the same live state.
+Generic timeline:
+`Read live store → Prioritized issues → Planned actions → Candidate preview → Human review → Agent re-review → Apply`
 
-Natural-language conversation primarily happens in the external ChatGPT browser agent. The app rail explains what the app/agent is doing and what changed.
+For read-only requests, timeline may stop at `Read → Analyze → Answer`.
 
-## Adaptive industry context
-OwnerOps uses one schedule UI and one staffing model for six lightweight generic demo profiles: diner, pizza, coffee, salon, sushi, and curry. The selected profile supplies the business name, display vocabulary, role labels, suggested prompt, assistant accessory, and a restrained accent/surface tint through CSS custom properties. It does not introduce a second dashboard, a domain-specific scheduler, or a second state store. Internal capability keys (`barista` and `manager`) remain stable for calculations and snapshots.
+The rail can show which domains were checked:
+- People ✓
+- Stock ✓
+- Sales ✓
+- Context ✓
+- Cost ✓
 
-The context header is an operational summary, not a marketing hero: product/business identity first, concise current-problem headline second, and date/context third. On an active Friday call-out, the Friday lane receives a muted `focusLane` wash with state borders while adjacent lanes remain readable. Candidate states are labeled and choreographed in order: `AGENT PROPOSAL` → `YOUR EDIT` → `REVIEWED` → committed. Motion is short and non-looping, with a normal CSS fallback when browser View Transitions are unavailable.
+Do not imply a domain was checked if its data was unavailable.
 
-## Anti-AI-slop checklist
-Reject a design if it has several of these:
-- giant hero greeting inside the app,
-- 4+ KPI cards across the top,
-- large glowing orb,
-- excessive “AI” labels,
-- sparkle icons,
-- gradient borders,
-- decorative generated illustration dominating the workspace,
-- fake charts unrelated to the workflow,
-- overuse of badges/chips,
-- every region inside a rounded rectangle.
+## Visual language
+Retain current calm density principles:
+- neutral modern type;
+- tabular numerals for money/quantity/hours;
+- one restrained operational accent;
+- warning colors only for state meaning;
+- modest corners;
+- no glassmorphism, sparkle/wand/brain decoration, giant hero, neon gradients or fake analytics charts.
 
-## Asset separation
-- `public/assistant/` — avatar/assistant visual assets only.
-- `public/icons/` — product-specific static icons only if not from an icon package.
-- App code must not embed huge base64 images.
-- Keep CSS/design tokens separate from business logic.
+## Industry adaptation
+Industry profile may change:
+- vocabulary;
+- role labels;
+- inventory/menu/task seed;
+- restrained visual token motif.
+
+It must not create a second UI architecture.
+
+## Responsive behavior
+Desktop judging view is primary. At narrower widths:
+- Daily Brief stays above detail workspace;
+- right rail may collapse below/into a compact activity panel;
+- tables become horizontally scrollable or compact lists;
+- evidence labels must remain legible across Korean, English, Japanese, Spanish and Chinese strings.
+
+## Motion
+120–240 ms for ordinary transitions. Use motion for candidate materialization, issue status and review/apply state only. Respect `prefers-reduced-motion`.
+
+## Anti-bloat checklist
+Reject a design if:
+- every capability gets a top-level tab;
+- Daily Brief becomes 10+ alerts;
+- actual/reference values are visually indistinguishable;
+- data evidence is duplicated in multiple cards;
+- Agent rail repeats the same full text as main workspace;
+- the product looks like separate SaaS products embedded on one page.
