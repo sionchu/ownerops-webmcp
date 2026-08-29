@@ -2,6 +2,9 @@ export type WorkerRole = "barista" | "manager";
 
 export type IndustryId = "diner" | "pizza" | "coffee" | "salon" | "sushi" | "curry";
 
+export type MarketId = "kr-seoul" | "us-nyc" | "jp-tokyo" | "es-madrid" | "cn-shanghai";
+export type CurrencyCode = "KRW" | "USD" | "JPY" | "EUR" | "CNY";
+
 export type AvailabilityWindow = {
   start: string;
   end: string;
@@ -34,6 +37,8 @@ export type PeakWindow = {
 
 export type Business = {
   industry: IndustryId;
+  market: MarketId;
+  currency: CurrencyCode;
   name: string;
   employeeCount: number;
   targetLaborRatio: number;
