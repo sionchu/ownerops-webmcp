@@ -1,20 +1,194 @@
 # OwnerOps
 
-**OwnerOps** is a WebMCP-powered staffing decision workbench for small-business owners with hourly teams. A human can edit the weekly schedule directly while an agent reads and acts on the same live application state. Every recovery option is compared on coverage, weekly hours, estimated payroll, labor ratio, warnings, and schedule-change count before the owner applies it.
+**OwnerOps** is a WebMCP-powered **AI Store Manager** for independent businesses. The owner speaks in operating intent—“오늘 장사 준비해줘”, “민수 못 나온대”, “우유 주말까지 버텨?”, “이번 주 인건비 왜 높아?”—and the agent reads the same canonical store state as the visible application, composes the required capabilities, previews consequential changes, re-reads human edits, and applies only reviewed plans.
 
-The MVP supports two bounded operational workflows on the same canonical schedule: a last-minute staffing incident and a deterministic full-week staffing rebuild. The default demo context is **Good Shift Diner** in Seoul; the same staffing fixture can be re-contextualized as a generic diner, pizza shop, coffee shop, salon, sushi restaurant, or curry house.
+The RE0 keeps the strongest part of the original staffing demo—human and agent collaboration on one live state—but expands that state across **People · Sales · Stock · Operations · Context · Costs**.
 
-## Problem
+## What OwnerOps understands
 
-A small business can publish a credible weekly schedule and still lose coverage when a worker calls out at the last minute. The owner needs to compare who can cover the shift, what the change costs, and whether any coverage or work-rule warning remains before committing it. The same live state can also be rebalanced across the full week when the owner asks to control weekly hours, reduce cost, preserve peak coverage, or expose missing qualified capacity.
+### People
+- worker role/skills,
+- regular availability and one-off exceptions,
+- weekly-hour limits,
+- published shifts,
+- actual time entries,
+- call-outs and incident history,
+- scheduled/actual wage context.
+
+### Sales and menu
+- daily/item sales fixtures,
+- menu prices,
+- recipe quantities,
+- preparation yield rates,
+- per-serving food cost and food-cost ratio.
+
+### Stock
+- industry-specific inventory,
+- on-hand/par/reorder point,
+- lead time and supplier,
+- recent actual purchase cost,
+- received purchases and planned purchase orders,
+- waste records,
+- mapped commodity-price references with provenance.
+
+### Costs
+- food cost,
+- scheduled labor,
+- packaging/consumables,
+- payment and delivery/marketplace rates,
+- base rent and recurring occupancy fees,
+- utilities/software/security/rentals/marketing/other fixed costs,
+- FL Cost and short-horizon break-even sales.
+
+### Context and operations
+- seeded or externally refreshed weather references,
+- rent/commodity reference observations,
+- opening/closing tasks,
+- manager log and incidents.
+
+Store-entered/seeded **actual store data is authoritative**. External commodity, rent and weather observations are reference/context only and always preserve provider, geography, timestamp and freshness (`live`, `recent`, `cached`, `seed`, `stale`).
 
 ## Why WebMCP
 
-Humans are effective at visually manipulating a schedule. Agents are effective at reasoning across exact workers, shifts, labor cost, coverage, and constraints. WebMCP lets both operate on the same live application state: the owner edits the visible grid, and the agent reads or changes that canonical state through structured tools without reconstructing the UI from a screenshot.
+Existing business software makes the owner translate intent into menus, reports and forms. OwnerOps exposes structured user-intent tools from the live application instead:
+
+```text
+owner intent
+    ↓
+ChatGPT agent
+    ↓
+focused StoreState read
+    ↓
+Daily Brief / deterministic planning
+    ↓
+StorePlan Before → After → Delta
+    ↓
+human edit
+    ↓
+agent re-review
+    ↓
+explicit apply
+```
+
+The agent never reconstructs the operating state from a screenshot or Snapshot text during normal work.
+
+## Canonical demo
+
+### 1. Daily operating brief
+Ask:
+
+> 오늘 장사 준비해줘.
+
+The agent should read `get_daily_brief`, surface the top few store issues, and—when supported evidence exists—prepare one cross-domain StorePlan. In the seeded coffee demo this can combine a staffing recovery with inventory reorder recommendations.
+
+### 2. Staffing incident
+Tell the agent:
+
+> 민수 금요일 저녁 못 나온대. 알아서 처리해.
+
+OwnerOps records the call-out as an availability exception + incident history, finds replacements that actually satisfy role/skill/regular-availability/hour limits, and previews the recovery. Once resolved, the call-out remains historical truth but no longer appears as an unresolved incident.
+
+### 3. Full-week rebuild
+Ask:
+
+> 이번 주 전체 근무표 다시 짜줘. 40시간 안에서 피크 공백 최소화해.
+
+The planner preserves employee availability/hours/skills and peak coverage rather than treating workers as interchangeable cells.
+
+### 4. Inventory/cost question
+Ask:
+
+> 우유 주말까지 버텨? 지금 사는 가격도 비싼지 봐줘.
+
+OwnerOps can compare current on-hand/usage/lead time to par and compare the store's recent actual purchase cost with a mapped external reference. If a provider is unavailable, the Reference Resolver falls back through recent/cached/seed/stale data and explicitly reports degraded freshness.
+
+### 5. Multi-domain review
+A StorePlan may contain staffing + purchase + task changes at once. The UI/agent keeps a shared:
+
+```text
+Before → After → Delta
+```
+
+for labor, food cost, purchase cash outlay, waste exposure, review flags and break-even sales. Purchase actions become **planned purchase orders** when applied; OwnerOps never pretends goods were received or a supplier was contacted without a real integration.
+
+## WebMCP tool contract
+
+The client registers exactly nine intent-level tools through `document.modelContext.registerTool`:
+
+1. `configure_demo_store`
+2. `get_store_state`
+3. `get_daily_brief`
+4. `record_operating_event`
+5. `plan_store_actions`
+6. `preview_store_plan`
+7. `evaluate_current_plan`
+8. `apply_store_plan`
+9. `restore_store_snapshot`
+
+Primary live path:
+
+```text
+get_store_state / get_daily_brief
+        ↓
+plan_store_actions
+        ↓
+preview_store_plan
+        ↓
+human edit
+        ↓
+evaluate_current_plan
+        ↓
+apply_store_plan
+```
+
+`restore_store_snapshot` is backup/restore only. Do not use Snapshot UI/export as an intermediate planning transport.
+
+## Demo profiles
+
+Industries:
+- diner
+- pizza
+- coffee
+- salon
+- sushi
+- curry
+
+Markets:
+- Seoul (`kr-seoul`)
+- New York City (`us-nyc`)
+- Tokyo (`jp-tokyo`)
+- Madrid (`es-madrid`)
+- Shanghai (`cn-shanghai`)
+
+Markets provide currency, wage-reference metadata, localized worker names, timezone, regular worker availability, occupancy seed and external-reference provider metadata. Industries provide actual differentiated inventory/menu/skill/task seeds rather than merely changing labels.
+
+A user-supplied 31-menu global restaurant-cost guide is kept as a **benchmark registry**, not live/store truth. It supplies examples of yield-aware costing and menu-cost ratios across Tokyo, New York, Seoul, Barcelona-oriented Spain and Shanghai. The Barcelona references remain labeled as such even when the configured OwnerOps Spanish market is Madrid.
+
+## Snapshot
+
+Portable export now uses:
+
+```text
+OWNEROPS_SNAPSHOT v2
+```
+
+It preserves StoreState operating truth while excluding transient preview/StorePlan/activity. Legacy v1 staffing snapshots are migrated into the matching deterministic StoreState seed and then overlaid with their original staffing truth.
+
+## Boundaries
+
+OwnerOps deliberately does **not** claim to be:
+- tax/accounting/bookkeeping software,
+- statutory payroll filing,
+- a full labor-law compliance engine,
+- a real supplier ordering/payment integration unless one is connected,
+- a messaging provider unless one is connected,
+- a source of guaranteed commodity/rent/weather truth.
+
+Wage/labor/legal outputs are operational estimates/review flags. The demo call-out policy is explicitly `unpaid_hours`; real deployments would use the store's actual leave/pay policy.
 
 ## Run locally
 
-Requirements: Node.js 20.9 or newer and npm.
+Requirements: Node.js 20.9+ and npm.
 
 ```bash
 npm install
@@ -23,7 +197,7 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-No API key, backend, database, authentication, or external service is required.
+The deterministic demo does not require API keys. Live external-reference adapters are optional enhancements; seeded references keep the demo reproducible when providers are unavailable.
 
 ## Verification commands
 
@@ -35,71 +209,23 @@ npm run build
 npm audit --omit=dev
 ```
 
-`npm run start` serves the production build after `npm run build`.
-
-## Canonical demo
-
-### Incident recovery
-
-1. Reset the demo fixture.
-2. Mark Minsoo unavailable for Friday 18:00–22:00.
-3. Compare the three deterministic recovery scenarios.
-4. Preview the recommended option; the committed schedule remains unchanged.
-5. Manually change the candidate replacement and review the recalculated impact.
-6. Ask the agent to evaluate the current plan; it reads the exact human-edited candidate.
-7. Apply the reviewed preview.
-8. Refresh to confirm `localStorage` persistence.
-
-### Full-week rebuild
-
-1. Ask the agent to rebuild or rebalance the current week, optionally with a weekly-hour ceiling or cost/balance priority.
-2. The agent reads the live OwnerOps state, generates deterministic `rebuild_week` plans, and previews the recommended multi-shift candidate directly in the UI.
-3. If the current team cannot satisfy the requested ceiling, OwnerOps surfaces an explicit qualified-role capacity gap instead of hiding the shortage.
-4. The owner can edit the candidate in the schedule, then ask the agent to evaluate the exact live edit before applying it.
-
-Portable snapshots remain available for explicit backup/restore or handoff, but they are not an intermediate planning path for live schedule work.
-
-Industry profiles change only the business identity, operational labels, restrained accent palette, suggested prompt, and assistant accessory. Staffing IDs, hours, rates, calculations, and the canonical workflow remain shared.
-
-## WebMCP
-
-The client registers these eight user-intent tools through `document.modelContext.registerTool`:
-
-- `get_business_state`
-- `create_schedule_draft`
-- `mark_worker_unavailable`
-- `get_response_options`
-- `preview_staffing_change`
-- `evaluate_current_plan`
-- `apply_staffing_change`
-- `import_schedule_snapshot`
-
-Tool handlers and human UI controls call the same deterministic application actions. The page remains fully functional when `document.modelContext` is absent.
-
-For live schedule analysis, rebuilds, optimization, review, or changes, the primary route is `get_business_state` → `get_response_options` → `preview_staffing_change`. `import_schedule_snapshot` is reserved for explicit restore/import requests when the user provides or asks to restore a portable snapshot; agents should not open or export the Snapshot UI to understand the current schedule.
-
-`create_schedule_draft` accepts the required `preset: "demo"` plus an optional generic `industry` enum: `diner`, `pizza`, `coffee`, `salon`, `sushi`, or `curry`. Branded requests should be mapped by the external agent to the nearest generic category; OwnerOps does not reproduce branded identities.
-
-Implementation entry point: [`src/webmcp/register-tools.ts`](src/webmcp/register-tools.ts). The eight tools are intentionally bounded to state inspection, schedule drafting, incident handling, staffing-plan generation, preview, evaluation, apply, and explicit snapshot restore.
-
-For local Chrome testing, enable `chrome://flags/#enable-webmcp-testing`, relaunch Chrome, open the app, and inspect/call the registered tools with a WebMCP-capable agent or the Model Context Tool Inspector. WebMCP requires an origin-isolated context; the app sends `Origin-Agent-Cluster: ?1`.
-
-## Live application
-
-The current production deployment is [ownerops-webmcp.vercel.app](https://ownerops-webmcp.vercel.app). The HTTPS page and origin-isolation header are verified; live tool invocation still requires a WebMCP-capable Chrome/ChatGPT browser.
+Do not treat a Vercel deployment blocked by account build-rate limits as a code verification pass or failure; run the local verification commands or a successful Preview build before merge.
 
 ## Architecture
 
-- `src/domain/` — canonical model, fixture, calculations, scenarios, and shared actions
-- `src/industry/` — one registry for the six lightweight generic industry profiles
-- `src/state/` — the single React-owned `AppState` and `localStorage` persistence
-- `src/components/` — schedule, scenario comparison, preview/apply flow, and assistant rail
-- `src/snapshot/` — strict versioned text serialization and transactional parsing
-- `src/webmcp/` — imperative WebMCP registration and the shared state bridge
-- `tests/` — deterministic domain, snapshot, and UI/WebMCP shared-path tests
+- `src/domain/model.ts` — canonical StoreState and StorePlan types
+- `src/domain/actions.ts` — shared human/WebMCP state mutations
+- `src/domain/availability.ts` — worker hard constraints
+- `src/domain/rebuild.ts` — deterministic staffing rebuild
+- `src/domain/store-ops.ts` — yield-aware store metrics, Daily Brief and BEP/FL Cost
+- `src/domain/reference-resolver.ts` — live/recent/cached/seed/stale fallback semantics
+- `src/domain/store-plan.ts` — multi-domain Before/After/Delta and reviewed apply
+- `src/domain/store-planning.ts` — intent-level deterministic planning
+- `src/industry/` — industry operating seeds + user-supplied menu-cost benchmark registry
+- `src/market/` — market/wage/rent/reference-provider seeds
+- `src/state/` — one React-owned canonical state
+- `src/webmcp/` — nine-tool WebMCP registration/bridge
+- `src/snapshot/` — v2 StoreState portability + legacy migration
+- `tests/` — deterministic domain, StorePlan, snapshot and shared WebMCP path tests
 
-Product scope and acceptance criteria remain governed by `AGENTS.md` and `docs/`.
-
-## Release gate
-
-Development uses the private repository. Before Devpost submission, run the verification commands from a clean clone, complete live WebMCP validation in a compatible browser, review the repository for secrets/private data, then make the repository public and confirm that the root `LICENSE` is detected.
+Product and implementation truth is governed by `AGENTS.md` and `docs/`. The current major expansion is developed on the `re0/ai-store-manager` branch until the draft PR verification gates pass.
