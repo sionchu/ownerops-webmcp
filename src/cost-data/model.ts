@@ -28,6 +28,18 @@ export type CostDataSource = {
   notes: string;
 };
 
+/** Tier 1: immutable source evidence. The sync script stores the original payload here as a local snapshot. */
+export type RawPriceSnapshot<TPayload = unknown> = {
+  schemaVersion: 1;
+  sourceId: CostDataSourceId;
+  markets: MarketId[];
+  fetchedAt: string;
+  status: "ok" | "skipped";
+  requestUrl: string | null;
+  payload: TPayload | null;
+};
+
+/** Tier 2: source-specific records normalized to one price/quantity/unit/currency contract. */
 export type PriceObservation = {
   sourceId: CostDataSourceId;
   market: MarketId;
@@ -45,11 +57,32 @@ export type PriceObservation = {
   confidence: CostDataConfidence;
 };
 
+/** Tier 3: recipe-ready usable price after procurement yield is applied. */
+export type EffectiveIngredientPrice = PriceObservation & {
+  canonicalIngredientId: string;
+  edibleYield: number;
+  usableUnitCost: number;
+};
+
 export function calculateUsableUnitCost(price: number, purchaseQuantity: number, edibleYield = 1): number {
   if (!Number.isFinite(price) || price < 0) throw new Error("Price must be a finite non-negative number.");
   if (!Number.isFinite(purchaseQuantity) || purchaseQuantity <= 0) throw new Error("Purchase quantity must be greater than zero.");
   if (!Number.isFinite(edibleYield) || edibleYield <= 0 || edibleYield > 1) throw new Error("Edible yield must be greater than 0 and at most 1.");
   return price / purchaseQuantity / edibleYield;
+}
+
+export function toEffectiveIngredientPrice(
+  observation: PriceObservation,
+  canonicalIngredientId: string,
+  edibleYield: number,
+): EffectiveIngredientPrice {
+  if (canonicalIngredientId.trim() === "") throw new Error("Canonical ingredient id is required.");
+  return {
+    ...observation,
+    canonicalIngredientId,
+    edibleYield,
+    usableUnitCost: calculateUsableUnitCost(observation.price, observation.purchaseQuantity, edibleYield),
+  };
 }
 
 export function parsePriceNumber(value: unknown): number | null {
