@@ -158,3 +158,6 @@
 .shift-chip.preview.candidate-human-edit { animation-duration: 150ms; }
 .shift-chip.preview.candidate-reviewed { animation-duration: 180ms; }
 @media (max-width: 650px) { .decision-strip { gap: 12px; margin-bottom: 18px; } }
+
+.decision-strip + .scenario-panel { margin-top: 0; }
+.scenario-panel + .schedule-panel { margin-top: 20px; border-top: 1px solid var(--oo-border, var(--line)); }

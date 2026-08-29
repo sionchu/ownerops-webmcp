@@ -28,14 +28,6 @@ export type LiveOperatingSummaryInput = {
   incidentWindow: string;
 };
 
-function percent(locale: UiLocale, value: number): string {
-  return new Intl.NumberFormat(SUMMARY_INTL[locale], {
-    style: "percent",
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }).format(value);
-}
-
 function metricDetail(locale: UiLocale, input: LiveOperatingSummaryInput): string {
   const currency = new Intl.NumberFormat(SUMMARY_INTL[locale], {
     style: "currency",
