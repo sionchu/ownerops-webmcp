@@ -122,6 +122,6 @@ describe("thin UI locale layer", () => {
     expect(JSON.stringify(state)).toBe(before);
     expect(result.business.market).toBe("us-nyc");
     expect(result.business.industry).toBe("pizza");
-    expect(result.incident).not.toBeNull();
+    expect(result.activeIncident).not.toBeNull();
   });
 });
