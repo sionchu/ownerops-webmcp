@@ -6,7 +6,7 @@ import { DEMO_WEEK } from "@/domain/fixtures";
 import { applyChanges, hoursBetween } from "@/domain/impact";
 import type { AppState, PlanImpact, Shift } from "@/domain/model";
 import { INTL_LOCALE, getLocalizedIndustryProfile, getUiCopy, type UiLocale } from "@/i18n";
-import { disruptionBody, getOutreachCopy, liveOperatingSummary, markUnavailableLabel, marketScheduleContext, minimumWageLabel, outreachDraft, suggestedIncidentPrompt, unavailableLabel } from "@/i18n/dynamic";
+import { capacityGapCopy, disruptionBody, getOutreachCopy, liveOperatingSummary, markUnavailableLabel, marketScheduleContext, minimumWageLabel, outreachDraft, suggestedIncidentPrompt, unavailableLabel, weekRebuildCopy, weekRebuildTimelineCopy } from "@/i18n/dynamic";
 import { getIndustryProfile } from "@/industry/profiles";
 import { getMarketLocation, getMarketProfile } from "@/market/profiles";
 import { parseSnapshot, serializeSnapshot } from "@/snapshot/snapshot";
@@ -107,11 +107,22 @@ function AssistantRail({ supported }: { supported: boolean | null }) {
   const candidateHours = candidate.worker ? visibleImpact.workerWeeklyHours[candidate.worker.id] ?? 0 : 0;
   const candidateLabel = stage === "human-edit" ? ui.rail.humanEdit : stage === "reviewed" ? ui.rail.reviewed : ui.rail.agentProposal;
   const activity = ui.activity[state.activity.state];
+  const weekRebuild = state.preview?.kind === "week_rebuild" || state.activity.context === "week_rebuild";
+  const activeCapacityGap = state.preview?.capacityGap ?? null;
+  const rebuildTimeline = weekRebuildTimelineCopy(locale);
+  const multiChangePreview = Boolean(state.preview && state.preview.changes.length > 1);
   const showAvatarCallout = ["warning", "proposalReady", "reviewNeeded", "reviewed", "applied"].includes(state.activity.state);
   const activityDetail = state.activity.state === "warning" && incidentWorker
     ? `${unavailableLabel(locale, incidentWorker.name)} · ${ui.timeline.fridayGap}`
     : activity.detail;
-  const timeline = [
+  const timeline = weekRebuild ? [
+    { label: ui.timeline.readLive, detail: ui.timeline.canonicalLoaded, status: "complete" as TimelineStatus },
+    { label: rebuildTimeline.label, detail: rebuildTimeline.detail, status: hasProposal ? "complete" as TimelineStatus : "active" as TimelineStatus },
+    { label: ui.timeline.proposal, detail: state.preview ? `${state.preview.changes.length} ${ui.scenario.changes}` : ui.timeline.chooseOption, status: hasProposal ? "complete" as TimelineStatus : "pending" as TimelineStatus },
+    { label: ui.timeline.humanReview, detail: applied || reviewed ? ui.timeline.editInReviewedPlan : needsReview ? ui.timeline.reviewPending : state.preview ? ui.timeline.waitingEdit : ui.timeline.editUncommitted, status: applied || reviewed ? "complete" as TimelineStatus : needsReview || state.preview ? "active" as TimelineStatus : "pending" as TimelineStatus },
+    { label: ui.timeline.agentReview, detail: applied || reviewed ? ui.timeline.exactRecalculated : needsReview ? ui.timeline.evaluateNext : ui.timeline.runsAfterEdit, status: applied || reviewed ? "complete" as TimelineStatus : needsReview ? "active" as TimelineStatus : "pending" as TimelineStatus },
+    { label: ui.timeline.applyReviewed, detail: applied ? ui.timeline.committed : reviewed ? ui.timeline.readyToApply : ui.timeline.onlyAfterReview, status: applied ? "complete" as TimelineStatus : reviewed ? "active" as TimelineStatus : "pending" as TimelineStatus },
+  ] : [
     { label: ui.timeline.readLive, detail: ui.timeline.canonicalLoaded, status: "complete" as TimelineStatus },
     { label: `${profile.copy.incidentLabel} · ${unavailableLabel(locale, incidentWorker?.name ?? "Minsoo")}`, detail: hasIncident ? `${ui.timeline.fridayGap} · ${profile.copy.peakLabel}` : ui.timeline.waitingIncident, status: hasIncident ? "complete" as TimelineStatus : "pending" as TimelineStatus },
     { label: ui.timeline.compared, detail: hasOptions ? ui.timeline.recoveryReady : hasIncident ? ui.timeline.comparing : ui.timeline.openIncident, status: hasOptions ? "complete" as TimelineStatus : hasIncident ? "active" as TimelineStatus : "pending" as TimelineStatus },
@@ -137,16 +148,17 @@ function AssistantRail({ supported }: { supported: boolean | null }) {
       </ol>
       {state.preview && previewImpact && <section className={`candidate-card candidate-${stage}`} aria-label={`${candidateLabel} ${ui.rail.candidatePlan}`}>
         <div className="candidate-card-head"><span>{ui.rail.candidatePlan}</span><strong>{candidateLabel}</strong></div>
-        <h3>{candidate.label}</h3>
+        <h3>{multiChangePreview && state.preview ? `${state.preview.changes.length} ${ui.scenario.changes}` : candidate.label}</h3>
         <small>{stage === "human-edit" ? ui.rail.localImpactPending : stage === "reviewed" ? ui.rail.reviewedReady : ui.rail.previewUncommitted}</small>
         <div className="candidate-metrics">
           <div><span>{ui.rail.addedPayroll}</span><strong>{signedMoney(state, locale, visibleImpact.payrollDelta)}</strong></div>
-          <div><span>{ui.rail.weeklyHours}</span><strong>{candidateHours} h</strong></div>
+          <div><span>{multiChangePreview ? ui.scenario.changes : ui.rail.weeklyHours}</span><strong>{multiChangePreview ? visibleImpact.scheduleChangeCount : `${candidateHours} h`}</strong></div>
           <div><span>{profile.copy.coverageLabel}</span><strong>{visibleImpact.uncoveredPeakMinutes ? `${visibleImpact.uncoveredPeakMinutes} ${ui.rail.minutesGap}` : ui.rail.covered}</strong></div>
           <div><span>{ui.rail.warnings}</span><strong>{visibleImpact.warnings.length}</strong></div>
         </div>
         <p className="candidate-note">{stage === "human-edit" ? ui.rail.localImpactPending : stage === "reviewed" ? ui.rail.reviewedReady : ui.rail.previewUncommitted}</p>
       </section>}
+      {activeCapacityGap && (() => { const gapCopy = capacityGapCopy(locale, profile.roleLabels[activeCapacityGap.role], activeCapacityGap.hoursPerWeek); return <section className="capacity-gap-card" aria-label={gapCopy.eyebrow}><span className="activity-kicker">{gapCopy.eyebrow}</span><h3>{gapCopy.title}</h3><p>{gapCopy.detail}</p></section>; })()}
       {needsReview && <div className="agent-prompt"><span>{ui.rail.nextAgentAction}</span><strong>{ui.rail.evaluateCurrentPlan}</strong><small>{ui.rail.rereadExactEdit}</small></div>}
       {!state.preview && !needsReview && <div className="agent-prompt agent-suggestion"><span>{ui.rail.tryAsking}</span><strong>{suggestedIncidentPrompt(locale, incidentWorker?.name ?? "Minsoo", profile.copy.peakLabel)}</strong><small>{ui.rail.sameLiveSchedule}</small></div>}
       <div className="rail-facts">
@@ -228,6 +240,10 @@ function ScenarioPanel() {
   const incidentShift = state.shifts.find((item) => item.id === state.incident?.shiftId);
   const incidentWorker = state.workers.find((worker) => worker.id === (state.incident?.workerId ?? "minsoo"));
   if (!state.incident) {
+    if (state.preview?.kind === "week_rebuild") {
+      const rebuild = weekRebuildCopy(locale, state.preview.changes.length);
+      return <section className="scenario-panel week-rebuild-summary"><div><span className="eyebrow">{rebuild.eyebrow}</span><h2>{rebuild.title}</h2><p>{rebuild.body}</p></div><div className="rebuild-stats"><strong>{state.preview.changes.length} {ui.scenario.changes}</strong><span>{state.preview.impact.uncoveredPeakMinutes ? `${state.preview.impact.uncoveredPeakMinutes} ${ui.rail.minutesGap}` : ui.preview.covered}</span></div></section>;
+    }
     return <section className="scenario-panel pre-incident"><div><span className="eyebrow">{profile.copy.incidentLabel} · {ui.scenario.canonicalDisruption}</span><h2>{profile.copy.disruptionTitle}</h2><p>{disruptionBody(locale, incidentWorker?.name ?? "Minsoo")}</p></div><button className="danger-soft" onClick={() => runAction({ type: "mark_unavailable", workerId: "minsoo", shiftId: "fri-minsoo-18", reason: "Last-minute absence" })}><Icon name="alert"/>{markUnavailableLabel(locale, incidentWorker?.name ?? "Minsoo")}</button></section>;
   }
   return (

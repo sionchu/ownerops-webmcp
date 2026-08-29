@@ -1,7 +1,7 @@
-import { getResponseOptions, type ApplicationAction } from "@/domain/actions";
+import { getResponseOptions, type ApplicationAction, type ResponseOptionRequest } from "@/domain/actions";
 import { applyChanges, calculateImpact } from "@/domain/impact";
 import { getIndustryProfile, isIndustryId } from "@/industry/profiles";
-import type { AppState, IndustryId, MarketId, StaffingChange } from "@/domain/model";
+import type { AppState, CapacityGap, IndustryId, MarketId, PlanKind, StaffingChange } from "@/domain/model";
 import { getLocalizedIndustryProfile, isUiLocale, SUPPORTED_UI_LOCALES, type UiLocale } from "@/i18n";
 import { getMarketLocation, getMarketProfile, isMarketId, MARKET_PROFILES } from "@/market/profiles";
 import { parseSnapshot } from "@/snapshot/snapshot";
@@ -70,6 +70,8 @@ function businessState(state: AppState, locale: UiLocale) {
     shifts: planShifts.map((shift) => ({ ...shift, roleLabel: profile.roleLabels[shift.role] })),
     incident: state.incident,
     preview: state.preview,
+    planKind: state.preview?.kind ?? state.activity.context ?? null,
+    capacityGap: state.preview?.capacityGap ?? null,
     metrics: {
       projectedLaborCost: impact.projectedLaborCost,
       currency: state.business.currency,
@@ -108,18 +110,31 @@ export function createToolExecutors(bridge: ToolBridge) {
       const next = bridge.runAction({ type: "mark_unavailable", workerId: input.workerId, shiftId: input.shiftId, reason: input.reason });
       return { summary: "The shift is uncovered; no replacement was assigned.", incident: next.incident, shift: next.shifts.find((item) => item.id === input.shiftId) };
     },
-    getResponseOptions: () => {
-      const options = getResponseOptions(bridge.getState());
-      if (options.length === 3) {
-        bridge.runAction({ type: "set_activity", activity: { state: "proposalReady", message: "Compared three recovery options.", detail: "Three bounded options are ready to preview." } });
-      }
-      return { summary: options.length === 3 ? "Three recovery options are ready." : "No complete three-option set is available for the current incident.", count: options.length, options };
+    getResponseOptions: (input: ResponseOptionRequest = {}) => {
+      const options = getResponseOptions(bridge.getState(), input);
+      const rebuild = input.objective === "rebuild_week";
+      const recommended = rebuild ? options[0] : undefined;
+      return {
+        summary: rebuild
+          ? options.length > 0 ? `${options.length} deterministic week-rebuild plans are ready. The first matches the requested priority.` : "No week rebuild satisfies the requested constraints with the allowed capacity-gap policy."
+          : options.length === 3 ? "Three recovery options are ready." : "No complete three-option set is available for the current incident.",
+        count: options.length,
+        options,
+        recommendedPreview: recommended
+          ? {
+              planKind: "week_rebuild" as const,
+              title: recommended.title,
+              changes: recommended.changes,
+              ...(recommended.capacityGap ? { capacityGap: recommended.capacityGap } : {}),
+            }
+          : null,
+      };
     },
-    previewStaffingChange: (input: { scenarioId?: string; title?: string; changes?: StaffingChange[]; uiLocale?: unknown }) => {
+    previewStaffingChange: (input: { scenarioId?: string; title?: string; changes?: StaffingChange[]; planKind?: PlanKind; capacityGap?: CapacityGap | null; uiLocale?: unknown }) => {
       requireUiLocale(input.uiLocale);
       const next = input.scenarioId
         ? bridge.runAction({ type: "preview_scenario", scenarioId: input.scenarioId })
-        : bridge.runAction({ type: "preview_changes", title: input.title ?? "Custom staffing change", changes: input.changes ?? [] });
+        : bridge.runAction({ type: "preview_changes", title: input.title ?? "Custom staffing change", changes: input.changes ?? [], planKind: input.planKind, capacityGap: input.capacityGap });
       return { summary: "Preview only — nothing has been committed.", preview: next.preview };
     },
     evaluateCurrentPlan: () => {
@@ -127,7 +142,7 @@ export function createToolExecutors(bridge: ToolBridge) {
       const planShifts = state.preview ? applyChanges(state.shifts, state.preview.changes) : state.shifts;
       const impact = calculateImpact(state, planShifts);
       const candidateWorker = state.preview?.changes[0] ? state.workers.find((worker) => worker.id === state.preview?.changes[0]?.workerId) : undefined;
-      bridge.runAction({ type: "set_activity", activity: { state: "reviewed", message: "Agent reviewed live plan.", detail: `${displayName(candidateWorker) ? `${displayName(candidateWorker)} candidate` : "Current schedule"} reviewed from the exact live state. Ready to apply.` } });
+      bridge.runAction({ type: "set_activity", activity: { state: "reviewed", message: "Agent reviewed live plan.", detail: `${state.preview && state.preview.changes.length > 1 ? `${state.preview.changes.length} schedule changes` : displayName(candidateWorker) ? `${displayName(candidateWorker)} candidate` : "Current schedule"} reviewed from the exact live state. Ready to apply.`, context: state.preview?.kind } });
       return { summary: `Current live schedule has ${impact.warnings.length} warnings and a ${(impact.laborRatio * 100).toFixed(1)}% estimated labor ratio.`, impact };
     },
     applyStaffingChange: (input: { previewId: string; version: number; uiLocale?: unknown }) => {
@@ -164,7 +179,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "create_schedule_draft",
     title: "Create demo schedule draft",
-    description: "Create or reconfigure the bounded weekly demo schedule. uiLocale MUST match the language of the user's latest instruction. industry and market are independent: set market only when the user explicitly identifies a country/city/market or asks for that market's wage context; otherwise preserve the current market. Never infer market from language.",
+    description: "Create or reconfigure the bounded weekly demo schedule. uiLocale MUST match the language of the user's latest instruction. An industry-only correction preserves the live incident, preview, and schedule. Changing market creates a fresh market-specific demo because worker names, wages, and currency change. Never infer market from language.",
     inputSchema: {
       type: "object",
       properties: {
@@ -191,23 +206,34 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
 
   register(document.modelContext.registerTool({
     name: "get_response_options",
-    title: "Compare staffing recovery options",
-    description: "Return exactly three deterministic recovery options for the current uncovered incident when the demo fixture supports them. Does not change the committed schedule, UI language, or market.",
-    inputSchema: emptySchema,
+    title: "Generate staffing response plans",
+    description: "Generate deterministic staffing plans without committing anything. Use objective=incident_recovery for the current call-out. Use objective=rebuild_week when the owner asks to optimize, rebuild, reduce labor cost, rebalance hours, or expose missing qualified capacity across the whole week. Week rebuild always preserves the published peak-coverage windows. When the user asked for action rather than explanation only, prefer previewing the first returned plan without asking another permission question because preview is non-committing.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        objective: { type: "string", enum: ["incident_recovery", "rebuild_week"], description: "Planning scope. Defaults to incident_recovery for backward compatibility." },
+        maxWeeklyHours: { type: "number", minimum: 1, maximum: 80, description: "Optional weekly-hour ceiling for rebuild_week; defaults to the configured review threshold." },
+        prioritize: { type: "string", enum: ["cost", "balance", "minimal_changes"], description: "Primary week-rebuild strategy. The tool still returns deterministic alternatives." },
+        allowCapacityGap: { type: "boolean", description: "If true, return the best plan plus an explicit qualified-role capacity gap when the current team cannot satisfy the hour ceiling. Defaults to true." },
+      },
+      additionalProperties: false,
+    },
     annotations: { readOnlyHint: true },
-    execute: async () => tools.getResponseOptions(),
+    execute: async (input) => tools.getResponseOptions(input as ResponseOptionRequest),
   }, { signal: controller.signal }));
 
   register(document.modelContext.registerTool({
     name: "preview_staffing_change",
     title: "Preview staffing change",
-    description: "Display a recovery scenario or bounded shift reassignment in the schedule as a candidate preview without committing it. uiLocale MUST match the language of the user's latest instruction; market is unchanged.",
+    description: "Display an incident recovery or a bounded full-week rebuild as a candidate preview without committing it. For rebuild_week, pass the recommendedPreview title, changes, planKind, and capacityGap when present from get_response_options. A preview may reshape many shifts at once; the human can still edit the live candidate before agent review.",
     inputSchema: {
       type: "object",
       properties: {
         scenarioId: stringField("Id returned by get_response_options."),
         title: stringField("Short title for an explicit bounded change set."),
-        changes: { type: "array", maxItems: 3, items: { type: "object", properties: { shiftId: stringField("Existing shift id."), workerId: stringField("Replacement worker id."), start: stringField("Optional ISO local start."), end: stringField("Optional ISO local end.") }, required: ["shiftId", "workerId"], additionalProperties: false } },
+        changes: { type: "array", maxItems: 16, items: { type: "object", properties: { shiftId: stringField("Existing shift id."), workerId: stringField("Replacement worker id."), start: stringField("Optional ISO local start."), end: stringField("Optional ISO local end.") }, required: ["shiftId", "workerId"], additionalProperties: false } },
+        planKind: { type: "string", enum: ["custom", "week_rebuild"], description: "Set week_rebuild when previewing a full-week plan returned by get_response_options." },
+        capacityGap: { type: "object", properties: { role: { type: "string", enum: ["barista", "manager"] }, hoursPerWeek: { type: "number" }, shiftIds: { type: "array", items: { type: "string" } }, reason: { type: "string" } }, required: ["role", "hoursPerWeek", "shiftIds", "reason"], additionalProperties: false },
         uiLocale: uiLocaleField,
       },
       required: ["uiLocale"],
@@ -215,7 +241,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
       additionalProperties: false,
     },
     annotations: { readOnlyHint: false },
-    execute: async (input) => tools.previewStaffingChange(input as { scenarioId?: string; title?: string; changes?: StaffingChange[]; uiLocale?: UiLocale }),
+    execute: async (input) => tools.previewStaffingChange(input as { scenarioId?: string; title?: string; changes?: StaffingChange[]; planKind?: PlanKind; capacityGap?: CapacityGap | null; uiLocale?: UiLocale }),
   }, { signal: controller.signal }));
 
   register(document.modelContext.registerTool({

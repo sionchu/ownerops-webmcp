@@ -232,3 +232,34 @@ export function minimumWageLabel(locale: UiLocale): string {
     default: return "Official wage reference";
   }
 }
+
+
+export function weekRebuildCopy(locale: UiLocale, changeCount: number) {
+  switch (locale) {
+    case "ko": return { eyebrow: "주간 운영 재구성", title: "에이전트가 이번 주 운영안을 다시 짰습니다.", body: `${changeCount}개 근무 배정을 한 번에 재구성했습니다. 피크 커버리지는 유지되며 아직 확정되지 않았습니다.` };
+    case "ja": return { eyebrow: "週間オペレーション再構成", title: "エージェントが今週の運用プランを組み直しました。", body: `${changeCount}件のシフト割当を一括で再構成しました。ピーク時のカバレッジは維持され、まだ確定されていません。` };
+    case "es": return { eyebrow: "Reconstrucción semanal", title: "El agente ha reconstruido la operación de esta semana.", body: `Se han reorganizado ${changeCount} asignaciones de turno de una vez. La cobertura punta se mantiene y nada está confirmado todavía.` };
+    case "zh-CN": return { eyebrow: "本周运营重构", title: "智能体已重新构建本周运营方案。", body: `一次重构了 ${changeCount} 个班次分配。高峰覆盖保持不变，当前仍未提交。` };
+    default: return { eyebrow: "Weekly operation rebuild", title: "The agent rebuilt this week's operating plan.", body: `${changeCount} shift assignments were reshaped at once. Peak coverage stays intact and nothing is committed yet.` };
+  }
+}
+
+export function capacityGapCopy(locale: UiLocale, roleLabel: string, hoursPerWeek: number) {
+  switch (locale) {
+    case "ko": return { eyebrow: "필요 인력", title: `${roleLabel} · 주 ${hoursPerWeek}시간`, detail: "현재 팀만으로는 설정한 주간 시간 제한과 역할 커버리지를 동시에 만족할 수 없습니다." };
+    case "ja": return { eyebrow: "必要な人員", title: `${roleLabel} · 週${hoursPerWeek}時間`, detail: "現在のチームだけでは、設定した週間時間上限と役割カバレッジを同時に満たせません。" };
+    case "es": return { eyebrow: "Capacidad necesaria", title: `${roleLabel} · ${hoursPerWeek} h/semana`, detail: "El equipo actual no puede cumplir a la vez el límite semanal configurado y la cobertura del rol." };
+    case "zh-CN": return { eyebrow: "所需人力", title: `${roleLabel} · 每周 ${hoursPerWeek} 小时`, detail: "仅靠当前团队无法同时满足设定的每周工时上限和角色覆盖要求。" };
+    default: return { eyebrow: "Capacity needed", title: `${roleLabel} · ${hoursPerWeek} h/week`, detail: "The current team cannot satisfy the configured weekly-hour limit and required role coverage at the same time." };
+  }
+}
+
+export function weekRebuildTimelineCopy(locale: UiLocale) {
+  switch (locale) {
+    case "ko": return { label: "주간 운영안 재구성", detail: "비용 · 근무시간 · 역할 · 피크 커버리지 동시 검토" };
+    case "ja": return { label: "週間プランを再構成", detail: "コスト・勤務時間・役割・ピークカバレッジを同時に確認" };
+    case "es": return { label: "Reconstruir la semana", detail: "Coste · horas · roles · cobertura punta revisados juntos" };
+    case "zh-CN": return { label: "重构本周方案", detail: "同时检查成本 · 工时 · 角色 · 高峰覆盖" };
+    default: return { label: "Rebuild weekly plan", detail: "Cost · hours · roles · peak coverage checked together" };
+  }
+}

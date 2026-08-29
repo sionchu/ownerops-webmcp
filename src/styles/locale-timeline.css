@@ -195,3 +195,18 @@
 .shift-chip .shift-time { margin-top: 3px; color: #60766d; font-size: 9px; font-weight: 650; line-height: 1.2; }
 .shift-chip.candidate-human-edit .shift-time { color: #80613f; }
 @keyframes avatar-callout-in { from { opacity: .45; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+
+/* Full-week rebuild hero. */
+.week-rebuild-summary { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 18px 20px; border-color: color-mix(in srgb, var(--oo-accent) 28%, var(--oo-border)); background: linear-gradient(120deg, color-mix(in srgb, var(--oo-accent-soft) 72%, var(--oo-surface)), var(--oo-surface)); }
+.week-rebuild-summary h2 { margin-top: 4px; font-size: 18px; }
+.week-rebuild-summary p { max-width: 720px; margin-top: 5px; color: var(--oo-secondary-ink); font-size: 11px; line-height: 1.45; }
+.rebuild-stats { display: grid; gap: 4px; min-width: 120px; text-align: right; }
+.rebuild-stats strong { color: var(--oo-accent); font-size: 18px; }
+.rebuild-stats span { color: var(--secondary); font-size: 10px; }
+.capacity-gap-card { margin-top: 12px; padding: 12px 13px; border: 1px solid #e4c7a2; border-radius: var(--oo-radius-card); background: #fffaf2; }
+.capacity-gap-card .activity-kicker { color: #a2652f; }
+.capacity-gap-card h3 { margin: 3px 0 0; font-size: 13px; }
+.capacity-gap-card p { margin-top: 5px; color: var(--secondary); font-size: 10px; line-height: 1.45; }
+.shift-chip.preview { will-change: transform, opacity; }
+@media (max-width: 900px) { .week-rebuild-summary { align-items: flex-start; flex-direction: column; } .rebuild-stats { text-align: left; } }

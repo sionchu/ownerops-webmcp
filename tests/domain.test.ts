@@ -67,6 +67,34 @@ describe("OwnerOps deterministic domain", () => {
     expect(options[0].impact.payrollDelta).toBeLessThanOrEqual(options[2].impact.payrollDelta);
   });
 
+  it("rebuilds the full week with many changes and exposes qualified capacity", () => {
+    const state = createDemoState("sushi", "jp-tokyo");
+    const options = getResponseOptions(state, { objective: "rebuild_week", maxWeeklyHours: 40, prioritize: "cost", allowCapacityGap: true });
+    expect(options).toHaveLength(3);
+    expect(options[0].kind).toBe("week_rebuild");
+    expect(options[0].changes.length).toBeGreaterThan(3);
+    expect(options[0].impact.payrollDelta).toBeLessThan(0);
+    expect(options[0].impact.uncoveredPeakMinutes).toBe(0);
+    expect(options[0].capacityGap).toMatchObject({ role: "manager", hoursPerWeek: 8 });
+  });
+
+  it("preserves live work when only the industry is corrected but resets on market change", () => {
+    let state = dispatchApplicationAction(createDemoState("pizza", "jp-tokyo"), { type: "mark_unavailable", workerId: "minsoo", shiftId: "fri-minsoo-18" });
+    const scenario = getResponseOptions(state)[0];
+    state = dispatchApplicationAction(state, { type: "preview_scenario", scenarioId: scenario.id });
+    const previewId = state.preview?.id;
+    state = dispatchApplicationAction(state, { type: "create_schedule_draft", preset: "demo", industry: "sushi" });
+    expect(state.business.industry).toBe("sushi");
+    expect(state.business.market).toBe("jp-tokyo");
+    expect(state.incident?.workerId).toBe("minsoo");
+    expect(state.preview?.id).toBe(previewId);
+    state = dispatchApplicationAction(state, { type: "create_schedule_draft", preset: "demo", market: "us-nyc" });
+    expect(state.business.market).toBe("us-nyc");
+    expect(state.incident).toBeNull();
+    expect(state.preview).toBeNull();
+    expect(state.workers.find((worker) => worker.id === "minsoo")?.name).toBe("Mason");
+  });
+
   it("keeps preview separate until matching id and version are applied", () => {
     let state = dispatchApplicationAction(createDemoState(), { type: "mark_unavailable", workerId: "minsoo", shiftId: "fri-minsoo-18" });
     const scenario = getResponseOptions(state)[0];
