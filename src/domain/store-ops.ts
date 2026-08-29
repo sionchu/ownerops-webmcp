@@ -1,6 +1,6 @@
 import { hoursBetween, estimatedPayroll } from "./impact";
 import { resolveCommodityReference } from "./reference-resolver";
-import type { AppState, InventoryItem, MenuItem, ReferenceObservation } from "./model";
+import type { AppState, InventoryItem, InventoryRecipeLine, MenuItem, PrepItem, RecipeLine, ReferenceObservation } from "./model";
 
 export type DailyBriefDomain = "people" | "stock" | "sales" | "operations" | "context" | "costs";
 
@@ -24,6 +24,40 @@ function safeYield(value: number | undefined): number {
   return Math.max(0.05, Math.min(1, value ?? 1));
 }
 
+function isInventoryRecipeLine(line: RecipeLine): line is InventoryRecipeLine {
+  return typeof line.inventoryItemId === "string";
+}
+
+function prepOutputQuantity(prep: PrepItem): number {
+  return Math.max(0.000001, prep.outputQuantity * safeYield(prep.batchYieldRate));
+}
+
+function inventoryLineCost(state: AppState, line: InventoryRecipeLine): number {
+  const item = (state.inventory ?? []).find((candidate) => candidate.id === line.inventoryItemId);
+  if (!item?.lastPurchaseUnitCost) return 0;
+  return (line.quantity / safeYield(line.yieldRate)) * item.lastPurchaseUnitCost;
+}
+
+export function prepUnitFoodCost(state: AppState, prep: PrepItem): number {
+  const batchCost = sum(prep.recipe.map((line) => inventoryLineCost(state, line)));
+  return batchCost / prepOutputQuantity(prep);
+}
+
+function addRecipeLineUsage(state: AppState, line: RecipeLine, multiplier: number, usage: Record<string, number>): void {
+  if (isInventoryRecipeLine(line)) {
+    const purchasedQuantity = line.quantity / safeYield(line.yieldRate);
+    usage[line.inventoryItemId] = (usage[line.inventoryItemId] ?? 0) + multiplier * purchasedQuantity;
+    return;
+  }
+  const prep = (state.prepItems ?? []).find((candidate) => candidate.id === line.prepItemId);
+  if (!prep) return;
+  const batchFraction = line.quantity / prepOutputQuantity(prep);
+  for (const component of prep.recipe) {
+    const purchasedQuantity = component.quantity / safeYield(component.yieldRate);
+    usage[component.inventoryItemId] = (usage[component.inventoryItemId] ?? 0) + multiplier * batchFraction * purchasedQuantity;
+  }
+}
+
 export function scheduledWageEstimate(state: AppState): number {
   return estimatedPayroll(state.workers, state.shifts);
 }
@@ -36,7 +70,7 @@ export function actualWageEstimate(state: AppState): number {
   }));
 }
 
-/** Purchased/raw inventory required by recorded sales, including preparation yield loss. */
+/** Purchased/raw inventory required by recorded sales, expanding Prep BOM into ingredient usage. */
 export function theoreticalInventoryUsage(state: AppState): Record<string, number> {
   const menu = new Map((state.menu ?? []).map((item) => [item.id, item]));
   const usage: Record<string, number> = {};
@@ -44,21 +78,17 @@ export function theoreticalInventoryUsage(state: AppState): Record<string, numbe
     for (const sold of snapshot.itemSales) {
       const item = menu.get(sold.menuItemId);
       if (!item) continue;
-      for (const recipeLine of item.recipe) {
-        const purchasedQuantity = recipeLine.quantity / safeYield(recipeLine.yieldRate);
-        usage[recipeLine.inventoryItemId] = (usage[recipeLine.inventoryItemId] ?? 0) + sold.quantity * purchasedQuantity;
-      }
+      for (const recipeLine of item.recipe) addRecipeLineUsage(state, recipeLine, sold.quantity, usage);
     }
   }
   return usage;
 }
 
 export function menuUnitFoodCost(state: AppState, menuItem: MenuItem): number {
-  const inventory = new Map((state.inventory ?? []).map((item) => [item.id, item]));
   return sum(menuItem.recipe.map((line) => {
-    const item = inventory.get(line.inventoryItemId);
-    if (!item?.lastPurchaseUnitCost) return 0;
-    return (line.quantity / safeYield(line.yieldRate)) * item.lastPurchaseUnitCost;
+    if (isInventoryRecipeLine(line)) return inventoryLineCost(state, line);
+    const prep = (state.prepItems ?? []).find((candidate) => candidate.id === line.prepItemId);
+    return prep ? line.quantity * prepUnitFoodCost(state, prep) : 0;
   }));
 }
 
