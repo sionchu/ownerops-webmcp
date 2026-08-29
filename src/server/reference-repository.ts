@@ -1,4 +1,4 @@
-import type { MarketId, ReferenceFreshness, ReferenceObservation } from "@/domain/model";
+import type { CurrencyCode, MarketId, ReferenceFreshness, ReferenceObservation } from "@/domain/model";
 import { isSupabaseConfigured, supabaseSelect } from "./supabase-rest";
 
 type LatestReferenceRow = {
@@ -19,6 +19,8 @@ type LatestReferenceRow = {
   metadata: Record<string, unknown> | null;
 };
 
+const CURRENCIES = new Set<CurrencyCode>(["KRW", "USD", "JPY", "EUR", "CNY"]);
+
 function freshnessFor(row: LatestReferenceRow, now = Date.now()): ReferenceFreshness {
   const observed = new Date(row.observed_at).getTime();
   if (!Number.isFinite(observed)) return "stale";
@@ -26,6 +28,10 @@ function freshnessFor(row: LatestReferenceRow, now = Date.now()): ReferenceFresh
   if (ageHours <= 36) return "recent";
   if (ageHours <= 24 * 7) return "cached";
   return "stale";
+}
+
+function currencyFor(value: string): CurrencyCode | undefined {
+  return CURRENCIES.has(value as CurrencyCode) ? value as CurrencyCode : undefined;
 }
 
 export async function loadCachedCommodityReferences(market: MarketId): Promise<ReferenceObservation[]> {
@@ -51,24 +57,24 @@ export async function loadCachedCommodityReferences(market: MarketId): Promise<R
     "oo_latest_reference_prices",
     `market_id=eq.${encodeURIComponent(market)}&select=${select}&order=observed_at.desc&limit=100`,
   );
-  return rows
-    .map((row) => {
-      const value = Number(row.price_per_base_unit);
-      if (!Number.isFinite(value)) return null;
-      return {
-        id: `db-${row.id}`,
-        kind: "commodity_price" as const,
-        provider: row.source_id,
-        referenceKey: row.reference_key,
-        geography: row.geography ?? market,
-        observedAt: row.observed_at,
-        fetchedAt: row.fetched_at,
-        value,
-        unit: row.base_unit,
-        currency: row.original_currency as ReferenceObservation["currency"],
-        sourceUrl: row.source_url ?? undefined,
-        freshness: freshnessFor(row),
-      } satisfies ReferenceObservation;
-    })
-    .filter((value): value is ReferenceObservation => value !== null);
+  const references: ReferenceObservation[] = [];
+  for (const row of rows) {
+    const value = Number(row.price_per_base_unit);
+    if (!Number.isFinite(value)) continue;
+    references.push({
+      id: `db-${row.id}`,
+      kind: "commodity_price",
+      provider: row.source_id,
+      referenceKey: row.reference_key,
+      geography: row.geography ?? market,
+      observedAt: row.observed_at,
+      fetchedAt: row.fetched_at,
+      value,
+      unit: row.base_unit,
+      currency: currencyFor(row.original_currency),
+      sourceUrl: row.source_url ?? undefined,
+      freshness: freshnessFor(row),
+    });
+  }
+  return references;
 }
