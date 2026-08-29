@@ -21,7 +21,7 @@ function printUsage() {
 
 function listSources() {
   for (const source of catalog) {
-    const config = source.authEnv.length > 0 ? source.authEnv.join(", ") : "none";
+    const config = source.configEnv.length > 0 ? source.configEnv.join(", ") : "none";
     console.log(`${source.id.padEnd(23)} ${source.automation.padEnd(10)} ${source.markets.join(", ").padEnd(48)} config: ${config}`);
   }
 }
@@ -48,12 +48,6 @@ async function fetchText(url, options = {}) {
   const response = await fetch(url, { ...options, signal: AbortSignal.timeout(20_000) });
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
   return { contentType: response.headers.get("content-type") ?? "", text: await response.text() };
-}
-
-function isoDay(offsetDays = 0) {
-  const now = new Date();
-  now.setUTCDate(now.getUTCDate() + offsetDays);
-  return now.toISOString().slice(0, 10);
 }
 
 async function syncKamis(source) {
