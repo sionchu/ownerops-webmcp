@@ -1,49 +1,78 @@
 # 15 — Decision Log
 
-## D001 — Product category
-OwnerOps is an **operational decision workbench/copilot**, not a generic employee scheduler or accounting suite.
+## Historical decisions retained
+### D001 — Product category (superseded in scope, retained in principle)
+OwnerOps began as an operational decision workbench/copilot rather than a generic scheduler. The “decision workbench” principle remains, but the domain is now broader store operations.
 
-## D002 — Canonical vertical
-Hackathon demo targets a café/small restaurant with 5–15 hourly workers. Other verticals are future narrative only.
+### D004 — Human-agent model — KEEP
+Human edits visually; external agent uses WebMCP structured tools; both share one canonical application state.
 
-## D003 — Canonical incident
-Last-minute worker unavailability for an already-published shift.
+### D005 — Preview before apply — KEEP
+Consequential recommendations are previewed before explicit commit.
 
-## D004 — Human-agent model
-Human edits visually; agent uses WebMCP structured tools; both share one canonical application state.
+### D010 — Assistant visual — KEEP
+Assistant rail/avatar remains functional/status-driven rather than a duplicate chat client.
 
-## D005 — Preview before apply
-Staffing recommendations are previewed before explicit user commit.
+### D011 — Design references — KEEP
+Calm information density and contextual actions remain preferred over AI-dashboard tropes.
 
-## D006 — Money context
-Expected sales and labor-cost ratio are included because they turn a staffing tool into an owner operations decision tool. Full P&L/accounting is excluded.
+### D013 — Development governance — KEEP
+Canonical MD files are SSOT. Requirement changes update docs first, then code. No parallel specs.
 
-## D007 — Draft schedule generation
-A rough schedule can be created via agent/tool for onboarding. It is not positioned as an optimal automatic scheduler.
+### D015 — Reviewed apply guard — KEEP / GENERALIZE
+The human-edit → exact agent review → explicit apply guard extends from staffing previews to generic StorePlan previews.
 
-## D008 — Portable snapshot
-Current schedule/business state can be exported/imported as text so future ChatGPT conversations can resume without server persistence.
+## RE0 decisions — 2026-08-30
+### D017 — Product RE0: AI Store Manager
+OwnerOps is now an **AI Store Manager for independent small businesses**, not a staffing-only product. The primary job is to tell the owner what matters now and coordinate reviewable operating actions across People, Sales, Stock, Operations, Context and Costs.
 
-## D009 — Persistence
-Use localStorage for same-browser convenience; snapshot for portable handoff. No backend DB.
+### D018 — Staffing-only AppState is a RE0 candidate
+The current single-incident staffing model is not extended by adding side modules. Replace it coherently with StoreState v2 while preserving the one-state/one-action invariant.
 
-## D010 — Assistant visual
-Use an assistant activity rail. Avatar is functional/status-driven. Tier-1 local 2.5D SVG/CSS is required fallback; Rive optional; full Spline 3D not on critical path.
+### D019 — Capability broad, UI surface narrow
+Do not build separate Payroll, Recruiting, Compliance, Inventory, Messaging and Tasks applications merely because the capabilities exist. Surface evidence/actions in the current operating context; add history/admin views only when necessary.
 
-## D011 — Design references
-Use Linear for density/hierarchy and Homebase for scheduling semantics. Avoid AI-template visual tropes.
+### D020 — Store actuals outrank external references
+Actual worker wage, availability, time entry, inventory count, supplier purchase cost, sales and lease terms are authoritative. External commodity/rent/weather data is contextual evidence with provenance/freshness and never silently overwrites store truth.
 
-## D012 — WebMCP surface
-Eight user-intent tools. Internal calculators remain internal.
+### D021 — Realistic industry seed catalogs
+Each industry has realistic bounded staff roles/skills, menu/service fixture, inventory purchased items, tasks and operating vocabulary. Use one industry registry plus one market registry, not 30 duplicated full-store fixtures.
 
-## D013 — Development governance
-Canonical MD files are SSOT. Future ChatGPT/Codex changes update docs first, then code. No parallel spec versions.
+### D022 — Worker profile is canonical scheduling constraint
+Worker profile includes employment type, skills/role, hourly rate, regular availability, one-time exceptions, preferred weekly hours and max weekly hours. Full-week plans must respect hard constraints and penalize needless published-schedule disruption.
 
-## D014 — Git visibility
-Develop in private repository; make public only for final Devpost requirement after secret/license/runbook audit.
+### D023 — Incident is history + current resolution
+A call-out creates a durable availability exception and operational incident record. Recovering coverage may resolve the incident; it does not erase the fact or make the UI offer the same fresh incident action again.
 
-## D015 — Reviewed apply guard
-Applying a staffing preview requires the canonical activity state to be `reviewed`. This preserves the human-edit → exact agent review → explicit apply workflow in every adapter, including WebMCP.
+### D024 — Scheduled wage vs actual wage estimate
+OwnerOps distinguishes scheduled shift wage estimate from attendance/time-entry-based actual wage estimate. Neither is positioned as a statutory payroll statement.
 
-## D016 — Industry visual token refinement
-The six presentation profiles use the shared industry token specification for canvas, surfaces, state-safe accents, incident-lane focus, rail glow, shape language, motif opacity, and theme timing. These values are consumed only by the UI layer; staffing data, calculations, snapshots, and WebMCP remain unchanged.
+### D025 — Inventory economics
+Inventory state includes on-hand/par/reorder/lead time, supplier and purchase history, recipe linkage and waste. Agent may compute days-of-cover, theoretical usage, variance, reorder and purchase-price evidence.
+
+### D026 — External commodity source registry
+Preferred public sources include KAMIS (Korea), USDA AMS MyMarketNews (US), MAFF wholesale statistics (Japan), MAPA origin-wholesale system (Spain) and China MOA agricultural wholesale data. Use only defensible item/unit/geography mappings; unmatched SKUs receive no fake benchmark.
+
+### D027 — Weather is context with deterministic fallback
+A live weather adapter is allowed, but the demo must remain deterministic when unavailable. Weather can inform a recommendation but is not treated as a guaranteed demand forecast.
+
+### D028 — Occupancy cost is fixed-cost truth
+Store lease base rent/recurring fees are stored as operating truth. External rent data is benchmark/trend only. OwnerOps may provide occupancy ratio and simple break-even/rent-escalation planning, not audited accounting or lease valuation.
+
+### D029 — Generic StorePlan
+Replace staffing-only preview with a small discriminated union of supported store changes. Initial changes: staffing, shift release, purchase, prep and task. Avoid a generic workflow engine.
+
+### D030 — Daily Brief is the primary proactive experience
+The canonical natural-language entry is “오늘 장사 준비해줘” / “오늘 내가 알아야 할 것만 말해줘.” OwnerOps returns 3–5 prioritized evidence-backed issues and can prepare a coordinated plan.
+
+### D031 — WebMCP contract may change
+The prior exact eight-tool count is not a product requirement. Target nine store-intent tools from `07_WEBMCP_CONTRACT.md`, migrated coherently without duplicate old/new business logic.
+
+### D032 — Snapshot demoted to backup/restore
+Snapshot remains useful for portability/recovery but is not a primary live planning path or prominent operating action.
+
+### D033 — Prototype persistence remains replaceable
+A mandatory backend/database is not required for the hackathon. In-browser canonical persistence is acceptable as an embedded prototype database if the StoreState model is backend-ready and external adapters are cleanly separated.
+
+### D034 — External integration honesty
+The prototype must not claim a real supplier order, message, payroll transfer, tax filing or other external side effect unless that integration actually exists. `Apply` commits supported OwnerOps StoreState changes only.
