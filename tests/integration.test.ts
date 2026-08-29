@@ -131,6 +131,28 @@ describe("shared UI and WebMCP application path", () => {
     expect(web.getState().activity.state).toBe("applied");
   });
 
+  it("lets WebMCP rebuild a full week, preview many shifts, and keep a new human edit inside the candidate", () => {
+    const web = bridge(createDemoState("sushi", "jp-tokyo"));
+    const executors = createToolExecutors(web);
+    const result = executors.getResponseOptions({ objective: "rebuild_week", maxWeeklyHours: 40, prioritize: "cost", allowCapacityGap: true });
+    expect(result.count).toBe(3);
+    expect(result.recommendedPreview?.changes.length).toBeGreaterThan(3);
+    expect(result.recommendedPreview?.capacityGap).toMatchObject({ role: "manager", hoursPerWeek: 8 });
+    const preview = executors.previewStaffingChange({ ...result.recommendedPreview!, uiLocale: "ko" });
+    expect(preview.preview?.kind).toBe("week_rebuild");
+    expect(preview.preview?.changes.length).toBeGreaterThan(3);
+    const untouched = web.getState().shifts.find((shift) => !preview.preview?.changes.some((change) => change.shiftId === shift.id) && shift.role === "barista")!;
+    const replacement = web.getState().workers.find((worker) => worker.role === "barista" && worker.id !== untouched.workerId)!;
+    const committedBefore = web.getState().shifts.find((shift) => shift.id === untouched.id)?.workerId;
+    web.runAction({ type: "reassign_shift", shiftId: untouched.id, workerId: replacement.id });
+    expect(web.getState().activity.state).toBe("reviewNeeded");
+    expect(web.getState().preview?.changes.some((change) => change.shiftId === untouched.id && change.workerId === replacement.id)).toBe(true);
+    expect(web.getState().shifts.find((shift) => shift.id === untouched.id)?.workerId).toBe(committedBefore);
+    const reviewed = executors.evaluateCurrentPlan();
+    expect(reviewed.impact.scheduleChangeCount).toBeGreaterThan(3);
+    expect(web.getState().activity.context).toBe("week_rebuild");
+  });
+
   it("registers the exact eight-tool WebMCP contract with JSON Schemas", async () => {
     const web = bridge();
     const registrations: Array<{ tool: { name: string; inputSchema?: unknown; annotations?: { readOnlyHint?: boolean } }; signal?: AbortSignal }> = [];
