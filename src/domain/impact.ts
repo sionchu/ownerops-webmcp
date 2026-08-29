@@ -1,3 +1,4 @@
+import { workerAvailableForInterval } from "./availability";
 import type { AppState, PlanImpact, RuleWarning, Shift, StaffingChange, Worker } from "./model";
 
 export function hoursBetween(start: string, end: string): number {
@@ -13,10 +14,6 @@ export function weeklyHours(workers: Worker[], shifts: Shift[]): Record<string, 
 export function estimatedPayroll(workers: Worker[], shifts: Shift[]): number {
   const rates = new Map(workers.map((worker) => [worker.id, worker.hourlyRate]));
   return shifts.reduce((sum, item) => (item.workerId && item.status === "scheduled" ? sum + hoursBetween(item.start, item.end) * (rates.get(item.workerId) ?? 0) : sum), 0);
-}
-
-function overlaps(startA: string, endA: string, startB: string, endB: string): boolean {
-  return new Date(startA) < new Date(endB) && new Date(endA) > new Date(startB);
 }
 
 function nightOverlap(shift: Shift): boolean {
@@ -41,8 +38,9 @@ export function collectWarnings(state: AppState, shifts = state.shifts): { warni
   const hours = weeklyHours(state.workers, shifts);
 
   for (const worker of state.workers) {
-    if ((hours[worker.id] ?? 0) > state.business.weeklyHourWarningThreshold) {
-      warnings.push({ code: "weekly_hours", severity: "warning", workerId: worker.id, message: `${worker.name} is scheduled for ${hours[worker.id]} hours, above the configured ${state.business.weeklyHourWarningThreshold}-hour review threshold.` });
+    const configuredLimit = Math.min(state.business.weeklyHourWarningThreshold, worker.maxWeeklyHours ?? state.business.weeklyHourWarningThreshold);
+    if ((hours[worker.id] ?? 0) > configuredLimit) {
+      warnings.push({ code: "weekly_hours", severity: "warning", workerId: worker.id, message: `${worker.name} is scheduled for ${hours[worker.id]} hours, above the configured ${configuredLimit}-hour review limit.` });
     }
   }
 
@@ -53,7 +51,10 @@ export function collectWarnings(state: AppState, shifts = state.shifts): { warni
     if (worker.role !== item.role && !(worker.role === "manager" && item.role === "barista")) {
       warnings.push({ code: "role_mismatch", severity: "warning", workerId: worker.id, shiftId: item.id, message: `${worker.name}'s role does not match this ${item.role} shift.` });
     }
-    if (worker.availability?.some((window) => !window.available && overlaps(item.start, item.end, window.start, window.end))) {
+    if ((item.requiredSkills?.length ?? 0) > 0 && !item.requiredSkills!.every((skill) => worker.skills?.includes(skill))) {
+      warnings.push({ code: "role_mismatch", severity: "warning", workerId: worker.id, shiftId: item.id, message: `${worker.name} does not have the required skills for this shift.` });
+    }
+    if (!workerAvailableForInterval(worker, item.start, item.end)) {
       warnings.push({ code: "availability", severity: "warning", workerId: worker.id, shiftId: item.id, message: `${worker.name} is unavailable during this shift.` });
     }
     if (nightOverlap(item)) {
