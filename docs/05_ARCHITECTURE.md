@@ -1,135 +1,185 @@
 # 05 — Architecture
 
 ## Core principle
-**One canonical store state, one deterministic domain layer, multiple adapters.**
+**One durable store truth, one deterministic domain layer, one live working projection, multiple adapters.**
 
 ```text
-Human UI ───────────────┐
-                        │
-WebMCP tools ───────────┼──> Application actions ──> canonical StoreState
-                        │             │
-Seed/live data adapters ┤             ├──> deterministic store calculations
-                        │             ├──> issue prioritization
-Snapshot restore ───────┘             ├──> candidate plan materialization
-                                      ├──> UI render
-                                      ├──> persistence
-                                      └──> snapshot serializer
+External providers ──> ingestion adapters ──> PostgreSQL / Supabase
+                                              │
+Merchant/store truth ─────────────────────────┤
+                                              │
+                                      Store Repository
+                                              │
+                                              ▼
+Human UI ───────────────┐              live StoreState projection
+                        │                       │
+WebMCP tools ───────────┼──> application actions│
+                        │                       ▼
+Snapshot restore ───────┘             deterministic domain
+                                         │  ├─ calculations
+                                         │  ├─ Daily Brief
+                                         │  ├─ StorePlan impact
+                                         │  └─ validation
+                                         ▼
+                                  preview / review / apply
 ```
 
-The external ChatGPT agent reasons over structured tool outputs. It does not own a private business state. OwnerOps owns validation, deterministic calculations, plan preview, and state transition.
+PostgreSQL/Supabase is the persistent canonical store truth. Browser `StoreState` is the exact **working projection** currently visible to the human and readable by WebMCP. It must not evolve into a second independent database.
+
+The external ChatGPT agent reasons over structured WebMCP outputs. It does not own business state, provider credentials, or a private copy of the store.
+
+## Persistence and projection
+### Durable truth
+Persist store-owned facts such as:
+- store profile, market, policies, occupancy and operating costs;
+- workers, availability, shifts, attendance and incidents;
+- menu, Prep/BOM, inventory, suppliers, purchases and waste;
+- sales snapshots, tasks and log;
+- cached external reference observations.
+
+### Working projection
+The browser loads a bounded StoreState projection for the current store/week. Human edits and Agent previews operate on that projection. A `StorePlan` remains non-canonical until reviewed/applied.
+
+During RE0, some store domains may still originate from deterministic seed while DB persistence is migrated. That is a migration/fallback condition, not the final ownership model.
 
 ## StoreState domains
-The canonical state is conceptually one database with normalized subdomains:
-
 ```text
 StoreState
-├─ store           identity, market, industry, hours, occupancy
-├─ people          workers, skills, availability, wage settings
-├─ workforce       shifts, attendance, incidents
-├─ sales           day/hour/item summaries
-├─ catalog         menu/service items and recipes/BOM
-├─ stock           inventory, suppliers, purchase history, waste
-├─ operations      tasks, manager log, operational events
-├─ context         weather, local-event and external reference observations
-├─ preview         current multi-domain candidate plan
-└─ activity        UI/agent activity state only
+├─ store / costs
+├─ people / availability
+├─ shifts / attendance / incidents
+├─ sales
+├─ ingredients / Prep / menu BOM
+├─ inventory / suppliers / purchases / waste
+├─ operations / tasks / log
+├─ context / references
+├─ StorePlan candidate
+└─ activity
 ```
 
-Computed metrics are derived, not duplicated as authoritative stored truth.
+Derived metrics are recomputed; do not persist them as competing truth merely for convenience.
 
-## Prototype persistence strategy
-The hackathon prototype may continue using in-browser persistence for the canonical state so the demo has no mandatory backend. Treat it as an embedded prototype database, not as an excuse to mix persistence and domain logic.
-
-The data model must be backend-ready: stable IDs, explicit timestamps, source/provenance fields, normalized units, and no dependence on React component shape.
-
-A future hosted DB can replace the persistence adapter without changing domain actions or WebMCP intent semantics.
-
-## External data adapter rule
-External feeds are adapters into normalized **reference observations**, never direct mutations of store actuals.
-
-Required normalized metadata:
-- `provider`
-- `sourceUrl` or provider key
-- `market/geography`
-- `observedAt`
-- `fetchedAt`
-- `unit`
-- `value`
-- `freshness/status`
-- optional `itemReferenceKey`
-
-Examples:
-- commodity/wholesale references;
-- wage reference;
-- weather forecast;
-- commercial-rent benchmark;
-- local event/demand context.
-
-Every live adapter must have a deterministic fixture fallback. If a provider fails, OwnerOps marks the reference stale/fallback and continues to operate.
-
-## Store-truth hierarchy
-Application logic must distinguish:
-1. store actual/entered/connected data;
-2. committed store plans and recent transactions;
-3. external observations;
-4. seeded demo fallback.
-
-For example, a supplier receipt at ₩4,200/L is the store's purchase truth even if an external dairy benchmark is lower.
-
-## Candidate plan architecture
-The previous staffing-only `StaffingPreview` becomes a generic store plan.
+## External price pipeline
+Public/third-party values are evidence, not store truth.
 
 ```text
-StorePlanPreview
-├─ id / version / title / objective
-├─ changes[]       typed cross-domain changes
-├─ evidence[]      facts/references used
-├─ impact          deterministic before/after summary
-├─ reviewFlags[]
-└─ status          proposed | human_edit | reviewed
+Provider response
+   ↓
+raw observation          immutable/source-faithful
+   ↓
+normalized observation   comparable currency/quantity/unit/market
+   ↓
+reference resolver       freshness/confidence/fallback
+   ↓
+StoreState.references
 ```
 
-Initial change types may include:
-- staffing assignment/time;
-- purchase/reorder quantity;
-- prep quantity;
-- task create/update;
-- stock adjustment proposal;
-- shift release/coverage change.
+Store invoices follow a separate path:
 
-Do not introduce a generic event-sourcing framework. Use an explicit discriminated union of the small set of changes OwnerOps actually supports.
+```text
+supplier receipt
+   ↓
+store purchase truth
+   ↓
+actual unit cost
+   ↓
+procurement-form yield
+   ↓
+effective usable store cost
+```
 
-## Incident/event model
-A staffing call-out is not a transient UI flag. It is an operational event plus an availability exception. Resolving coverage does not erase the historical fact that the worker was unavailable.
+Never overwrite a receipt with KAMIS/USDA/e-Stat market data.
 
-The same rule applies to stockouts, equipment issues, abnormal waste, or task exceptions: current resolution state and historical event are different concepts.
+## Cache-first behavior
+Provider calls are not made for every natural-language question.
+
+1. scheduled/manual sync writes raw + normalized observations;
+2. runtime reads DB cache;
+3. fresh/recent cache is used directly;
+4. stale/missing data may be refreshed by an adapter outside the core Agent path;
+5. provider/DB failure falls back to deterministic seed with degraded freshness;
+6. Agent language must disclose degraded/stale reference status when material.
+
+`src/cost-data/` is the single source registry/normalization contract. `scripts/fnb-data-sync.mjs` is the first ingestion adapter. Do not create another price-normalization subsystem elsewhere.
+
+## Database boundary
+Schema lives in `supabase/migrations/` using `oo_*` tables.
+
+Important separation:
+- `oo_purchase_receipts` = merchant/store actual purchase truth;
+- `oo_raw_price_observations` = unmodified provider landing evidence;
+- `oo_normalized_price_observations` = comparable market observations;
+- `oo_latest_reference_prices` = read projection for current cached reference;
+- `oo_yield_benchmarks` = procurement/use transformation reference, not universal ingredient yield.
+
+RLS is enabled; prototype browser code never receives service-role credentials. Next.js server routes/repositories access the DB.
+
+## Ingredient → Prep → Menu
+The cost graph supports intermediate preparation:
+
+```text
+Ingredient purchases
+      ↓
+Prep BOM + batch output
+      ↓
+Prep unit cost
+      ↓
+Menu BOM (ingredient or Prep components)
+      ↓
+Menu portion cost / margin
+```
+
+This matches the supplied operational master workbook and prevents raw/cooked quantity mistakes such as treating cooked rice weight as raw-rice input.
+
+## Procurement-form yield
+Yield belongs to a transformation such as:
+- whole fish → sashimi;
+- trimmed loin → sashimi;
+- raw pork → braised served product;
+- keg volume → sold beverage volume.
+
+Whole/raw benchmark yields must not be applied to already trimmed/prepped purchases.
+
+## StorePlan architecture
+```text
+StorePlan
+├─ id / version / title
+├─ changes[]
+├─ Before / After / Delta
+├─ domain impacts
+├─ review flags
+└─ preview | reviewed
+```
+
+Changes are a bounded discriminated union: staffing, shift release, purchase, prep and task. Purchase apply records a purchase order/plan; it does not fake physical receipt.
 
 ## Layer responsibilities
 ### `domain/`
-Pure/deterministic store models, validation, impacts, prioritization, planning. No React, WebMCP, localStorage, or provider HTTP calls.
+Pure/deterministic validation, calculations, prioritization, plan generation/materialization. No provider HTTP or DB credentials.
 
-### `data/` or provider registries
-Industry/market seeds and normalized external-reference adapters. Provider code may fetch data but cannot decide business actions.
+### `cost-data/`
+External source catalog, aliases and normalization contracts. No business recommendation logic.
+
+### `server/`
+DB/repository adapters. Credentials stay here/server routes only.
 
 ### `state/`
-Owns canonical StoreState and dispatches shared application actions.
+Owns the current live projection in React and applies shared application actions. Seed fallback and DB-hydrated reference observations converge here.
 
 ### `components/`
-Presentation and user interaction. No copied calculations.
+Presentation and human interaction. No duplicated calculations.
 
 ### `webmcp/`
-Registers store-level intent tools and translates inputs into the same domain/application actions as UI.
+Store-level intent tools over the exact live projection. Never expose raw SQL/provider-fetch micro-tools to the Agent.
 
 ### `snapshot/`
-Portable serialization/restore only; never the default live planning path.
+Backup/restore portability. Not a normal planning transport.
 
-## Anti-bloat rules
-- Do not create `peopleService`, `inventoryService`, `payrollService`, etc. merely because there are multiple domains.
-- Split files by real domain responsibility when a file becomes hard to reason about, not by SaaS menu name.
-- One normalized provider registry for external reference sources.
-- One industry registry for seed items/roles/tasks.
-- One market registry for currency, wage reference, location/timezone, and provider mappings.
-- One calculation truth for all UI and WebMCP outputs.
+## Runtime choice
+The first backend is **Next.js server + Supabase/PostgreSQL**. The supplied FastAPI/dlt work is useful evidence and may become a future extracted ingestion platform, but introducing a second runtime now would duplicate calculation/API responsibilities.
 
-## Security/claim boundary
-The prototype can display estimated wages, cost, margin, break-even, and market/rent references. It must not represent them as audited accounting, legal compliance, tax advice, or executable procurement unless a future explicit integration adds those guarantees.
+## Security / claims
+- service-role/provider secrets are server-only;
+- external reference values preserve provenance/freshness;
+- StorePlan apply must not claim a supplier order/message/payroll transfer unless the real integration exists;
+- wage, tax, legal and accounting outputs remain planning estimates unless a dedicated compliant integration is explicitly added.
