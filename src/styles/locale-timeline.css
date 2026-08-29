@@ -179,3 +179,19 @@
 @media (min-width: 901px) {
   .scenario-row { grid-template-columns: 28px minmax(220px, 1.8fr) repeat(5, minmax(67px, .55fr)) minmax(116px, .8fr); }
 }
+
+
+/* Avatar callout + assignment-first schedule chips. */
+.assistant-avatar-stage { position: relative; display: grid; justify-items: center; }
+.assistant-avatar-stage.has-callout { margin-top: 14px; }
+.assistant-avatar-stage.has-callout .avatar { margin: 10px auto 8px; }
+.avatar-callout { position: relative; width: 100%; min-height: 0; padding: 10px 12px; border-radius: var(--oo-radius-card); box-shadow: 0 8px 20px rgb(20 20 20 / .06); overflow-wrap: anywhere; animation: avatar-callout-in 180ms var(--oo-ease-standard) both; }
+.avatar-callout::after { content: ""; position: absolute; left: 50%; bottom: -5px; width: 9px; height: 9px; transform: translateX(-50%) rotate(45deg); background: inherit; border-right: 1px solid var(--oo-border, var(--line)); border-bottom: 1px solid var(--oo-border, var(--line)); }
+.avatar-callout.activity-warning { border-color: color-mix(in srgb, var(--warning) 38%, var(--line)); background: color-mix(in srgb, var(--warning-soft) 72%, var(--oo-surface)); }
+.avatar-callout .activity-kicker { margin-bottom: 4px; }
+.avatar-callout strong { font-size: 12px; }
+.avatar-callout p { margin-top: 4px; }
+.shift-chip .shift-worker-name { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; line-height: 1.2; }
+.shift-chip .shift-time { margin-top: 3px; color: #60766d; font-size: 9px; font-weight: 650; line-height: 1.2; }
+.shift-chip.candidate-human-edit .shift-time { color: #80613f; }
+@keyframes avatar-callout-in { from { opacity: .45; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }

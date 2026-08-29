@@ -107,6 +107,7 @@ function AssistantRail({ supported }: { supported: boolean | null }) {
   const candidateHours = candidate.worker ? visibleImpact.workerWeeklyHours[candidate.worker.id] ?? 0 : 0;
   const candidateLabel = stage === "human-edit" ? ui.rail.humanEdit : stage === "reviewed" ? ui.rail.reviewed : ui.rail.agentProposal;
   const activity = ui.activity[state.activity.state];
+  const showAvatarCallout = ["warning", "proposalReady", "reviewNeeded", "reviewed", "applied"].includes(state.activity.state);
   const activityDetail = state.activity.state === "warning" && incidentWorker
     ? `${unavailableLabel(locale, incidentWorker.name)} · ${ui.timeline.fridayGap}`
     : activity.detail;
@@ -126,8 +127,11 @@ function AssistantRail({ supported }: { supported: boolean | null }) {
         <span className="connection-dot" aria-hidden="true" />
         <div><strong>{supported === null ? ui.rail.checkingSharedState : supported ? ui.rail.liveSharedState : ui.rail.agentNotConnected}</strong><small>{supported === null ? ui.rail.checkingBrowser : supported ? "WebMCP · 8 tools" : ui.rail.manualStillWorks}</small></div>
       </div>
-      <AssistantAvatar state={state.activity.state} accessory={profile.visual.avatarAccessory} detail={profile.visual.avatarDetail} />
-      <div className={`activity-copy activity-${state.activity.state}`} aria-live="polite"><span className="activity-kicker">{activity.kicker}</span><strong>{activity.message}</strong>{activityDetail && <p>{activityDetail}</p>}</div>
+      <div className={`assistant-avatar-stage ${showAvatarCallout ? "has-callout" : ""}`}>
+        {showAvatarCallout && <div className={`activity-copy avatar-callout activity-${state.activity.state}`} aria-live="polite"><span className="activity-kicker">{activity.kicker}</span><strong>{activity.message}</strong>{activityDetail && <p>{activityDetail}</p>}</div>}
+        <AssistantAvatar state={state.activity.state} accessory={profile.visual.avatarAccessory} detail={profile.visual.avatarDetail} />
+      </div>
+      {!showAvatarCallout && <div className={`activity-copy activity-${state.activity.state}`} aria-live="polite"><span className="activity-kicker">{activity.kicker}</span><strong>{activity.message}</strong>{activityDetail && <p>{activityDetail}</p>}</div>}
       <ol className="activity-timeline" aria-label={ui.rail.sharedStateActivity}>
         {timeline.map((step) => <TimelineStep key={step.label} {...step} />)}
       </ol>
@@ -186,7 +190,7 @@ function ScheduleGrid() {
               {DEMO_WEEK.map((day) => {
                 const shifts = displayShifts.filter((item) => item.workerId === worker.id && shiftDay(item) === day);
                 return <div key={day} className={`schedule-cell ${day === "2026-08-28" ? "focus-day" : ""}`} onDragOver={(event) => event.preventDefault()} onDrop={(event) => onDrop(event, worker.id, day)}>
-                  {shifts.map((item) => { const isPreview = previewIds.has(item.id); return <button draggable key={item.id} className={`shift-chip ${isPreview ? `preview candidate-${previewKind}` : ""}`} onDragStart={(event) => { event.dataTransfer.setData("text/ownerops-shift", item.id); event.dataTransfer.effectAllowed = "move"; }} title={isPreview ? `${previewTag}` : ui.schedule.reassign} onClick={() => setSelectedShiftId(item.id)}>{isPreview && <small className="chip-tag">{previewTag}</small>}<span>{formatTime(item.start)}–{formatTime(item.end)}</span><small>{profile.roleLabels[item.role]}</small></button>; })}
+                  {shifts.map((item) => { const isPreview = previewIds.has(item.id); return <button draggable key={item.id} className={`shift-chip ${isPreview ? `preview candidate-${previewKind}` : ""}`} onDragStart={(event) => { event.dataTransfer.setData("text/ownerops-shift", item.id); event.dataTransfer.effectAllowed = "move"; }} title={isPreview ? `${previewTag}` : ui.schedule.reassign} onClick={() => setSelectedShiftId(item.id)}>{isPreview && <small className="chip-tag">{previewTag}</small>}<strong className="shift-worker-name">{worker.name}</strong><span className="shift-time">{formatTime(item.start)}–{formatTime(item.end)}</span></button>; })}
                 </div>;
               })}
             </div>
