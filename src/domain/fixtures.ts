@@ -1,6 +1,6 @@
 import { getIndustryProfile, isIndustryId } from "@/industry/profiles";
 import { createMarketSales, createMarketWorkers, getMarketCostScale, getMarketProfile, isMarketId } from "@/market/profiles";
-import type { AppState, IndustryId, InventoryItem, MarketId, MenuItem, PurchaseRecord, ReferenceObservation, SalesSnapshot, Shift, StoreTask, Supplier, TimeEntry, WasteRecord, Worker } from "./model";
+import type { AppState, IndustryId, InventoryItem, MarketId, MenuItem, PurchaseRecord, ReferenceObservation, SalesSnapshot, Shift, StoreOperatingCosts, StoreTask, Supplier, TimeEntry, WasteRecord, Worker } from "./model";
 
 export const DEMO_WEEK = ["2026-08-24", "2026-08-25", "2026-08-26", "2026-08-27", "2026-08-28", "2026-08-29", "2026-08-30"];
 
@@ -53,6 +53,25 @@ function roundTo(value: number, increment: number): number {
 
 function createSuppliers(): Supplier[] {
   return Object.values(SUPPLIERS).map((supplier) => ({ id: supplier.id, name: supplier.nameSuffix, defaultLeadTimeDays: supplier.defaultLeadTimeDays }));
+}
+
+function createOperatingCosts(market: MarketId): StoreOperatingCosts {
+  const profile = getMarketProfile(market);
+  const scale = getMarketCostScale(market);
+  const fixed = (krw: number) => roundTo(krw * scale, profile.wageRounding);
+  return {
+    variableRates: {
+      packagingAndConsumables: 0.03,
+      paymentProcessing: 0.015,
+      deliveryAndMarketplace: 0.05,
+    },
+    fixedMonthly: {
+      utilities: fixed(2_200_000),
+      softwareSecurityRentals: fixed(450_000),
+      marketing: fixed(1_000_000),
+      other: fixed(600_000),
+    },
+  };
 }
 
 function createInventory(industry: IndustryId, market: MarketId): InventoryItem[] {
@@ -233,6 +252,12 @@ export function createDemoState(industry: IndustryId = "diner", market: MarketId
       timezone: marketProfile.timezone,
       openingHours: Object.fromEntries(DEMO_WEEK.map((day) => [day, { open: "08:00", close: "22:00" }])),
       occupancy: structuredClone(marketProfile.defaultOccupancy),
+      operatingCosts: createOperatingCosts(market),
+      policies: {
+        calloutPayPolicy: "unpaid_hours",
+        externalContactMode: "draft_only",
+        complianceMode: "review_flags_only",
+      },
     },
     workers,
     shifts: structuredClone(DEMO_SHIFTS),
@@ -247,6 +272,7 @@ export function createDemoState(industry: IndustryId = "diner", market: MarketId
     inventory,
     suppliers,
     purchases,
+    purchaseOrders: [],
     waste,
     tasks,
     log: [
@@ -266,5 +292,6 @@ export function createDemoState(industry: IndustryId = "diner", market: MarketId
       },
       localEvents: [],
     },
+    storePlan: null,
   };
 }
