@@ -1,5 +1,6 @@
 import { hoursBetween, estimatedPayroll } from "./impact";
-import type { AppState, InventoryItem, ReferenceObservation } from "./model";
+import { resolveCommodityReference } from "./reference-resolver";
+import type { AppState, InventoryItem, MenuItem, ReferenceObservation } from "./model";
 
 export type DailyBriefDomain = "people" | "stock" | "sales" | "operations" | "context" | "costs";
 
@@ -19,6 +20,10 @@ function sum(values: number[]): number {
   return values.reduce((total, value) => total + value, 0);
 }
 
+function safeYield(value: number | undefined): number {
+  return Math.max(0.05, Math.min(1, value ?? 1));
+}
+
 export function scheduledWageEstimate(state: AppState): number {
   return estimatedPayroll(state.workers, state.shifts);
 }
@@ -31,6 +36,7 @@ export function actualWageEstimate(state: AppState): number {
   }));
 }
 
+/** Purchased/raw inventory required by recorded sales, including preparation yield loss. */
 export function theoreticalInventoryUsage(state: AppState): Record<string, number> {
   const menu = new Map((state.menu ?? []).map((item) => [item.id, item]));
   const usage: Record<string, number> = {};
@@ -39,11 +45,38 @@ export function theoreticalInventoryUsage(state: AppState): Record<string, numbe
       const item = menu.get(sold.menuItemId);
       if (!item) continue;
       for (const recipeLine of item.recipe) {
-        usage[recipeLine.inventoryItemId] = (usage[recipeLine.inventoryItemId] ?? 0) + sold.quantity * recipeLine.quantity;
+        const purchasedQuantity = recipeLine.quantity / safeYield(recipeLine.yieldRate);
+        usage[recipeLine.inventoryItemId] = (usage[recipeLine.inventoryItemId] ?? 0) + sold.quantity * purchasedQuantity;
       }
     }
   }
   return usage;
+}
+
+export function menuUnitFoodCost(state: AppState, menuItem: MenuItem): number {
+  const inventory = new Map((state.inventory ?? []).map((item) => [item.id, item]));
+  return sum(menuItem.recipe.map((line) => {
+    const item = inventory.get(line.inventoryItemId);
+    if (!item?.lastPurchaseUnitCost) return 0;
+    return (line.quantity / safeYield(line.yieldRate)) * item.lastPurchaseUnitCost;
+  }));
+}
+
+export function estimatedFoodCost(state: AppState): number {
+  const menu = new Map((state.menu ?? []).map((item) => [item.id, item]));
+  let total = 0;
+  for (const snapshot of state.sales ?? []) {
+    for (const sold of snapshot.itemSales) {
+      const item = menu.get(sold.menuItemId);
+      if (item) total += sold.quantity * menuUnitFoodCost(state, item);
+    }
+  }
+  return total;
+}
+
+export function estimatedWasteCost(state: AppState): number {
+  const inventory = new Map((state.inventory ?? []).map((item) => [item.id, item]));
+  return sum((state.waste ?? []).map((record) => record.quantity * (inventory.get(record.inventoryItemId)?.lastPurchaseUnitCost ?? 0)));
 }
 
 export function inventoryDaysOfCover(state: AppState, item: InventoryItem): number | null {
@@ -72,7 +105,7 @@ export function inventoryAtRisk(state: AppState): Array<{ item: InventoryItem; d
 
 export function commodityReferenceForItem(state: AppState, item: InventoryItem): ReferenceObservation | null {
   if (!item.marketReferenceKey) return null;
-  return (state.references ?? []).find((reference) => reference.kind === "commodity_price" && reference.referenceKey === item.marketReferenceKey) ?? null;
+  return resolveCommodityReference(state, item.marketReferenceKey).observation;
 }
 
 export function purchaseReferenceComparison(state: AppState, item: InventoryItem): {
@@ -80,9 +113,12 @@ export function purchaseReferenceComparison(state: AppState, item: InventoryItem
   reference: ReferenceObservation;
   difference: number;
   differenceRate: number;
+  degraded: boolean;
+  fallbackReason?: string;
 } | null {
-  if (!item.lastPurchaseUnitCost) return null;
-  const reference = commodityReferenceForItem(state, item);
+  if (!item.lastPurchaseUnitCost || !item.marketReferenceKey) return null;
+  const resolved = resolveCommodityReference(state, item.marketReferenceKey);
+  const reference = resolved.observation;
   if (!reference || typeof reference.value !== "number" || reference.value <= 0) return null;
   const difference = item.lastPurchaseUnitCost - reference.value;
   return {
@@ -90,6 +126,8 @@ export function purchaseReferenceComparison(state: AppState, item: InventoryItem
     reference,
     difference,
     differenceRate: difference / reference.value,
+    degraded: resolved.degraded,
+    fallbackReason: resolved.reason,
   };
 }
 
@@ -100,16 +138,64 @@ export function highestPurchasePremium(state: AppState) {
     .sort((a, b) => b.comparison.differenceRate - a.comparison.differenceRate)[0] ?? null;
 }
 
-export function occupancyMetrics(state: AppState) {
-  const occupancy = state.business.occupancy;
-  const monthlyOccupancyCost = occupancy ? occupancy.baseRentMonthly + occupancy.recurringFeesMonthly : 0;
+export function storeCostMetrics(state: AppState) {
   const weeklySales = sum((state.sales ?? []).map((snapshot) => snapshot.netSales));
-  const estimatedMonthlySales = weeklySales * 4.345;
-  const occupancyToSales = estimatedMonthlySales > 0 ? monthlyOccupancyCost / estimatedMonthlySales : 0;
-  const targetVariableCostRatio = (state.business.targetFoodCostRatio ?? 0.3) + state.business.targetLaborRatio;
-  const contributionRatio = Math.max(0.05, 1 - targetVariableCostRatio);
-  const monthlyBreakEvenSales = monthlyOccupancyCost > 0 ? monthlyOccupancyCost / contributionRatio : 0;
-  return { monthlyOccupancyCost, estimatedMonthlySales, occupancyToSales, monthlyBreakEvenSales };
+  const monthlySales = weeklySales * 4.345;
+  const foodCost = estimatedFoodCost(state);
+  const laborCost = scheduledWageEstimate(state);
+  const variableRates = state.business.operatingCosts?.variableRates;
+  const variableOperatingCost = weeklySales * (
+    (variableRates?.packagingAndConsumables ?? 0)
+    + (variableRates?.paymentProcessing ?? 0)
+    + (variableRates?.deliveryAndMarketplace ?? 0)
+  );
+  const occupancyMonthly = state.business.occupancy
+    ? state.business.occupancy.baseRentMonthly + state.business.occupancy.recurringFeesMonthly
+    : 0;
+  const fixedOps = state.business.operatingCosts?.fixedMonthly;
+  const fixedOperatingMonthly = (fixedOps?.utilities ?? 0)
+    + (fixedOps?.softwareSecurityRentals ?? 0)
+    + (fixedOps?.marketing ?? 0)
+    + (fixedOps?.other ?? 0);
+
+  // Matches the uploaded operating model: food + other variable costs form contribution margin;
+  // labor is treated as fixed/semi-fixed for the short-horizon BEP view.
+  const monthlyVariableCost = (foodCost + variableOperatingCost) * 4.345;
+  const variableCostRatio = monthlySales > 0 ? monthlyVariableCost / monthlySales : 0;
+  const contributionRatio = Math.max(0.05, 1 - variableCostRatio);
+  const monthlyFixedCost = laborCost * 4.345 + occupancyMonthly + fixedOperatingMonthly;
+  const monthlyBreakEvenSales = monthlyFixedCost > 0 ? monthlyFixedCost / contributionRatio : 0;
+  const foodCostRatio = weeklySales > 0 ? foodCost / weeklySales : 0;
+  const laborCostRatio = weeklySales > 0 ? laborCost / weeklySales : 0;
+  const flCostRatio = foodCostRatio + laborCostRatio;
+
+  return {
+    weeklySales,
+    monthlySales,
+    foodCost,
+    foodCostRatio,
+    laborCost,
+    laborCostRatio,
+    flCostRatio,
+    variableOperatingCost,
+    occupancyMonthly,
+    occupancyWeekly: occupancyMonthly / 4.345,
+    fixedOperatingMonthly,
+    fixedOperatingWeekly: fixedOperatingMonthly / 4.345,
+    monthlyBreakEvenSales,
+    weeklyBreakEvenSales: monthlyBreakEvenSales / 4.345,
+  };
+}
+
+export function occupancyMetrics(state: AppState) {
+  const costs = storeCostMetrics(state);
+  const occupancyToSales = costs.monthlySales > 0 ? costs.occupancyMonthly / costs.monthlySales : 0;
+  return {
+    monthlyOccupancyCost: costs.occupancyMonthly,
+    estimatedMonthlySales: costs.monthlySales,
+    occupancyToSales,
+    monthlyBreakEvenSales: costs.monthlyBreakEvenSales,
+  };
 }
 
 export function calloutPolicyLabel(state: AppState): string {
@@ -184,15 +270,33 @@ function purchasePremiumRisk(state: AppState): DailyBriefItem | null {
   const premium = highestPurchasePremium(state);
   if (!premium || premium.comparison.differenceRate < 0.08) return null;
   const { comparison, item } = premium;
+  const fallback = comparison.degraded ? ` · ${comparison.fallbackReason ?? "fallback reference"}` : "";
   return {
     id: `brief-reference-${item.id}`,
     domain: "costs",
     severity: "attention",
     title: `${item.name} purchase cost is above reference`,
-    evidence: `Store actual ${comparison.actualUnitCost.toFixed(2)}/${item.unit} vs ${comparison.reference.provider} reference ${Number(comparison.reference.value).toFixed(2)}/${item.unit} (+${(comparison.differenceRate * 100).toFixed(1)}%).`,
+    evidence: `Store actual ${comparison.actualUnitCost.toFixed(2)}/${item.unit} vs ${comparison.reference.provider} reference ${Number(comparison.reference.value).toFixed(2)}/${item.unit} (+${(comparison.differenceRate * 100).toFixed(1)}%)${fallback}.`,
     nextIntent: "review_purchase_cost",
     sourceType: comparison.reference.freshness === "live" || comparison.reference.freshness === "recent" ? "external_reference" : "seed",
     score: 62,
+  };
+}
+
+function costStructureRisk(state: AppState): DailyBriefItem | null {
+  const costs = storeCostMetrics(state);
+  if (costs.weeklySales <= 0) return null;
+  if (costs.flCostRatio < 0.55) return null;
+  return {
+    id: "brief-fl-cost",
+    domain: "costs",
+    severity: costs.flCostRatio > 0.6 ? "attention" : "info",
+    title: "Food + labor cost needs review",
+    evidence: `FL Cost ${(costs.flCostRatio * 100).toFixed(1)}% · food ${(costs.foodCostRatio * 100).toFixed(1)}% · labor ${(costs.laborCostRatio * 100).toFixed(1)}%.`,
+    estimatedImpact: `Weekly break-even sales ${costs.weeklyBreakEvenSales.toFixed(0)} ${state.business.currency}`,
+    nextIntent: "review_cost_structure",
+    sourceType: "actual",
+    score: costs.flCostRatio > 0.6 ? 68 : 45,
   };
 }
 
@@ -220,7 +324,7 @@ function occupancyRisk(state: AppState): DailyBriefItem | null {
     severity: "info",
     title: "Occupancy cost is a meaningful fixed-cost load",
     evidence: `Estimated occupancy-to-sales ${(metrics.occupancyToSales * 100).toFixed(1)}% using the current weekly sales run-rate.`,
-    estimatedImpact: `Simple monthly break-even sales: ${metrics.monthlyBreakEvenSales.toFixed(0)} ${state.business.currency}`,
+    estimatedImpact: `Monthly break-even sales: ${metrics.monthlyBreakEvenSales.toFixed(0)} ${state.business.currency}`,
     nextIntent: "occupancy_pressure",
     sourceType: "actual",
     score: 35,
@@ -228,7 +332,7 @@ function occupancyRisk(state: AppState): DailyBriefItem | null {
 }
 
 export function getDailyBrief(state: AppState, limit = 5): DailyBriefItem[] {
-  return [openStaffingRisk(state), stockRisk(state), wasteRisk(state), purchasePremiumRisk(state), weatherRisk(state), occupancyRisk(state)]
+  return [openStaffingRisk(state), stockRisk(state), wasteRisk(state), purchasePremiumRisk(state), costStructureRisk(state), weatherRisk(state), occupancyRisk(state)]
     .filter((item): item is DailyBriefItem => item !== null)
     .sort((a, b) => b.score - a.score)
     .slice(0, Math.max(1, Math.min(limit, 5)));
