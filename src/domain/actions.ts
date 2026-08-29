@@ -15,7 +15,7 @@ export type ApplicationAction =
   | { type: "set_activity"; activity: AppState["activity"] };
 
 function workerLabel(worker: AppState["workers"][number] | undefined, fallback = "Candidate") {
-  return worker?.displayName ?? worker?.name ?? fallback;
+  return worker?.name ?? fallback;
 }
 
 function unavailable(worker: AppState["workers"][number], start: string, end: string): boolean {
