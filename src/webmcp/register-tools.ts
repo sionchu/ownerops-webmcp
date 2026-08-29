@@ -32,7 +32,7 @@ const stringField = (description: string) => ({ type: "string", description });
 const uiLocaleField = {
   type: "string",
   enum: SUPPORTED_UI_LOCALES,
-  description: "Optional presentation language matching the user's latest instruction. Pass en, ko, ja, es, or zh-CN when the language is clear. This changes only OwnerOps UI copy, never staffing calculations or schedule semantics.",
+  description: "Required presentation language for state-changing OwnerOps tools. Match the language of the user's latest instruction: en, ko, ja, es, or zh-CN. This changes only visible UI copy, never staffing calculations or schedule semantics.",
 };
 
 function businessState(state: AppState) {
@@ -131,8 +131,8 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "create_schedule_draft",
     title: "Create demo schedule draft",
-    description: "Create the bounded weekly demo schedule in the live OwnerOps page. The optional industry selects a generic business profile. When the user's latest instruction is clearly in English, Korean, Japanese, Spanish, or Simplified Chinese, also pass uiLocale so the visible OwnerOps interface follows the user's language.",
-    inputSchema: { type: "object", properties: { preset: { type: "string", enum: ["demo"], description: "The only supported MVP draft preset." }, industry: { type: "string", enum: ["diner", "pizza", "coffee", "salon", "sushi", "curry"], description: "Optional generic industry profile; defaults to diner." }, uiLocale: uiLocaleField }, required: ["preset"], additionalProperties: false },
+    description: "Create the bounded weekly demo schedule in the live OwnerOps page. The optional industry selects a generic business profile. uiLocale is required and MUST match the language of the user's latest instruction so the visible OwnerOps interface follows the user immediately.",
+    inputSchema: { type: "object", properties: { preset: { type: "string", enum: ["demo"], description: "The only supported MVP draft preset." }, industry: { type: "string", enum: ["diner", "pizza", "coffee", "salon", "sushi", "curry"], description: "Optional generic industry profile; defaults to diner." }, uiLocale: uiLocaleField }, required: ["preset", "uiLocale"], additionalProperties: false },
     annotations: { readOnlyHint: false },
     execute: async (input) => tools.createScheduleDraft({ preset: input.preset, industry: input.industry, uiLocale: input.uiLocale }),
   }, { signal: controller.signal }));
@@ -140,8 +140,8 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "mark_worker_unavailable",
     title: "Mark worker unavailable",
-    description: "Mark an assigned worker unavailable for an existing shift. The shift becomes uncovered and no replacement is assigned automatically. If the user's instruction language is clear, pass uiLocale so the UI follows that language.",
-    inputSchema: { type: "object", properties: { workerId: stringField("Stable worker id."), shiftId: stringField("Stable assigned shift id."), reason: stringField("Optional short operational reason."), uiLocale: uiLocaleField }, required: ["workerId", "shiftId"], additionalProperties: false },
+    description: "Mark an assigned worker unavailable for an existing shift. The shift becomes uncovered and no replacement is assigned automatically. uiLocale is required and MUST match the language of the user's latest instruction.",
+    inputSchema: { type: "object", properties: { workerId: stringField("Stable worker id."), shiftId: stringField("Stable assigned shift id."), reason: stringField("Optional short operational reason."), uiLocale: uiLocaleField }, required: ["workerId", "shiftId", "uiLocale"], additionalProperties: false },
     annotations: { readOnlyHint: false },
     execute: async (input) => tools.markWorkerUnavailable(input as { workerId: string; shiftId: string; reason?: string; uiLocale?: UiLocale }),
   }, { signal: controller.signal }));
@@ -158,7 +158,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "preview_staffing_change",
     title: "Preview staffing change",
-    description: "Display a recovery scenario or bounded shift reassignment in the schedule as a candidate preview without committing it. If the user's instruction language is clear, pass uiLocale so the UI follows that language.",
+    description: "Display a recovery scenario or bounded shift reassignment in the schedule as a candidate preview without committing it. uiLocale is required and MUST match the language of the user's latest instruction.",
     inputSchema: {
       type: "object",
       properties: {
@@ -167,6 +167,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
         changes: { type: "array", maxItems: 3, items: { type: "object", properties: { shiftId: stringField("Existing shift id."), workerId: stringField("Replacement worker id."), start: stringField("Optional ISO local start."), end: stringField("Optional ISO local end.") }, required: ["shiftId", "workerId"], additionalProperties: false } },
         uiLocale: uiLocaleField,
       },
+      required: ["uiLocale"],
       anyOf: [{ required: ["scenarioId"] }, { required: ["changes"] }],
       additionalProperties: false,
     },
@@ -186,8 +187,8 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "apply_staffing_change",
     title: "Apply reviewed staffing change",
-    description: "Commit the current reviewed preview only when its id and version still match, then clear the preview and recalculate impact. If the user's instruction language is clear, pass uiLocale so the UI follows that language.",
-    inputSchema: { type: "object", properties: { previewId: stringField("Current preview id shown by OwnerOps."), version: { type: "number", description: "Current preview version; prevents stale apply." }, uiLocale: uiLocaleField }, required: ["previewId", "version"], additionalProperties: false },
+    description: "Commit the current reviewed preview only when its id and version still match, then clear the preview and recalculate impact. uiLocale is required and MUST match the language of the user's latest instruction.",
+    inputSchema: { type: "object", properties: { previewId: stringField("Current preview id shown by OwnerOps."), version: { type: "number", description: "Current preview version; prevents stale apply." }, uiLocale: uiLocaleField }, required: ["previewId", "version", "uiLocale"], additionalProperties: false },
     annotations: { readOnlyHint: false },
     execute: async (input) => tools.applyStaffingChange(input as { previewId: string; version: number; uiLocale?: UiLocale }),
   }, { signal: controller.signal }));
@@ -195,8 +196,8 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "import_schedule_snapshot",
     title: "Import OwnerOps schedule snapshot",
-    description: "Validate and transactionally restore a portable OWNEROPS_SNAPSHOT v1 document. Invalid input leaves the current state unchanged. If the user's instruction language is clear, pass uiLocale so the UI follows that language.",
-    inputSchema: { type: "object", properties: { snapshotText: { type: "string", minLength: 40, maxLength: 100000, description: "Complete OWNEROPS_SNAPSHOT v1 text." }, uiLocale: uiLocaleField }, required: ["snapshotText"], additionalProperties: false },
+    description: "Validate and transactionally restore a portable OWNEROPS_SNAPSHOT v1 document. Invalid input leaves the current state unchanged. uiLocale is required and MUST match the language of the user's latest instruction.",
+    inputSchema: { type: "object", properties: { snapshotText: { type: "string", minLength: 40, maxLength: 100000, description: "Complete OWNEROPS_SNAPSHOT v1 text." }, uiLocale: uiLocaleField }, required: ["snapshotText", "uiLocale"], additionalProperties: false },
     annotations: { readOnlyHint: false },
     execute: async (input) => tools.importScheduleSnapshot(input as { snapshotText: string; uiLocale?: UiLocale }),
   }, { signal: controller.signal }));
