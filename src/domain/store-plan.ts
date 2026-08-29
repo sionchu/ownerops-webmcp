@@ -2,10 +2,20 @@ import { applyChanges, calculateImpact } from "./impact";
 import { estimatedWasteCost, storeCostMetrics } from "./store-ops";
 import type { AppState, PurchaseOrder, StoreMetricDelta, StoreMetricSnapshot, StorePlan, StorePlanChange, StorePlanImpact } from "./model";
 
+type PurchaseChange = Extract<StorePlanChange, { type: "purchase" }>;
+type TaskChange = Extract<StorePlanChange, { type: "task" }>;
+
+function purchaseChanges(changes: StorePlanChange[]): PurchaseChange[] {
+  return changes.filter((change): change is PurchaseChange => change.type === "purchase");
+}
+
+function taskPlanChanges(changes: StorePlanChange[]): TaskChange[] {
+  return changes.filter((change): change is TaskChange => change.type === "task");
+}
+
 function purchaseCashOutlay(changes: StorePlanChange[], state: AppState): number {
   const inventory = new Map((state.inventory ?? []).map((item) => [item.id, item]));
-  return changes.reduce((total, change) => {
-    if (change.type !== "purchase") return total;
+  return purchaseChanges(changes).reduce((total, change) => {
     const unitCost = change.estimatedUnitCost ?? inventory.get(change.inventoryItemId)?.lastPurchaseUnitCost ?? 0;
     return total + Math.max(0, change.quantity) * Math.max(0, unitCost);
   }, 0);
@@ -63,8 +73,8 @@ export function projectStorePlanChanges(state: AppState, changes: StorePlanChang
     ? [{ shiftId: change.shiftId, workerId: change.workerId, start: change.start, end: change.end }]
     : []);
   const releases = new Map(changes.filter((change) => change.type === "shift_release").map((change) => [change.shiftId, change.newEnd]));
-  const purchases = new Map(changes.filter((change) => change.type === "purchase").map((change) => [change.inventoryItemId, change]));
-  const tasks = changes.filter((change) => change.type === "task").map((change) => change.task);
+  const purchases = new Map(purchaseChanges(changes).map((change) => [change.inventoryItemId, change]));
+  const tasks = taskPlanChanges(changes).map((change) => change.task);
 
   const staffed = staffingChanges.length > 0 ? applyChanges(state.shifts, staffingChanges) : state.shifts;
   const shifts = staffed.map((shift) => releases.has(shift.id) ? { ...shift, end: releases.get(shift.id)! } : shift);
@@ -124,13 +134,15 @@ export function evaluateStorePlan(state: AppState, changes: StorePlanChange[]): 
   const delta = metricDelta(before, after);
   const staffingBefore = calculateImpact(state);
   const staffingAfter = calculateImpact(candidate);
-  const affectedInventoryItemIds = [...new Set(changes.filter((change) => change.type === "purchase").map((change) => change.inventoryItemId))];
-  const taskChanges = changes.filter((change) => change.type === "task").length;
+  const purchases = purchaseChanges(changes);
+  const affectedInventoryItemIds = [...new Set(purchases.map((change) => change.inventoryItemId))];
+  const taskChanges = taskPlanChanges(changes).length;
   const prepChanges = changes.filter((change) => change.type === "prep").length;
   const scheduleChanges = changes.filter((change) => change.type === "staffing" || change.type === "shift_release").length;
   const reviewFlags = [
     ...staffingAfter.warnings.filter((warning) => warning.severity === "warning").map((warning) => warning.message),
-    ...changes.filter((change) => change.type === "purchase" && change.estimatedUnitCost === undefined && !(state.inventory ?? []).find((item) => item.id === change.inventoryItemId)?.lastPurchaseUnitCost)
+    ...purchases
+      .filter((change) => change.estimatedUnitCost === undefined && !(state.inventory ?? []).find((item) => item.id === change.inventoryItemId)?.lastPurchaseUnitCost)
       .map((change) => `Purchase cost for ${change.inventoryItemId} requires review.`),
     ...(prepChanges > 0 ? ["Prep targets are preview-only until the prep-target state surface is implemented."] : []),
   ];
@@ -208,10 +220,10 @@ export function commitStorePlan(state: AppState, plan: StorePlan): AppState {
   const releases = new Map(plan.changes.filter((change) => change.type === "shift_release").map((change) => [change.shiftId, change.newEnd]));
   const staffed = staffingChanges.length > 0 ? applyChanges(state.shifts, staffingChanges) : state.shifts;
   const shifts = staffed.map((shift) => releases.has(shift.id) ? { ...shift, end: releases.get(shift.id)! } : shift);
-  const taskChanges = plan.changes.filter((change) => change.type === "task").map((change) => change.task);
+  const taskChanges = taskPlanChanges(plan.changes).map((change) => change.task);
   const existingTaskIds = new Set((state.tasks ?? []).map((task) => task.id));
   const tasks = [...(state.tasks ?? []), ...taskChanges.filter((task) => !existingTaskIds.has(task.id))];
-  const purchaseOrders: PurchaseOrder[] = plan.changes.filter((change) => change.type === "purchase").map((change, index) => ({
+  const purchaseOrders: PurchaseOrder[] = purchaseChanges(plan.changes).map((change, index) => ({
     id: `po-${plan.id}-${index + 1}`,
     supplierId: change.supplierId ?? (state.inventory ?? []).find((item) => item.id === change.inventoryItemId)?.supplierId ?? "supplier-food",
     inventoryItemId: change.inventoryItemId,
