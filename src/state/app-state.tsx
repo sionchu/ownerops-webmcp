@@ -58,7 +58,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AppStateContextValue>(() => ({
     state,
     impact: calculateImpact(state),
-    previewImpact: state.preview ? calculateImpact(state, applyChanges(state.shifts, state.preview.changes), state.shifts) : null,
+    previewImpact: state.preview ? calculateImpact(state, applyChanges(state.shifts, state.preview.changes)) : null,
     scenarios: getResponseOptions(state),
     hydrated,
     locale,

@@ -49,6 +49,16 @@ describe("OwnerOps deterministic domain", () => {
     expect(impact.warnings.some((warning) => warning.code === "peak_coverage")).toBe(true);
   });
 
+  it("compares replacement wage against the originally assigned worker", () => {
+    const original = createDemoState();
+    const minsoo = original.workers.find((worker) => worker.id === "minsoo")!;
+    const hana = original.workers.find((worker) => worker.id === "hana")!;
+    const state = dispatchApplicationAction(original, { type: "mark_unavailable", workerId: "minsoo", shiftId: "fri-minsoo-18" });
+    const hanaOption = getResponseOptions(state).find((option) => option.changes[0]?.workerId === "hana")!;
+    expect(hanaOption.impact.payrollDelta).toBe((hana.hourlyRate - minsoo.hourlyRate) * 4);
+    expect(hanaOption.impact.payrollDelta).toBe(-2_000);
+  });
+
   it("ranks exactly three viable recovery scenarios", () => {
     const state = dispatchApplicationAction(createDemoState(), { type: "mark_unavailable", workerId: "minsoo", shiftId: "fri-minsoo-18" });
     const options = getResponseOptions(state);

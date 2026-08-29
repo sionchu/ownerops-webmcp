@@ -3,7 +3,7 @@ import { dispatchApplicationAction } from "@/domain/actions";
 import { createDemoState } from "@/domain/fixtures";
 import type { AppState } from "@/domain/model";
 import { getLocalizedIndustryProfile, normalizeUiLocale, type UiLocale } from "@/i18n";
-import { liveOperatingSummary } from "@/i18n/dynamic";
+import { getOutreachCopy, liveOperatingSummary, outreachDraft } from "@/i18n/dynamic";
 import { getIndustryProfile } from "@/industry/profiles";
 import { createToolExecutors } from "@/webmcp/register-tools";
 
@@ -74,8 +74,16 @@ describe("thin UI locale layer", () => {
       incidentWindow: "금 18:00–22:00",
     });
     expect(reviewed.headline).toContain("적용");
-    expect(reviewed.detail).toContain("복구 비용");
+    expect(reviewed.detail).toContain("순 임금 영향");
     expect(reviewed.tone).toBe("review");
+  });
+
+  it("localizes a non-sending coverage outreach draft", () => {
+    const copy = getOutreachCopy("ko");
+    const draft = outreachDraft("ko", "Slice House", "하나", "8월 28일 금요일", "18:00", "22:00");
+    expect(copy.draftOnly).toContain("전송되지");
+    expect(draft).toContain("하나");
+    expect(draft).toContain("18:00–22:00");
   });
 
   it("lets state-changing WebMCP tools carry UI locale separately from AppState", () => {

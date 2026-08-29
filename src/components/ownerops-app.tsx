@@ -3,10 +3,10 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { AssistantAvatar } from "@/components/assistant-avatar";
 import { DEMO_WEEK } from "@/domain/fixtures";
-import { applyChanges } from "@/domain/impact";
+import { applyChanges, hoursBetween } from "@/domain/impact";
 import type { AppState, PlanImpact, Shift } from "@/domain/model";
 import { INTL_LOCALE, getLocalizedIndustryProfile, getUiCopy, type UiLocale } from "@/i18n";
-import { disruptionBody, liveOperatingSummary, markUnavailableLabel, marketScheduleContext, minimumWageLabel, suggestedIncidentPrompt, unavailableLabel } from "@/i18n/dynamic";
+import { disruptionBody, getOutreachCopy, liveOperatingSummary, markUnavailableLabel, marketScheduleContext, minimumWageLabel, outreachDraft, suggestedIncidentPrompt, unavailableLabel } from "@/i18n/dynamic";
 import { getIndustryProfile } from "@/industry/profiles";
 import { getMarketLocation, getMarketProfile } from "@/market/profiles";
 import { parseSnapshot, serializeSnapshot } from "@/snapshot/snapshot";
@@ -217,6 +217,10 @@ function ScenarioPanel() {
   const { state, scenarios, runAction, locale } = useAppState();
   const ui = getUiCopy(locale);
   const profile = getLocalizedIndustryProfile(getIndustryProfile(state.business.industry), locale);
+  const market = getMarketProfile(state.business.market);
+  const outreach = getOutreachCopy(locale);
+  const [outreachScenarioId, setOutreachScenarioId] = useState<string | null>(null);
+  const [outreachCopied, setOutreachCopied] = useState(false);
   const incidentShift = state.shifts.find((item) => item.id === state.incident?.shiftId);
   const incidentWorker = state.workers.find((worker) => worker.id === (state.incident?.workerId ?? "minsoo"));
   if (!state.incident) {
@@ -232,17 +236,32 @@ function ScenarioPanel() {
           const replacementName = replacement?.name ?? ui.rail.candidatePlan;
           const start = incidentShift ? formatTime(incidentShift.start) : "18:00";
           const end = incidentShift ? formatTime(incidentShift.end) : "22:00";
+          const shiftHours = incidentShift ? hoursBetween(incidentShift.start, incidentShift.end) : 0;
+          const replacementShiftPay = replacement ? replacement.hourlyRate * shiftHours : 0;
+          const originalShiftPay = incidentWorker ? incidentWorker.hourlyRate * shiftHours : 0;
           return <article key={scenario.id} className={`scenario-row ${state.preview?.scenarioId === scenario.id ? "selected" : ""}`}>
-            <div className="rank">{index + 1}</div><div className="scenario-main"><div><strong>{ui.scenario.coversShift(replacementName)}</strong>{index === 0 && <span className="recommended">{ui.scenario.recommended}</span>}</div><p>{ui.scenario.takesShift(replacementName, start, end)}</p><small>{ui.scenario.restoresCoverage(`${(scenario.impact.laborRatio * 100).toFixed(1)}%`)}</small></div>
-            <div className="scenario-stat"><span>{ui.scenario.addedPayroll}</span><strong>{formatMoney(state, locale, scenario.impact.payrollDelta)}</strong></div>
+            <div className="rank">{index + 1}</div><div className="scenario-main"><div><strong>{ui.scenario.coversShift(replacementName)}</strong>{index === 0 && <span className="recommended">{ui.scenario.recommended}</span>}</div><p>{ui.scenario.takesShift(replacementName, start, end)}</p><div className="scenario-wage-context"><span>{outreach.hourlyRate} {replacement ? `${formatMoney(state, locale, replacement.hourlyRate)}/h` : "—"}</span><span>{outreach.shiftPay} {formatMoney(state, locale, replacementShiftPay)}</span><span>{outreach.originalPay} {formatMoney(state, locale, originalShiftPay)}</span></div><small>{ui.scenario.restoresCoverage(`${(scenario.impact.laborRatio * 100).toFixed(1)}%`)}</small></div>
+            <div className="scenario-stat" title={outreach.wageBasis}><span>{ui.scenario.addedPayroll}</span><strong>{signedMoney(state, locale, scenario.impact.payrollDelta)}</strong></div>
             <div className="scenario-stat"><span>{ui.scenario.weeklyHours}</span><strong>{replacement ? `${scenario.impact.workerWeeklyHours[replacement.id]} h` : "—"}</strong></div>
             <div className="scenario-stat"><span>{profile.copy.peakLabel} {ui.scenario.gap}</span><strong>{scenario.impact.uncoveredPeakMinutes} min</strong></div>
             <div className="scenario-stat optional"><span>{ui.scenario.warnings}</span><strong>{scenario.impact.warnings.length}</strong></div>
             <div className="scenario-stat optional"><span>{ui.scenario.changes}</span><strong>{scenario.impact.scheduleChangeCount}</strong></div>
-            <button className="secondary compact" onClick={() => runAction({ type: "preview_scenario", scenarioId: scenario.id })}>{state.preview?.scenarioId === scenario.id ? ui.scenario.previewing : ui.scenario.preview}</button>
+            <div className="scenario-actions"><button className="secondary compact" onClick={() => runAction({ type: "preview_scenario", scenarioId: scenario.id })}>{state.preview?.scenarioId === scenario.id ? ui.scenario.previewing : ui.scenario.preview}</button><button className="secondary compact outreach-button" onClick={() => { setOutreachScenarioId(scenario.id); setOutreachCopied(false); }}>{outreach.prepare}</button></div>
           </article>;
         })}
       </div>
+      {outreachScenarioId && (() => {
+        const selected = scenarios.find((scenario) => scenario.id === outreachScenarioId);
+        const replacementId = selected?.changes[0]?.workerId;
+        const replacement = state.workers.find((worker) => worker.id === replacementId);
+        if (!selected || !replacement || !incidentShift) return null;
+        const start = formatTime(incidentShift.start);
+        const end = formatTime(incidentShift.end);
+        const dayLabel = formatDay(locale, shiftDay(incidentShift), { weekday: "long", month: "short", day: "numeric" });
+        const message = outreachDraft(locale, state.business.name, replacement.name, dayLabel, start, end);
+        const contact = market.workerContacts[replacement.id] ?? "—";
+        return <section className="outreach-draft" aria-label={outreach.title}><div className="outreach-head"><div><span className="eyebrow">{outreach.demoContact}</span><h3>{outreach.title}</h3></div><strong>{replacement.name} · {contact}</strong></div><p>{message}</p><div className="outreach-footer"><small>{outreach.draftOnly}</small><button className="secondary compact" onClick={async () => { try { await navigator.clipboard.writeText(message); setOutreachCopied(true); } catch { setOutreachCopied(false); } }}>{outreachCopied ? outreach.copied : outreach.copy}</button></div></section>;
+      })()}
     </section>
   );
 }

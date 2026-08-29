@@ -161,3 +161,21 @@
 
 .decision-strip + .scenario-panel { margin-top: 0; }
 .scenario-panel + .schedule-panel { margin-top: 20px; border-top: 1px solid var(--oo-border, var(--line)); }
+
+
+/* Decision evidence + outreach scaffold. */
+.scenario-wage-context { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 5px; font-size: 11px; color: var(--secondary); }
+.scenario-wage-context span { white-space: nowrap; }
+.scenario-actions { display: grid; gap: 6px; align-self: center; }
+.outreach-button { white-space: nowrap; }
+.outreach-draft { margin-top: 12px; padding: 16px 18px; border: 1px solid color-mix(in srgb, var(--oo-accent) 24%, var(--oo-border)); border-radius: var(--oo-radius-card); background: color-mix(in srgb, var(--oo-accent-soft) 32%, var(--oo-surface)); }
+.outreach-head, .outreach-footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.outreach-head h3 { margin: 3px 0 0; font-size: 15px; }
+.outreach-head > strong { font-size: 12px; color: var(--oo-secondary-ink); }
+.outreach-draft > p { margin: 12px 0; font-size: 13px; line-height: 1.55; }
+.outreach-footer small { color: var(--secondary); line-height: 1.35; }
+@media (max-width: 900px) { .scenario-actions { grid-auto-flow: column; justify-content: start; } .outreach-head, .outreach-footer { align-items: flex-start; flex-direction: column; } }
+
+@media (min-width: 901px) {
+  .scenario-row { grid-template-columns: 28px minmax(220px, 1.8fr) repeat(5, minmax(67px, .55fr)) minmax(116px, .8fr); }
+}

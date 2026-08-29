@@ -48,7 +48,7 @@ function displayName(worker: AppState["workers"][number] | undefined) {
 
 function businessState(state: AppState, locale: UiLocale) {
   const planShifts = state.preview ? applyChanges(state.shifts, state.preview.changes) : state.shifts;
-  const impact = calculateImpact(state, planShifts, state.shifts);
+  const impact = calculateImpact(state, planShifts);
   const profile = getLocalizedIndustryProfile(getIndustryProfile(state.business.industry), locale);
   const market = getMarketProfile(state.business.market);
   return {
@@ -64,6 +64,7 @@ function businessState(state: AppState, locale: UiLocale) {
       ...worker,
       displayName: displayName(worker),
       roleLabel: profile.roleLabels[worker.role],
+      demoContact: market.workerContacts[worker.id] ?? null,
       weeklyHours: impact.workerWeeklyHours[worker.id] ?? 0,
     })),
     shifts: planShifts.map((shift) => ({ ...shift, roleLabel: profile.roleLabels[shift.role] })),
@@ -124,7 +125,7 @@ export function createToolExecutors(bridge: ToolBridge) {
     evaluateCurrentPlan: () => {
       const state = bridge.getState();
       const planShifts = state.preview ? applyChanges(state.shifts, state.preview.changes) : state.shifts;
-      const impact = calculateImpact(state, planShifts, state.shifts);
+      const impact = calculateImpact(state, planShifts);
       const candidateWorker = state.preview?.changes[0] ? state.workers.find((worker) => worker.id === state.preview?.changes[0]?.workerId) : undefined;
       bridge.runAction({ type: "set_activity", activity: { state: "reviewed", message: "Agent reviewed live plan.", detail: `${displayName(candidateWorker) ? `${displayName(candidateWorker)} candidate` : "Current schedule"} reviewed from the exact live state. Ready to apply.` } });
       return { summary: `Current live schedule has ${impact.warnings.length} warnings and a ${(impact.laborRatio * 100).toFixed(1)}% estimated labor ratio.`, impact };
@@ -154,7 +155,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "get_business_state",
     title: "Get live business state",
-    description: "Inspect the exact OwnerOps schedule currently visible to the user, including UI language, labor market, currency, wage reference, workers, shifts, incident, preview, labor estimate, weekly hours, and warnings.",
+    description: "Inspect the exact OwnerOps schedule currently visible to the user, including UI language, labor market, currency, wage reference, masked demo contacts, workers, shifts, incident, preview, labor estimate, weekly hours, and warnings.",
     inputSchema: emptySchema,
     annotations: { readOnlyHint: true },
     execute: async () => tools.getBusinessState(),

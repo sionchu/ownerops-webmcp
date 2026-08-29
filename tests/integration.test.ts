@@ -49,6 +49,7 @@ describe("shared UI and WebMCP application path", () => {
     expect(spanishNyc.business.currency).toBe("USD");
     expect(spanishNyc.business.wageReference.hourly).toBe(17);
     expect(spanishNyc.workers.find((worker) => worker.id === "minsoo")?.name).toBe("Mason");
+    expect(spanishNyc.workers.find((worker) => worker.id === "minsoo")?.demoContact).toContain("555");
 
     const japaneseUiSameMarket = executors.createScheduleDraft({ preset: "demo", industry: "salon", uiLocale: "ja" });
     expect(japaneseUiSameMarket.uiLocale).toBe("ja");
@@ -114,7 +115,7 @@ describe("shared UI and WebMCP application path", () => {
     expect(() => executors.applyStaffingChange({ previewId: previewBeforeReview.id, version: previewBeforeReview.version, uiLocale: "en" })).toThrow(/review required/i);
     expect(JSON.stringify(web.getState())).toBe(beforeRejectedApply);
 
-    const expectedImpact = calculateImpact(web.getState(), applyChanges(web.getState().shifts, previewBeforeReview.changes), web.getState().shifts);
+    const expectedImpact = calculateImpact(web.getState(), applyChanges(web.getState().shifts, previewBeforeReview.changes));
     const reviewed = executors.evaluateCurrentPlan();
     expect(reviewed.impact).toEqual(expectedImpact);
     expect(web.getState().activity.state).toBe("reviewed");
