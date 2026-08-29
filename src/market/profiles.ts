@@ -40,7 +40,7 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
       sourceUrl: "https://www.minimumwage.go.kr/",
     },
     wageRounding: 500,
-    salesRounding: 100000,
+    salesRounding: 50000,
   },
   "us-nyc": {
     id: "us-nyc",
