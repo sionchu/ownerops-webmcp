@@ -17,6 +17,7 @@ export type MarketProfile = {
   intlLocale: string;
   locationLabels: Record<UiLocale, string>;
   workerNames: Record<string, string>;
+  workerContacts: Record<string, string>;
   wageReference: WageReference;
   wageRounding: number;
   salesRounding: number;
@@ -31,6 +32,7 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
     intlLocale: "ko-KR",
     locationLabels: { en: "Seoul", ko: "서울", ja: "ソウル", es: "Seúl", "zh-CN": "首尔" },
     workerNames: { minsoo: "민수", jiyoung: "지영", younghee: "영희", chulsoo: "철수", hana: "하나" },
+    workerContacts: { minsoo: "010-••••-1042", jiyoung: "010-••••-2084", younghee: "010-••••-3168", chulsoo: "010-••••-4275", hana: "010-••••-5391" },
     wageReference: {
       hourly: 10320,
       basis: "statutory-hourly-minimum",
@@ -48,6 +50,7 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
     intlLocale: "en-US",
     locationLabels: { en: "New York City", ko: "뉴욕", ja: "ニューヨーク", es: "Nueva York", "zh-CN": "纽约" },
     workerNames: { minsoo: "Mason", jiyoung: "Jamie", younghee: "Taylor", chulsoo: "Chris", hana: "Hannah" },
+    workerContacts: { minsoo: "+1 (212) 555-0101", jiyoung: "+1 (212) 555-0102", younghee: "+1 (212) 555-0103", chulsoo: "+1 (212) 555-0104", hana: "+1 (212) 555-0105" },
     wageReference: {
       hourly: 17,
       basis: "statutory-hourly-minimum",
@@ -66,6 +69,7 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
     intlLocale: "ja-JP",
     locationLabels: { en: "Tokyo", ko: "도쿄", ja: "東京", es: "Tokio", "zh-CN": "东京" },
     workerNames: { minsoo: "蓮", jiyoung: "葵", younghee: "美咲", chulsoo: "翔太", hana: "花" },
+    workerContacts: { minsoo: "090-••••-1042", jiyoung: "090-••••-2084", younghee: "090-••••-3168", chulsoo: "090-••••-4275", hana: "090-••••-5391" },
     wageReference: {
       hourly: 1226,
       basis: "statutory-hourly-minimum",
@@ -83,6 +87,7 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
     intlLocale: "es-ES",
     locationLabels: { en: "Madrid", ko: "마드리드", ja: "マドリード", es: "Madrid", "zh-CN": "马德里" },
     workerNames: { minsoo: "Mateo", jiyoung: "Lucía", younghee: "Carmen", chulsoo: "Diego", hana: "Ana" },
+    workerContacts: { minsoo: "+34 600 ••• 142", jiyoung: "+34 600 ••• 284", younghee: "+34 600 ••• 368", chulsoo: "+34 600 ••• 475", hana: "+34 600 ••• 591" },
     wageReference: {
       hourly: 8.22,
       basis: "derived-general-smi",
@@ -101,6 +106,7 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
     intlLocale: "zh-CN",
     locationLabels: { en: "Shanghai", ko: "상하이", ja: "上海", es: "Shanghái", "zh-CN": "上海" },
     workerNames: { minsoo: "明宇", jiyoung: "嘉怡", younghee: "雅婷", chulsoo: "子豪", hana: "欣怡" },
+    workerContacts: { minsoo: "138 •••• 1042", jiyoung: "138 •••• 2084", younghee: "138 •••• 3168", chulsoo: "138 •••• 4275", hana: "138 •••• 5391" },
     wageReference: {
       hourly: 25,
       basis: "part-time-hourly-minimum",

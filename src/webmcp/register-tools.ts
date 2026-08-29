@@ -48,7 +48,7 @@ function displayName(worker: AppState["workers"][number] | undefined) {
 
 function businessState(state: AppState, locale: UiLocale) {
   const planShifts = state.preview ? applyChanges(state.shifts, state.preview.changes) : state.shifts;
-  const impact = calculateImpact(state, planShifts, state.shifts);
+  const impact = calculateImpact(state, planShifts);
   const profile = getLocalizedIndustryProfile(getIndustryProfile(state.business.industry), locale);
   const market = getMarketProfile(state.business.market);
   return {
@@ -124,7 +124,7 @@ export function createToolExecutors(bridge: ToolBridge) {
     evaluateCurrentPlan: () => {
       const state = bridge.getState();
       const planShifts = state.preview ? applyChanges(state.shifts, state.preview.changes) : state.shifts;
-      const impact = calculateImpact(state, planShifts, state.shifts);
+      const impact = calculateImpact(state, planShifts);
       const candidateWorker = state.preview?.changes[0] ? state.workers.find((worker) => worker.id === state.preview?.changes[0]?.workerId) : undefined;
       bridge.runAction({ type: "set_activity", activity: { state: "reviewed", message: "Agent reviewed live plan.", detail: `${displayName(candidateWorker) ? `${displayName(candidateWorker)} candidate` : "Current schedule"} reviewed from the exact live state. Ready to apply.` } });
       return { summary: `Current live schedule has ${impact.warnings.length} warnings and a ${(impact.laborRatio * 100).toFixed(1)}% estimated labor ratio.`, impact };

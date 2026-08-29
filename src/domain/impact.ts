@@ -79,7 +79,14 @@ export function collectWarnings(state: AppState, shifts = state.shifts): { warni
   return { warnings, uncoveredPeakMinutes };
 }
 
-export function calculateImpact(state: AppState, shifts = state.shifts, baselineShifts = state.shifts): PlanImpact {
+export function decisionBaselineShifts(state: AppState): Shift[] {
+  if (!state.incident) return state.shifts;
+  return state.shifts.map((shift) => shift.id === state.incident?.shiftId
+    ? { ...shift, workerId: state.incident.workerId, status: "scheduled" as const }
+    : shift);
+}
+
+export function calculateImpact(state: AppState, shifts = state.shifts, baselineShifts = decisionBaselineShifts(state)): PlanImpact {
   const projectedLaborCost = estimatedPayroll(state.workers, shifts);
   const expectedSales = Object.values(state.business.expectedSalesByDay).reduce((sum, value) => sum + value, 0);
   const { warnings, uncoveredPeakMinutes } = collectWarnings(state, shifts);

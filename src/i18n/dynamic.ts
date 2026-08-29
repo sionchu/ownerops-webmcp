@@ -38,11 +38,11 @@ function metricDetail(locale: UiLocale, input: LiveOperatingSummaryInput): strin
 
   if (input.hasPreview) {
     switch (locale) {
-      case "ko": return `피크 공백 ${input.uncoveredPeakMinutes}분 · 복구 비용 ${cost} · 변경 ${input.scheduleChangeCount}건 · 검토 ${input.warningCount}건`;
-      case "ja": return `ピーク不足 ${input.uncoveredPeakMinutes}分 · 復旧コスト ${cost} · 変更 ${input.scheduleChangeCount}件 · レビュー ${input.warningCount}件`;
-      case "es": return `Brecha punta ${input.uncoveredPeakMinutes} min · Coste de recuperación ${cost} · ${input.scheduleChangeCount} cambio${input.scheduleChangeCount === 1 ? "" : "s"} · ${input.warningCount} revisión${input.warningCount === 1 ? "" : "es"}`;
-      case "zh-CN": return `高峰缺口 ${input.uncoveredPeakMinutes} 分钟 · 恢复成本 ${cost} · ${input.scheduleChangeCount} 项变更 · ${input.warningCount} 项待复核`;
-      default: return `Peak gap ${input.uncoveredPeakMinutes} min · Recovery cost ${cost} · ${input.scheduleChangeCount} change${input.scheduleChangeCount === 1 ? "" : "s"} · ${input.warningCount} review item${input.warningCount === 1 ? "" : "s"}`;
+      case "ko": return `피크 공백 ${input.uncoveredPeakMinutes}분 · 순 임금 영향 ${cost} · 변경 ${input.scheduleChangeCount}건 · 검토 ${input.warningCount}건`;
+      case "ja": return `ピーク不足 ${input.uncoveredPeakMinutes}分 · 純賃金差 ${cost} · 変更 ${input.scheduleChangeCount}件 · レビュー ${input.warningCount}件`;
+      case "es": return `Brecha punta ${input.uncoveredPeakMinutes} min · Impacto salarial neto ${cost} · ${input.scheduleChangeCount} cambio${input.scheduleChangeCount === 1 ? "" : "s"} · ${input.warningCount} revisión${input.warningCount === 1 ? "" : "es"}`;
+      case "zh-CN": return `高峰缺口 ${input.uncoveredPeakMinutes} 分钟 · 净工资影响 ${cost} · ${input.scheduleChangeCount} 项变更 · ${input.warningCount} 项待复核`;
+      default: return `Peak gap ${input.uncoveredPeakMinutes} min · Net wage impact ${cost} · ${input.scheduleChangeCount} change${input.scheduleChangeCount === 1 ? "" : "s"} · ${input.warningCount} review item${input.warningCount === 1 ? "" : "s"}`;
     }
   }
 
@@ -155,6 +155,26 @@ export function liveOperatingSummary(locale: UiLocale, input: LiveOperatingSumma
     case "es": return { headline: "La cobertura de horas punta está asegurada.", detail: metrics, tone: "stable" };
     case "zh-CN": return { headline: "高峰时段覆盖正常。", detail: metrics, tone: "stable" };
     default: return { headline: "Peak coverage is intact.", detail: metrics, tone: "stable" };
+  }
+}
+
+export function getOutreachCopy(locale: UiLocale) {
+  switch (locale) {
+    case "ko": return { prepare: "연락 준비", title: "대체 근무 연락 초안", demoContact: "예제 연락처", shiftPay: "대체근무 임금", originalPay: "원래 근무 임금", hourlyRate: "시급", copy: "문자 초안 복사", copied: "복사됨", draftOnly: "데모 초안만 생성됩니다. 실제 문자나 전화는 전송되지 않습니다.", wageBasis: "순 임금 영향은 이 데모에서 결근 시간을 무급으로 가정하고 원래 배정자 임금과 비교합니다." };
+    case "ja": return { prepare: "連絡を準備", title: "代替勤務の連絡下書き", demoContact: "デモ連絡先", shiftPay: "代替シフト賃金", originalPay: "元のシフト賃金", hourlyRate: "時給", copy: "メッセージ下書きをコピー", copied: "コピー済み", draftOnly: "デモ用の下書きのみ作成します。実際のSMSや電話は送信されません。", wageBasis: "純賃金差は、このデモでは欠勤時間を無給として元の担当者の賃金と比較します。" };
+    case "es": return { prepare: "Preparar contacto", title: "Borrador para cubrir el turno", demoContact: "Contacto de demo", shiftPay: "Coste del turno sustituto", originalPay: "Coste del turno original", hourlyRate: "Tarifa por hora", copy: "Copiar borrador", copied: "Copiado", draftOnly: "Solo se prepara un borrador de demo. No se envía ningún SMS ni llamada real.", wageBasis: "El impacto salarial neto supone, solo para esta demo, que las horas de ausencia no se pagan y se compara con el coste original." };
+    case "zh-CN": return { prepare: "准备联系", title: "替班联系草稿", demoContact: "演示联系方式", shiftPay: "替班工资", originalPay: "原排班工资", hourlyRate: "时薪", copy: "复制短信草稿", copied: "已复制", draftOnly: "仅生成演示草稿，不会实际发送短信或拨打电话。", wageBasis: "净工资影响在本演示中假设缺勤时段不计薪，并与原排班员工工资进行比较。" };
+    default: return { prepare: "Prepare contact", title: "Coverage outreach draft", demoContact: "Demo contact", shiftPay: "Replacement shift pay", originalPay: "Original shift pay", hourlyRate: "Hourly rate", copy: "Copy message draft", copied: "Copied", draftOnly: "Demo draft only. No real SMS or phone call is sent.", wageBasis: "Net wage impact assumes unpaid call-out hours in this demo and compares against the originally assigned worker." };
+  }
+}
+
+export function outreachDraft(locale: UiLocale, businessName: string, workerName: string, dayLabel: string, start: string, end: string): string {
+  switch (locale) {
+    case "ko": return `${workerName}님, ${businessName}입니다. ${dayLabel} ${start}–${end} 대체 근무 가능하신가요? 가능 여부를 알려주세요.`;
+    case "ja": return `${workerName}さん、${businessName}です。${dayLabel} ${start}–${end} の代替シフトに入れますか？対応可能か教えてください。`;
+    case "es": return `Hola ${workerName}, soy de ${businessName}. ¿Puedes cubrir el turno del ${dayLabel}, de ${start} a ${end}? Confírmame si estás disponible.`;
+    case "zh-CN": return `${workerName}，这里是${businessName}。你能否顶替 ${dayLabel} ${start}–${end} 的班次？请回复是否有空。`;
+    default: return `Hi ${workerName}, this is ${businessName}. Can you cover the ${dayLabel} shift from ${start}–${end}? Please let me know if you're available.`;
   }
 }
 

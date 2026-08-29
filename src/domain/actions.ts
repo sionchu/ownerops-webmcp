@@ -41,7 +41,7 @@ export function getResponseOptions(state: AppState): StaffingScenario[] {
     .map((worker) => {
       const label = workerLabel(worker);
       const changes = [{ shiftId: shift.id, workerId: worker.id }];
-      const impact = calculateImpact(state, applyChanges(state.shifts, changes), state.shifts);
+      const impact = calculateImpact(state, applyChanges(state.shifts, changes));
       return {
         id: `cover-${shift.id}-${worker.id}`,
         title: `${label} covers the shift`,
@@ -97,7 +97,7 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
     case "preview_changes": {
       validateStaffingChanges(state, action.changes);
       const proposed = applyChanges(state.shifts, action.changes);
-      return { ...state, preview: { id: `preview-custom-${Date.now()}`, version: 1, scenarioId: "custom", title: action.title, changes: action.changes, impact: calculateImpact(state, proposed, state.shifts) }, activity: { state: "proposalReady", message: "Agent proposal ready.", detail: "Custom staffing change is a preview only. Nothing has been committed." } };
+      return { ...state, preview: { id: `preview-custom-${Date.now()}`, version: 1, scenarioId: "custom", title: action.title, changes: action.changes, impact: calculateImpact(state, proposed) }, activity: { state: "proposalReady", message: "Agent proposal ready.", detail: "Custom staffing change is a preview only. Nothing has been committed." } };
     }
     case "reject_preview":
       return { ...state, preview: null, activity: { state: state.incident ? "warning" : "idle", message: "Preview dismissed. Schedule is unchanged." } };
@@ -117,7 +117,7 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
         const previousWorker = state.workers.find((item) => item.id === currentChange?.workerId);
         const changes = state.preview.changes.map((change) => change.shiftId === current.id ? { ...change, workerId: worker.id, ...movedTime } : change);
         const proposed = applyChanges(state.shifts, changes);
-        return { ...state, preview: { ...state.preview, version: state.preview.version + 1, title: `${workerLabel(worker)} covers the shift`, changes, impact: calculateImpact(state, proposed, state.shifts) }, activity: { state: "reviewNeeded", message: "Human edit detected.", detail: `${workerLabel(previousWorker, "Proposed replacement")} → ${workerLabel(worker)}; local impact updated. Agent review pending.` } };
+        return { ...state, preview: { ...state.preview, version: state.preview.version + 1, title: `${workerLabel(worker)} covers the shift`, changes, impact: calculateImpact(state, proposed) }, activity: { state: "reviewNeeded", message: "Human edit detected.", detail: `${workerLabel(previousWorker, "Proposed replacement")} → ${workerLabel(worker)}; local impact updated. Agent review pending.` } };
       }
       const shifts = state.shifts.map((item) => item.id === current.id ? { ...item, workerId: worker.id, ...movedTime, status: "scheduled" as const } : item);
       return { ...state, shifts, preview: null, incident: state.incident?.shiftId === current.id ? null : state.incident, activity: { state: "reviewNeeded", message: "Human edit detected.", detail: `${workerLabel(worker)} now owns the shift in the live schedule. Agent review pending.` } };

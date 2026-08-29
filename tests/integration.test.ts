@@ -114,7 +114,7 @@ describe("shared UI and WebMCP application path", () => {
     expect(() => executors.applyStaffingChange({ previewId: previewBeforeReview.id, version: previewBeforeReview.version, uiLocale: "en" })).toThrow(/review required/i);
     expect(JSON.stringify(web.getState())).toBe(beforeRejectedApply);
 
-    const expectedImpact = calculateImpact(web.getState(), applyChanges(web.getState().shifts, previewBeforeReview.changes), web.getState().shifts);
+    const expectedImpact = calculateImpact(web.getState(), applyChanges(web.getState().shifts, previewBeforeReview.changes));
     const reviewed = executors.evaluateCurrentPlan();
     expect(reviewed.impact).toEqual(expectedImpact);
     expect(web.getState().activity.state).toBe("reviewed");
