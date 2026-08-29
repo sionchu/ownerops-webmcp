@@ -11,8 +11,54 @@ function purchaseCashOutlay(changes: StorePlanChange[], state: AppState): number
   }, 0);
 }
 
+function validateStorePlanChanges(state: AppState, changes: StorePlanChange[]): void {
+  if (changes.length === 0 || changes.length > 20) throw new Error("A store plan needs one to twenty bounded changes.");
+
+  const shifts = new Map(state.shifts.map((shift) => [shift.id, shift]));
+  const workers = new Set(state.workers.map((worker) => worker.id));
+  const inventory = new Map((state.inventory ?? []).map((item) => [item.id, item]));
+  const menuItems = new Set((state.menu ?? []).map((item) => item.id));
+
+  for (const change of changes) {
+    if (change.type === "staffing") {
+      if (!shifts.has(change.shiftId)) throw new Error(`Shift ${change.shiftId} was not found in current StoreState.`);
+      if (!workers.has(change.workerId)) throw new Error(`Worker ${change.workerId} was not found in current StoreState.`);
+      if (change.start && change.end && new Date(change.start).getTime() >= new Date(change.end).getTime()) throw new Error(`Staffing change ${change.shiftId} has an invalid time range.`);
+      continue;
+    }
+
+    if (change.type === "shift_release") {
+      const shift = shifts.get(change.shiftId);
+      if (!shift) throw new Error(`Shift ${change.shiftId} was not found in current StoreState.`);
+      if (new Date(change.newEnd).getTime() <= new Date(shift.start).getTime()) throw new Error(`Shift release ${change.shiftId} must end after the shift starts.`);
+      if (new Date(change.newEnd).getTime() > new Date(shift.end).getTime()) throw new Error(`Shift release ${change.shiftId} cannot extend the shift; use a staffing change for a new end time.`);
+      continue;
+    }
+
+    if (change.type === "purchase") {
+      const item = inventory.get(change.inventoryItemId);
+      if (!item) throw new Error(`Inventory item ${change.inventoryItemId} was not found in current StoreState.`);
+      if (!Number.isFinite(change.quantity) || change.quantity <= 0) throw new Error(`Purchase quantity for ${change.inventoryItemId} must be greater than zero.`);
+      if (item.unit !== change.unit) throw new Error(`Purchase unit ${change.unit} does not match ${change.inventoryItemId} store unit ${item.unit}.`);
+      if (change.estimatedUnitCost !== undefined && (!Number.isFinite(change.estimatedUnitCost) || change.estimatedUnitCost < 0)) throw new Error(`Purchase unit cost for ${change.inventoryItemId} is invalid.`);
+      continue;
+    }
+
+    if (change.type === "prep") {
+      if (!menuItems.has(change.menuItemId)) throw new Error(`Menu item ${change.menuItemId} was not found in current StoreState.`);
+      if (!Number.isFinite(change.targetQuantity) || change.targetQuantity < 0) throw new Error(`Prep target for ${change.menuItemId} must be non-negative.`);
+      continue;
+    }
+
+    if (change.type === "task") {
+      if (!change.task.id.trim() || !change.task.title.trim()) throw new Error("Store task changes require stable id and title fields.");
+    }
+  }
+}
+
 /** Projection only: purchase changes simulate stock after receipt for Before/After analysis. */
 export function projectStorePlanChanges(state: AppState, changes: StorePlanChange[]): AppState {
+  validateStorePlanChanges(state, changes);
   const staffingChanges = changes.flatMap((change) => change.type === "staffing"
     ? [{ shiftId: change.shiftId, workerId: change.workerId, start: change.start, end: change.end }]
     : []);
@@ -70,6 +116,7 @@ function metricDelta(before: StoreMetricSnapshot, after: StoreMetricSnapshot): S
 }
 
 export function evaluateStorePlan(state: AppState, changes: StorePlanChange[]): StorePlanImpact {
+  validateStorePlanChanges(state, changes);
   const candidate = projectStorePlanChanges(state, changes);
   const cashOutlay = purchaseCashOutlay(changes, state);
   const before = metricSnapshot(state, 0);
@@ -120,7 +167,7 @@ export function evaluateStorePlan(state: AppState, changes: StorePlanChange[]): 
 }
 
 export function createStorePlan(state: AppState, title: string, changes: StorePlanChange[], id = `store-plan-${Date.now()}`): StorePlan {
-  if (changes.length === 0) throw new Error("A store plan needs at least one change.");
+  validateStorePlanChanges(state, changes);
   return {
     id,
     version: 1,
@@ -146,8 +193,14 @@ function expectedReceiptDate(state: AppState, inventoryItemId: string): string |
  */
 export function commitStorePlan(state: AppState, plan: StorePlan): AppState {
   if (plan.state !== "reviewed") throw new Error("Review required before applying this store plan.");
+  validateStorePlanChanges(state, plan.changes);
   const unsupportedPrep = plan.changes.some((change) => change.type === "prep");
   if (unsupportedPrep) throw new Error("Prep targets are not commit-ready yet; remove prep changes or keep the plan in preview.");
+
+  const projected = projectStorePlanChanges(state, plan.changes);
+  const projectedImpact = calculateImpact(projected);
+  const hardWarnings = projectedImpact.warnings.filter((warning) => warning.code === "availability" || warning.code === "role_mismatch");
+  if (hardWarnings.length > 0) throw new Error(`Hard staffing constraint prevents apply: ${hardWarnings.map((warning) => warning.message).join(" | ")}`);
 
   const staffingChanges = plan.changes.flatMap((change) => change.type === "staffing"
     ? [{ shiftId: change.shiftId, workerId: change.workerId, start: change.start, end: change.end }]
