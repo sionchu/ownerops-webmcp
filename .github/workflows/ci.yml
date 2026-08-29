@@ -69,3 +69,5 @@ jobs:
         run: |
           psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -c "select public.oo_get_working_store_projection('missing-store') is null as missing_store_is_null;"
           psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -c "select count(*) >= 8 as source_registry_seeded from public.oo_price_sources;"
+      - name: Round-trip working StoreState projection
+        run: psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -f tests/sql/working_store_projection.sql
