@@ -69,6 +69,7 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
     case "reset_demo":
       return createDemoState();
     case "create_schedule_draft":
+      if (action.industry === undefined && action.market === undefined) return state;
       return createDemoState(action.industry ?? state.business.industry, action.market ?? state.business.market);
     case "set_activity":
       return { ...state, activity: action.activity };
