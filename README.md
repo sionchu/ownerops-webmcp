@@ -23,7 +23,20 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-No API key, backend, database, authentication, or external service is required.
+No API key, backend, database, authentication, or external service is required for the OwnerOps demo.
+
+## Optional F&B cost-data foundation
+
+OwnerOps also contains an **offline/prebuild** source catalog for food-cost research across Seoul, New York City, Tokyo, Madrid, and Shanghai. It deliberately does not add a runtime database or mutate the staffing `AppState`.
+
+```bash
+npm run data:sources
+npm run data:sync -- --source eurostat
+npm run data:sync -- --source open-prices
+npm run data:sync -- --source kamis
+```
+
+Configured sources fail closed when required environment variables are absent. Raw source snapshots are written under `.cache/fnb/` and are git-ignored; API secrets are never intended for browser code. Source provenance, access requirements, and the future Supabase/MCP promotion path are documented in [`docs/16_FNB_COST_DATA_FOUNDATION.md`](docs/16_FNB_COST_DATA_FOUNDATION.md).
 
 ## Verification commands
 
@@ -92,11 +105,13 @@ The current production deployment is [ownerops-webmcp.vercel.app](https://ownero
 
 - `src/domain/` — canonical model, fixture, calculations, scenarios, and shared actions
 - `src/industry/` — one registry for the six lightweight generic industry profiles
+- `src/market/` — market/currency/wage presentation profiles for the five demo markets
+- `src/cost-data/` — optional external source catalog and normalized cost-data contracts; not staffing state
 - `src/state/` — the single React-owned `AppState` and `localStorage` persistence
 - `src/components/` — schedule, scenario comparison, preview/apply flow, and assistant rail
 - `src/snapshot/` — strict versioned text serialization and transactional parsing
 - `src/webmcp/` — imperative WebMCP registration and the shared state bridge
-- `tests/` — deterministic domain, snapshot, and UI/WebMCP shared-path tests
+- `tests/` — deterministic domain, snapshot, cost-data, and UI/WebMCP shared-path tests
 
 Product scope and acceptance criteria remain governed by `AGENTS.md` and `docs/`.
 
