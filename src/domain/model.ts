@@ -271,6 +271,18 @@ export type PurchaseRecord = {
   totalCost: number;
 };
 
+export type PurchaseOrder = {
+  id: string;
+  supplierId: string;
+  inventoryItemId: string;
+  createdAt: string;
+  expectedAt?: string;
+  quantity: number;
+  unit: InventoryUnit;
+  estimatedUnitCost?: number;
+  status: "planned" | "ordered" | "received" | "cancelled";
+};
+
 export type WasteRecord = {
   id: string;
   inventoryItemId: string;
@@ -420,6 +432,7 @@ export type AppState = {
   inventory?: InventoryItem[];
   suppliers?: Supplier[];
   purchases?: PurchaseRecord[];
+  purchaseOrders?: PurchaseOrder[];
   waste?: WasteRecord[];
   tasks?: StoreTask[];
   log?: StoreLogEntry[];
