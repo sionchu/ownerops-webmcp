@@ -1,15 +1,10 @@
 import { getIndustryProfile, isIndustryId } from "@/industry/profiles";
-import type { AppState, IndustryId, Shift, Worker } from "./model";
+import { createMarketSales, createMarketWorkers, getMarketProfile, isMarketId } from "@/market/profiles";
+import type { AppState, IndustryId, MarketId, Shift, Worker } from "./model";
 
 export const DEMO_WEEK = ["2026-08-24", "2026-08-25", "2026-08-26", "2026-08-27", "2026-08-28", "2026-08-29", "2026-08-30"];
 
-export const DEMO_WORKERS: Worker[] = [
-  { id: "minsoo", name: "Minsoo", role: "barista", hourlyRate: 13000 },
-  { id: "jiyoung", name: "Jiyoung", role: "barista", hourlyRate: 12000 },
-  { id: "younghee", name: "Younghee", role: "manager", hourlyRate: 15000 },
-  { id: "chulsoo", name: "Chulsoo", role: "barista", hourlyRate: 12000 },
-  { id: "hana", name: "Hana", role: "barista", hourlyRate: 12500 },
-];
+export const DEMO_WORKERS: Worker[] = createMarketWorkers("kr-seoul");
 
 const shift = (id: string, workerId: string, day: string, start: string, end: string, role: "barista" | "manager" = "barista"): Shift => ({
   id,
@@ -45,18 +40,13 @@ export const DEMO_SHIFTS: Shift[] = [
   shift("sun-hana", "hana", DEMO_WEEK[6], "14:00", "22:00"),
 ];
 
-export function createDemoState(industry: IndustryId = "diner"): AppState {
+export function createDemoState(industry: IndustryId = "diner", market: MarketId = "kr-seoul"): AppState {
   if (!isIndustryId(industry)) throw new Error(`Unsupported industry profile: ${String(industry)}.`);
+  if (!isMarketId(market)) throw new Error(`Unsupported market profile: ${String(market)}.`);
   const profile = getIndustryProfile(industry);
-  const expectedSalesByDay: Record<string, number> = {
-    "2026-08-24": 1300000,
-    "2026-08-25": 1400000,
-    "2026-08-26": 1450000,
-    "2026-08-27": 1600000,
-    "2026-08-28": 2400000,
-    "2026-08-29": 2600000,
-    "2026-08-30": 2100000,
-  };
+  const marketProfile = getMarketProfile(market);
+  const workers = createMarketWorkers(market);
+  const expectedSalesByDay = createMarketSales(market);
   const peakWindows = [
     { day: "2026-08-28", start: "19:00", end: "21:00", minCoverage: 2 },
     { day: "2026-08-29", start: "14:00", end: "18:00", minCoverage: 2 },
@@ -65,14 +55,16 @@ export function createDemoState(industry: IndustryId = "diner"): AppState {
     schemaVersion: 1,
     business: {
       industry: profile.id,
+      market: marketProfile.id,
+      currency: marketProfile.currency,
       name: profile.businessName,
-      employeeCount: DEMO_WORKERS.length,
+      employeeCount: workers.length,
       targetLaborRatio: 0.22,
       weeklyHourWarningThreshold: 40,
       expectedSalesByDay,
       peakWindows,
     },
-    workers: structuredClone(DEMO_WORKERS),
+    workers,
     shifts: structuredClone(DEMO_SHIFTS),
     demand: peakWindows.map((peak) => ({ ...peak, expectedSales: expectedSalesByDay[peak.day] })),
     preview: null,
