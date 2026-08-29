@@ -133,3 +133,11 @@ Live Chrome/WebMCP validation is deferred to the later manual Chrome pass; the H
 ### Exact Deployment Blocker
 
 None for HTTPS deployment. The remaining release gate is the deferred live Chrome/WebMCP validation.
+
+## Automated Signature-Flow Validation
+
+- Review-before-apply defect: FIXED — the canonical `apply_preview` action rejects any proposal that has not reached `reviewed`.
+- UI guard: PASS — the preview bar disables apply and shows `Review required` before review.
+- Shared-path integration: PASS — pizza draft → Minsoo absence → three options → preview → manual Hana edit → exact review → apply is covered without hard-coded session values.
+- WebMCP metadata: PASS — exactly eight tools register with three `readOnlyHint: true` and five explicit `readOnlyHint: false` annotations.
+- Local browser automation: PASS — Slice House, the manual Hana preview, reviewed apply, cleared preview/incident, and zero console errors were verified against the running app.

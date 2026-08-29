@@ -115,6 +115,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
     title: "Create demo schedule draft",
     description: "Create the bounded weekly demo schedule in the live OwnerOps page. The optional industry selects a generic business profile; external agents should map branded language to the nearest generic category without reproducing a branded visual identity.",
     inputSchema: { type: "object", properties: { preset: { type: "string", enum: ["demo"], description: "The only supported MVP draft preset." }, industry: { type: "string", enum: ["diner", "pizza", "coffee", "salon", "sushi", "curry"], description: "Optional generic industry profile; defaults to diner." } }, required: ["preset"], additionalProperties: false },
+    annotations: { readOnlyHint: false },
     execute: async (input) => {
       return tools.createScheduleDraft({ preset: input.preset, industry: input.industry });
     },
@@ -125,6 +126,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
     title: "Mark worker unavailable",
     description: "Mark an assigned worker unavailable for an existing shift. The shift becomes uncovered and no replacement is assigned automatically.",
     inputSchema: { type: "object", properties: { workerId: stringField("Stable worker id."), shiftId: stringField("Stable assigned shift id."), reason: stringField("Optional short operational reason.") }, required: ["workerId", "shiftId"], additionalProperties: false },
+    annotations: { readOnlyHint: false },
     execute: async (input) => tools.markWorkerUnavailable(input as { workerId: string; shiftId: string; reason?: string }),
   }, { signal: controller.signal }));
 
@@ -151,6 +153,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
       anyOf: [{ required: ["scenarioId"] }, { required: ["changes"] }],
       additionalProperties: false,
     },
+    annotations: { readOnlyHint: false },
     execute: async (input) => tools.previewStaffingChange(input as { scenarioId?: string; title?: string; changes?: StaffingChange[] }),
   }, { signal: controller.signal }));
 
@@ -168,6 +171,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
     title: "Apply reviewed staffing change",
     description: "Commit the current reviewed preview only when its id and version still match, then clear the preview and recalculate impact.",
     inputSchema: { type: "object", properties: { previewId: stringField("Current preview id shown by OwnerOps."), version: { type: "number", description: "Current preview version; prevents stale apply." } }, required: ["previewId", "version"], additionalProperties: false },
+    annotations: { readOnlyHint: false },
     execute: async (input) => tools.applyStaffingChange(input as { previewId: string; version: number }),
   }, { signal: controller.signal }));
 
@@ -176,6 +180,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
     title: "Import OwnerOps schedule snapshot",
     description: "Validate and transactionally restore a portable OWNEROPS_SNAPSHOT v1 document. Invalid input leaves the current state unchanged.",
     inputSchema: { type: "object", properties: { snapshotText: { type: "string", minLength: 40, maxLength: 100000, description: "Complete OWNEROPS_SNAPSHOT v1 text." } }, required: ["snapshotText"], additionalProperties: false },
+    annotations: { readOnlyHint: false },
     execute: async (input) => tools.importScheduleSnapshot(input as { snapshotText: string }),
   }, { signal: controller.signal }));
 

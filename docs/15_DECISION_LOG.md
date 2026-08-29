@@ -41,3 +41,6 @@ Canonical MD files are SSOT. Future ChatGPT/Codex changes update docs first, the
 
 ## D014 — Git visibility
 Develop in private repository; make public only for final Devpost requirement after secret/license/runbook audit.
+
+## D015 — Reviewed apply guard
+Applying a staffing preview requires the canonical activity state to be `reviewed`. This preserves the human-edit → exact agent review → explicit apply workflow in every adapter, including WebMCP.

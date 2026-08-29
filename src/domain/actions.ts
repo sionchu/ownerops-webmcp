@@ -97,6 +97,7 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
       return { ...state, preview: null, activity: { state: state.incident ? "warning" : "idle", message: "Preview dismissed. Schedule is unchanged." } };
     case "apply_preview": {
       if (!state.preview || state.preview.id !== action.previewId || state.preview.version !== action.version) throw new Error("Preview is missing or stale. Review the current option again.");
+      if (state.activity.state !== "reviewed") throw new Error("Review required before applying this staffing preview.");
       const appliedWorkerName = state.workers.find((worker) => worker.id === state.preview?.changes[0]?.workerId)?.name ?? "The replacement";
       return { ...state, shifts: applyChanges(state.shifts, state.preview.changes), preview: null, incident: null, activity: { state: "applied", message: "Plan applied.", detail: `${appliedWorkerName} covers the reviewed shift. Preview cleared.` } };
     }

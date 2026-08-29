@@ -63,6 +63,8 @@ describe("OwnerOps deterministic domain", () => {
     state = dispatchApplicationAction(state, { type: "preview_scenario", scenarioId: scenario.id });
     expect(state.shifts.find((shift) => shift.id === "fri-minsoo-18")?.status).toBe("uncovered");
     expect(() => dispatchApplicationAction(state, { type: "apply_preview", previewId: state.preview!.id, version: 99 })).toThrow(/stale/i);
+    expect(() => dispatchApplicationAction(state, { type: "apply_preview", previewId: state.preview!.id, version: state.preview!.version })).toThrow(/review required/i);
+    state = dispatchApplicationAction(state, { type: "set_activity", activity: { state: "reviewed", message: "Agent reviewed live plan." } });
     state = dispatchApplicationAction(state, { type: "apply_preview", previewId: state.preview!.id, version: state.preview!.version });
     expect(state.preview).toBeNull();
     expect(state.incident).toBeNull();

@@ -86,7 +86,7 @@ Read-only with respect to committed schedule.
 This is critical: after manual drag/drop, the tool reads the same canonical state as the UI rather than reconstructing a schedule from text.
 
 ## Tool 7 — `apply_staffing_change`
-Commit the current preview after user review.
+Commit the current preview after the exact candidate has been reviewed through `evaluate_current_plan`.
 
 Input identifies/confirms current preview version/id so a stale preview is not applied accidentally.
 
@@ -95,6 +95,8 @@ Result:
 - clear preview,
 - recompute impact,
 - persist state.
+
+The canonical domain action rejects any apply attempt unless `activity.state === 'reviewed'`; the UI mirrors this by disabling apply and showing `Review required` before review completes.
 
 ## Tool 8 — `import_schedule_snapshot`
 Restore a portable OwnerOps text snapshot into the page.

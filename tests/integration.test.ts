@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { dispatchApplicationAction } from "@/domain/actions";
 import { createDemoState } from "@/domain/fixtures";
+import { applyChanges, calculateImpact } from "@/domain/impact";
 import type { AppState } from "@/domain/model";
 import { createToolExecutors } from "@/webmcp/register-tools";
 import { registerOwnerOpsTools } from "@/webmcp/register-tools";
@@ -42,38 +43,56 @@ describe("shared UI and WebMCP application path", () => {
     expect(result.impact.workerWeeklyHours.minsoo).toBe(18);
   });
 
-  it("evaluates the human-edited preview and preserves preview/apply semantics", () => {
+  it("validates the complete pizza-to-Hana reviewed staffing flow", () => {
     const web = bridge();
     const executors = createToolExecutors(web);
+    const draft = executors.createScheduleDraft({ preset: "demo", industry: "pizza" });
+    expect(draft.business.industry).toBe("pizza");
+    expect(draft.business.name).toBe("Slice House");
+    expect(web.getState().workers.some((worker) => worker.id === "minsoo")).toBe(true);
+    expect(web.getState().workers.some((worker) => worker.id === "hana")).toBe(true);
+    expect(web.getState().shifts.some((shift) => shift.id === "fri-minsoo-18")).toBe(true);
+
     executors.markWorkerUnavailable({ workerId: "minsoo", shiftId: "fri-minsoo-18", reason: "Last-minute absence" });
+    expect(web.getState().incident).toMatchObject({ workerId: "minsoo", shiftId: "fri-minsoo-18" });
+    expect(web.getState().shifts.find((shift) => shift.id === "fri-minsoo-18")).toMatchObject({ workerId: null, status: "uncovered" });
+    expect(web.getState().preview).toBeNull();
+
     const options = executors.getResponseOptions();
     expect(options.count).toBe(3);
-    const proposed = executors.previewStaffingChange({ scenarioId: options.options[0].id });
-    expect(proposed.preview?.changes[0]?.workerId).toBe("jiyoung");
+    const bestOption = options.options[0];
+    const proposed = executors.previewStaffingChange({ scenarioId: bestOption.id });
+    expect(proposed.preview).toMatchObject({ scenarioId: bestOption.id, version: 1 });
+    expect(web.getState().shifts.find((shift) => shift.id === "fri-minsoo-18")).toMatchObject({ workerId: null, status: "uncovered" });
     const proposedState = executors.getBusinessState();
-    expect(proposedState.workers.find((worker) => worker.id === "jiyoung")?.weeklyHours).toBe(32);
-    expect(proposedState.metrics.projectedLaborCost).toBe(2_026_000);
-    expect(proposedState.shifts.find((shift) => shift.id === "fri-minsoo-18")?.workerId).toBe("jiyoung");
+    expect(proposedState.shifts.find((shift) => shift.id === "fri-minsoo-18")?.workerId).toBe(bestOption.changes[0].workerId);
 
     web.runAction({ type: "reassign_shift", shiftId: "fri-minsoo-18", workerId: "hana" });
+    expect(web.getState().preview?.version).toBe(2);
+    expect(web.getState().preview?.changes[0]?.workerId).toBe("hana");
     expect(web.getState().activity.state).toBe("reviewNeeded");
-    expect(web.getState().shifts.find((shift) => shift.id === "fri-minsoo-18")?.workerId).toBeNull();
+    expect(web.getState().shifts.find((shift) => shift.id === "fri-minsoo-18")).toMatchObject({ workerId: null, status: "uncovered" });
 
     const editedState = executors.getBusinessState();
-    expect(editedState.workers.find((worker) => worker.id === "hana")?.weeklyHours).toBe(32);
-    expect(editedState.metrics.projectedLaborCost).toBe(2_028_000);
     expect(editedState.shifts.find((shift) => shift.id === "fri-minsoo-18")?.workerId).toBe("hana");
+    const previewBeforeReview = web.getState().preview!;
+    const beforeRejectedApply = JSON.stringify(web.getState());
+    expect(() => executors.applyStaffingChange({ previewId: previewBeforeReview.id, version: previewBeforeReview.version })).toThrow(/review required/i);
+    expect(JSON.stringify(web.getState())).toBe(beforeRejectedApply);
 
+    const expectedImpact = calculateImpact(web.getState(), applyChanges(web.getState().shifts, previewBeforeReview.changes), web.getState().shifts);
     const reviewed = executors.evaluateCurrentPlan();
-    expect(reviewed.impact.workerWeeklyHours.hana).toBe(32);
-    expect(reviewed.impact.payrollDelta).toBe(50_000);
+    expect(reviewed.impact).toEqual(expectedImpact);
     expect(web.getState().activity.state).toBe("reviewed");
+    expect(web.getState().preview?.changes[0]?.workerId).toBe("hana");
+    expect(web.getState().shifts.find((shift) => shift.id === "fri-minsoo-18")?.workerId).toBeNull();
 
     const preview = web.getState().preview;
     expect(preview).not.toBeNull();
     const applied = executors.applyStaffingChange({ previewId: preview!.id, version: preview!.version });
     expect(applied.preview).toBeNull();
-    expect(web.getState().shifts.find((shift) => shift.id === "fri-minsoo-18")?.workerId).toBe("hana");
+    expect(web.getState().shifts.find((shift) => shift.id === "fri-minsoo-18")).toMatchObject({ workerId: "hana", status: "scheduled" });
+    expect(web.getState().incident).toBeNull();
     expect(web.getState().activity.state).toBe("applied");
   });
 
@@ -100,7 +119,9 @@ describe("shared UI and WebMCP application path", () => {
     const draftSchema = registrations.find(({ tool }) => tool.name === "create_schedule_draft")?.tool.inputSchema as { properties?: { industry?: { enum?: unknown[] } }; required?: unknown[] };
     expect(draftSchema.properties?.industry?.enum).toEqual(["diner", "pizza", "coffee", "salon", "sushi", "curry"]);
     expect(draftSchema.required).toEqual(["preset"]);
-    expect(registrations.find(({ tool }) => tool.name === "evaluate_current_plan")?.tool.annotations?.readOnlyHint).toBe(true);
+    expect(registrations).toHaveLength(8);
+    expect(registrations.filter(({ tool }) => tool.annotations?.readOnlyHint === true)).toHaveLength(3);
+    expect(registrations.filter(({ tool }) => tool.annotations?.readOnlyHint === false)).toHaveLength(5);
     registration.dispose();
     expect(registrations.every(({ signal }) => signal?.aborted)).toBe(true);
     delete (globalThis as { document?: unknown }).document;
