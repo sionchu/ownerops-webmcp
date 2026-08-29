@@ -1,6 +1,6 @@
 import { createDemoState } from "./fixtures";
 import { applyChanges, calculateImpact } from "./impact";
-import { getIndustryProfile } from "@/industry/profiles";
+import { workerEligibleForShift } from "./availability";
 import { getWeekRebuildOptions, type WeekRebuildPriority } from "./rebuild";
 import type { AppState, CapacityGap, IndustryId, MarketId, PlanKind, StaffingChange, StaffingScenario } from "./model";
 
@@ -20,10 +20,6 @@ function workerLabel(worker: AppState["workers"][number] | undefined, fallback =
   return worker?.name ?? fallback;
 }
 
-function unavailable(worker: AppState["workers"][number], start: string, end: string): boolean {
-  return Boolean(worker.availability?.some((window) => !window.available && new Date(window.start) < new Date(end) && new Date(window.end) > new Date(start)));
-}
-
 function validateStaffingChanges(state: AppState, changes: StaffingChange[]): void {
   if (changes.length === 0 || changes.length > 16) throw new Error("A staffing preview needs one to sixteen bounded changes.");
   for (const change of changes) {
@@ -32,14 +28,19 @@ function validateStaffingChanges(state: AppState, changes: StaffingChange[]): vo
   }
 }
 
+function resolveLegacyStaffingIncident(state: AppState, shiftId: string, resolvedAt: string) {
+  return (state.incidents ?? []).map((incident) => incident.type === "worker_unavailable" && incident.shiftId === shiftId && incident.status !== "resolved"
+    ? { ...incident, status: "resolved" as const, resolvedAt }
+    : incident);
+}
+
 function getIncidentResponseOptions(state: AppState): StaffingScenario[] {
   if (!state.incident) return [];
   const shift = state.shifts.find((item) => item.id === state.incident?.shiftId);
   if (!shift) return [];
   const candidates = state.workers
     .filter((worker) => worker.id !== state.incident?.workerId)
-    .filter((worker) => worker.role === shift.role || (worker.role === "manager" && shift.role === "barista"))
-    .filter((worker) => !unavailable(worker, shift.start, shift.end))
+    .filter((worker) => workerEligibleForShift(worker, { ...shift, workerId: worker.id, status: "scheduled" }))
     .map((worker) => {
       const label = workerLabel(worker);
       const changes = [{ shiftId: shift.id, workerId: worker.id }];
@@ -93,10 +94,8 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
       if (action.industry === undefined && action.market === undefined) return state;
       const industry = action.industry ?? state.business.industry;
       const market = action.market ?? state.business.market;
-      if (market !== state.business.market) return createDemoState(industry, market);
-      if (industry === state.business.industry) return state;
-      const profile = getIndustryProfile(industry);
-      return { ...state, business: { ...state.business, industry, name: profile.businessName } };
+      if (industry === state.business.industry && market === state.business.market) return state;
+      return createDemoState(industry, market);
     }
     case "set_activity":
       return { ...state, activity: action.activity };
@@ -104,7 +103,13 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
       const worker = state.workers.find((item) => item.id === action.workerId);
       const shift = state.shifts.find((item) => item.id === action.shiftId);
       if (!worker || !shift || shift.workerId !== worker.id) throw new Error("Worker and shift do not match the current schedule.");
-      const workers = state.workers.map((item) => item.id === worker.id ? { ...item, availability: [...(item.availability ?? []), { start: shift.start, end: shift.end, available: false }] } : item);
+      const sequence = (state.incidents?.length ?? 0) + 1;
+      const exceptionId = `availability-${shift.id}-${sequence}`;
+      const incidentId = `incident-${shift.id}-${sequence}`;
+      const workers = state.workers.map((item) => item.id === worker.id ? {
+        ...item,
+        availabilityExceptions: [...(item.availabilityExceptions ?? []), { id: exceptionId, start: shift.start, end: shift.end, available: false, reason: action.reason, source: "incident" as const }],
+      } : item);
       const shifts = state.shifts.map((item) => item.id === shift.id ? { ...item, workerId: null, status: "uncovered" as const } : item);
       return {
         ...state,
@@ -112,7 +117,9 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
         shifts,
         preview: null,
         incident: { type: "worker_unavailable", workerId: worker.id, shiftId: shift.id, reason: action.reason },
-        activity: { state: "warning", message: "Coverage gap detected.", detail: `${workerLabel(worker)} is unavailable for the Friday evening shift.`, context: "incident_recovery" },
+        incidents: [...(state.incidents ?? []), { id: incidentId, type: "worker_unavailable", status: "open", createdAt: shift.start, workerId: worker.id, shiftId: shift.id, reason: action.reason }],
+        log: [...(state.log ?? []), { id: `log-${incidentId}`, createdAt: shift.start, type: "incident", summary: `${workerLabel(worker)} unavailable for ${shift.start.slice(0, 10)} ${shift.start.slice(11, 16)}–${shift.end.slice(11, 16)}.`, relatedIds: [incidentId, worker.id, shift.id] }],
+        activity: { state: "warning", message: "Coverage gap detected.", detail: `${workerLabel(worker)} is unavailable for the assigned shift.`, context: "incident_recovery" },
       };
     }
     case "preview_scenario": {
@@ -131,8 +138,17 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
     case "apply_preview": {
       if (!state.preview || state.preview.id !== action.previewId || state.preview.version !== action.version) throw new Error("Preview is missing or stale. Review the current option again.");
       if (state.activity.state !== "reviewed") throw new Error("Review required before applying this staffing preview.");
-      const appliedWorkerName = workerLabel(state.workers.find((worker) => worker.id === state.preview?.changes[0]?.workerId), "The replacement");
-      return { ...state, shifts: applyChanges(state.shifts, state.preview.changes), preview: null, incident: null, activity: { state: "applied", message: "Plan applied.", detail: `${appliedWorkerName} covers the reviewed plan. Preview cleared.`, context: state.preview.kind } };
+      const appliedWorkerName = workerLabel(state.workers.find((worker) => worker.id === state.preview?.changes[0]?.workerId), state.preview.changes.length > 1 ? "The reviewed plan" : "The replacement");
+      const resolvedShiftId = state.incident?.shiftId;
+      const now = new Date().toISOString();
+      return {
+        ...state,
+        shifts: applyChanges(state.shifts, state.preview.changes),
+        preview: null,
+        incident: null,
+        incidents: resolvedShiftId ? resolveLegacyStaffingIncident(state, resolvedShiftId, now) : state.incidents,
+        activity: { state: "applied", message: "Plan applied.", detail: `${appliedWorkerName} covers the reviewed plan. Preview cleared.`, context: state.preview.kind },
+      };
     }
     case "reassign_shift": {
       const current = state.shifts.find((item) => item.id === action.shiftId);
@@ -152,7 +168,15 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
         return { ...state, preview: { ...state.preview, version: state.preview.version + 1, title: state.preview.title, changes, impact: calculateImpact(state, proposed) }, activity: { state: "reviewNeeded", message: "Human edit detected.", detail: `${workerLabel(previousWorker, "Previous assignment")} → ${workerLabel(worker)}; exact candidate updated. Agent review pending.`, context: state.preview.kind } };
       }
       const shifts = state.shifts.map((item) => item.id === current.id ? { ...item, workerId: worker.id, ...movedTime, status: "scheduled" as const } : item);
-      return { ...state, shifts, preview: null, incident: state.incident?.shiftId === current.id ? null : state.incident, activity: { state: "reviewNeeded", message: "Human edit detected.", detail: `${workerLabel(worker)} now owns the shift in the live schedule. Agent review pending.` } };
+      const resolvesIncident = state.incident?.shiftId === current.id;
+      return {
+        ...state,
+        shifts,
+        preview: null,
+        incident: resolvesIncident ? null : state.incident,
+        incidents: resolvesIncident ? resolveLegacyStaffingIncident(state, current.id, new Date().toISOString()) : state.incidents,
+        activity: { state: "reviewNeeded", message: "Human edit detected.", detail: `${workerLabel(worker)} now owns the shift in the live schedule. Agent review pending.` },
+      };
     }
     case "import_state":
       return { ...action.state, preview: null, activity: { state: "applied", message: "Schedule snapshot restored." } };
