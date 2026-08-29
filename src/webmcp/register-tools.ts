@@ -120,7 +120,14 @@ export function createToolExecutors(bridge: ToolBridge) {
           : options.length === 3 ? "Three recovery options are ready." : "No complete three-option set is available for the current incident.",
         count: options.length,
         options,
-        recommendedPreview: recommended ? { planKind: "week_rebuild" as const, title: recommended.title, changes: recommended.changes, capacityGap: recommended.capacityGap ?? null } : null,
+        recommendedPreview: recommended
+          ? {
+              planKind: "week_rebuild" as const,
+              title: recommended.title,
+              changes: recommended.changes,
+              ...(recommended.capacityGap ? { capacityGap: recommended.capacityGap } : {}),
+            }
+          : null,
       };
     },
     previewStaffingChange: (input: { scenarioId?: string; title?: string; changes?: StaffingChange[]; planKind?: PlanKind; capacityGap?: CapacityGap | null; uiLocale?: unknown }) => {
@@ -218,7 +225,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "preview_staffing_change",
     title: "Preview staffing change",
-    description: "Display an incident recovery or a bounded full-week rebuild as a candidate preview without committing it. For rebuild_week, pass the recommendedPreview title, changes, planKind, and capacityGap returned by get_response_options. A preview may reshape many shifts at once; the human can still edit the live candidate before agent review.",
+    description: "Display an incident recovery or a bounded full-week rebuild as a candidate preview without committing it. For rebuild_week, pass the recommendedPreview title, changes, planKind, and capacityGap when present from get_response_options. A preview may reshape many shifts at once; the human can still edit the live candidate before agent review.",
     inputSchema: {
       type: "object",
       properties: {
