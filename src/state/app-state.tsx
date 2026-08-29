@@ -6,6 +6,7 @@ import { createDemoState } from "@/domain/fixtures";
 import { applyChanges, calculateImpact } from "@/domain/impact";
 import type { AppState, PlanImpact, ReferenceObservation, StaffingScenario } from "@/domain/model";
 import { normalizeUiLocale, type UiLocale } from "@/i18n";
+import { mergePersistenceProjection, storeIdForState, type StorePersistenceProjection } from "@/persistence/store-projection";
 
 type AppStateContextValue = {
   state: AppState;
@@ -56,6 +57,28 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }, 0);
     return () => window.clearTimeout(hydrationTimer);
   }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const controller = new AbortController();
+    const storeId = storeIdForState(stateRef.current);
+    void fetch(`/api/store-state?storeId=${encodeURIComponent(storeId)}`, { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return response.json() as Promise<{ projection?: StorePersistenceProjection | null }>;
+      })
+      .then((payload) => {
+        if (!payload?.projection || controller.signal.aborted) return;
+        const next = mergePersistenceProjection(stateRef.current, payload.projection);
+        stateRef.current = next;
+        setState(next);
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        console.warn("OwnerOps persisted store unavailable; deterministic seed retained.", error);
+      });
+    return () => controller.abort();
+  }, [hydrated, state.business.market, state.business.industry]);
 
   useEffect(() => {
     if (!hydrated) return;
