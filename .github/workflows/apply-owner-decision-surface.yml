@@ -1,0 +1,25 @@
+name: Apply owner decision surface
+
+on:
+  push:
+    branches:
+      - feat/owner-decision-surface
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.head_commit.message == 'ci: apply owner decision surface patch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/owner-decision-surface
+      - run: python scripts/tmp_owner_decision_patch.py
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/ownerops-app.tsx src/i18n/dynamic.ts src/i18n/index.ts src/styles/locale-timeline.css tests/i18n.test.ts
+          git commit -m "feat: focus UI on owner recovery decisions"
+          git push origin HEAD:feat/owner-decision-surface
