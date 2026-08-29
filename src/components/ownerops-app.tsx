@@ -6,7 +6,7 @@ import { DEMO_WEEK } from "@/domain/fixtures";
 import { applyChanges } from "@/domain/impact";
 import type { AppState, PlanImpact, Shift } from "@/domain/model";
 import { INTL_LOCALE, getLocalizedIndustryProfile, getUiCopy, type UiLocale } from "@/i18n";
-import { disruptionBody, markUnavailableLabel, marketScheduleContext, minimumWageLabel, suggestedIncidentPrompt, unavailableLabel } from "@/i18n/dynamic";
+import { disruptionBody, liveOperatingSummary, markUnavailableLabel, marketScheduleContext, minimumWageLabel, suggestedIncidentPrompt, unavailableLabel } from "@/i18n/dynamic";
 import { getIndustryProfile } from "@/industry/profiles";
 import { getMarketLocation, getMarketProfile } from "@/market/profiles";
 import { parseSnapshot, serializeSnapshot } from "@/snapshot/snapshot";
@@ -278,16 +278,26 @@ function SnapshotDialog({ onClose }: { onClose: () => void }) {
 }
 
 export function OwnerOpsApp() {
-  const { state, impact, previewImpact, hydrated, runAction, locale } = useAppState();
+  const { state, impact, previewImpact, scenarios, hydrated, runAction, locale } = useAppState();
   const supported = useWebMcpRegistration();
   const [snapshotOpen, setSnapshotOpen] = useState(false);
   const ui = getUiCopy(locale);
   const profile = getLocalizedIndustryProfile(getIndustryProfile(state.business.industry), locale);
   const location = getMarketLocation(state.business.market, locale);
   const visibleImpact = previewImpact ?? impact;
+  const operatingSummary = liveOperatingSummary(locale, {
+    activityState: state.activity.state,
+    hasIncident: Boolean(state.incident),
+    hasPreview: Boolean(state.preview),
+    optionCount: scenarios.length,
+    uncoveredPeakMinutes: visibleImpact.uncoveredPeakMinutes,
+    warningCount: visibleImpact.warnings.length,
+    laborRatio: visibleImpact.laborRatio,
+    incidentWindow: ui.timeline.fridayGap,
+  });
   return (
-    <main className={`app-shell ${hydrated ? "hydrated" : ""}`} data-industry={profile.id} data-locale={locale} data-market={state.business.market} style={{ "--oo-accent": profile.visual.accent, "--oo-accent-hover": profile.visual.accentHover, "--oo-accent-soft": profile.visual.accentSoft, "--oo-canvas": profile.visual.canvas, "--oo-surface": profile.visual.surface, "--oo-surface-elevated": profile.visual.surfaceElevated, "--oo-ink": profile.visual.ink, "--oo-secondary-ink": profile.visual.secondaryInk, "--oo-border": profile.visual.border, "--oo-focus-lane": profile.visual.focusLane, "--oo-agent-glow": profile.visual.agentGlow, "--oo-radius-card": profile.visual.radiusCard, "--oo-radius-shift": profile.visual.radiusShift, "--oo-motif-opacity": profile.visual.motifOpacity, "--oo-motion-theme": profile.visual.motionTheme } as CSSProperties}>
-      <header className="topbar"><div className="brand"><span className="brand-mark">O</span><div><strong>OwnerOps</strong><span>{state.business.name}</span></div></div><div className="topbar-center"><span className="live-dot"/>{ui.top.liveSharedState}<span className="divider"/>{profile.label} · {location} · {state.business.currency}</div><nav><button className="top-action" onClick={() => setSnapshotOpen(true)}><Icon name="copy"/>{ui.top.snapshot}</button><button className="top-action" onClick={() => runAction({ type: "reset_demo" })}><Icon name="refresh"/>{ui.top.resetDemo}</button></nav><div className="context-stage"><span className="eyebrow">{profile.label} · {location} · {ui.top.dateRange}</span><h1>{profile.copy.headline}</h1><p>{marketScheduleContext(locale, profile.copy.scheduleContext, location)}</p></div></header>
+    <main className={`app-shell ${hydrated ? "hydrated" : ""}`} data-industry={profile.id} data-locale={locale} data-market={state.business.market} data-operating-tone={operatingSummary.tone} style={{ "--oo-accent": profile.visual.accent, "--oo-accent-hover": profile.visual.accentHover, "--oo-accent-soft": profile.visual.accentSoft, "--oo-canvas": profile.visual.canvas, "--oo-surface": profile.visual.surface, "--oo-surface-elevated": profile.visual.surfaceElevated, "--oo-ink": profile.visual.ink, "--oo-secondary-ink": profile.visual.secondaryInk, "--oo-border": profile.visual.border, "--oo-focus-lane": profile.visual.focusLane, "--oo-agent-glow": profile.visual.agentGlow, "--oo-radius-card": profile.visual.radiusCard, "--oo-radius-shift": profile.visual.radiusShift, "--oo-motif-opacity": profile.visual.motifOpacity, "--oo-motion-theme": profile.visual.motionTheme } as CSSProperties}>
+      <header className="topbar"><div className="brand"><span className="brand-mark">O</span><div><strong>OwnerOps</strong><span>{state.business.name}</span></div></div><div className="topbar-center"><span className="live-dot"/>{ui.top.liveSharedState}<span className="divider"/>{profile.label} · {location} · {state.business.currency}</div><nav><button className="top-action" onClick={() => setSnapshotOpen(true)}><Icon name="copy"/>{ui.top.snapshot}</button><button className="top-action" onClick={() => runAction({ type: "reset_demo" })}><Icon name="refresh"/>{ui.top.resetDemo}</button></nav><div className="context-stage"><span className="eyebrow">{profile.label} · {location} · {ui.top.dateRange}</span><h1>{operatingSummary.headline}</h1><p>{operatingSummary.detail}</p></div></header>
       <PreviewBar />
       <div className="workspace"><div className="primary-workspace"><ImpactStrip impact={visibleImpact}/><ScheduleGrid/><ScenarioPanel/></div><AssistantRail supported={supported}/></div>
       {snapshotOpen && <SnapshotDialog onClose={() => setSnapshotOpen(false)}/>} 
