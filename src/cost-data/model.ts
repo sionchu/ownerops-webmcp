@@ -24,7 +24,7 @@ export type CostDataSource = {
   automation: CostDataAutomation;
   endpoint: string;
   sourceUrl: string;
-  authEnv: string[];
+  configEnv: string[];
   notes: string;
 };
 
