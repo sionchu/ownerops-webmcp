@@ -67,15 +67,17 @@ describe("OwnerOps deterministic domain", () => {
     expect(options[0].impact.payrollDelta).toBeLessThanOrEqual(options[2].impact.payrollDelta);
   });
 
-  it("rebuilds the full week with many changes and exposes qualified capacity", () => {
+  it("rebuilds the full week with bounded feasible plans and exposes qualified capacity", () => {
     const state = createDemoState("sushi", "jp-tokyo");
     const options = getResponseOptions(state, { objective: "rebuild_week", maxWeeklyHours: 40, prioritize: "cost", allowCapacityGap: true });
-    expect(options).toHaveLength(3);
-    expect(options[0].kind).toBe("week_rebuild");
+    expect(options.length).toBeGreaterThanOrEqual(1);
+    expect(options.length).toBeLessThanOrEqual(3);
+    expect(options.every((option) => option.kind === "week_rebuild")).toBe(true);
     expect(options[0].changes.length).toBeGreaterThan(3);
     expect(options[0].impact.payrollDelta).toBeLessThan(0);
     expect(options[0].impact.uncoveredPeakMinutes).toBe(0);
     expect(options[0].capacityGap).toMatchObject({ role: "manager", hoursPerWeek: 8 });
+    expect(new Set(options.map((option) => JSON.stringify(option.changes))).size).toBe(options.length);
   });
 
   it("preserves live work when only the industry is corrected but resets on market change", () => {
