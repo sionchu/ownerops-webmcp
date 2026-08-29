@@ -332,3 +332,21 @@ h2 { font-size: 16px; letter-spacing: -.02em; }
   .context-stage p { display: none; }
   .workspace { min-height: calc(100vh - 104px); }
 }
+
+/* Keep the context in the operating header rather than a second hero row. */
+.topbar { height: 154px; min-height: 154px; grid-template-rows: 36px; overflow: hidden; }
+.context-stage { position: absolute; left: 30px; bottom: 13px; margin: 0; }
+.context-stage h1 { font-size: clamp(28px, 2.1vw, 32px); line-height: 1.06; }
+.context-stage p { display: none; }
+.workspace { min-height: calc(100vh - 154px); }
+@media (max-width: 900px) {
+  .topbar { height: 132px; min-height: 132px; }
+  .context-stage { left: 18px; bottom: 12px; }
+  .workspace { min-height: calc(100vh - 132px); }
+}
+@media (max-width: 650px) {
+  .topbar { height: 120px; min-height: 120px; }
+  .context-stage { left: 12px; bottom: 10px; max-width: calc(100% - 24px); }
+  .context-stage h1 { font-size: 23px; }
+  .workspace { min-height: calc(100vh - 120px); }
+}
