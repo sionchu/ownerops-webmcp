@@ -1,0 +1,64 @@
+name: Apply profile-state preservation fix
+
+on:
+  push:
+    branches:
+      - fix/preserve-live-state-on-profile-change
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/preserve-live-state-on-profile-change
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply focused patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          actions = Path('src/domain/actions.ts')
+          text = actions.read_text()
+          old = '''    case "create_schedule_draft":\n      if (action.industry === undefined && action.market === undefined) return state;\n      return createDemoState(action.industry ?? state.business.industry, action.market ?? state.business.market);\n'''
+          new = '''    case "create_schedule_draft": {\n      if (action.industry === undefined && action.market === undefined) return state;\n      const industry = action.industry ?? state.business.industry;\n      const market = action.market ?? state.business.market;\n      if (industry === state.business.industry && market === state.business.market) return state;\n\n      const profileTemplate = createDemoState(industry, market);\n      const templateWorkers = new Map(profileTemplate.workers.map((worker) => [worker.id, worker]));\n      const workers = state.workers.map((worker) => {\n        const template = templateWorkers.get(worker.id);\n        return template ? { ...worker, name: template.name, role: template.role, hourlyRate: template.hourlyRate } : worker;\n      });\n\n      let next: AppState = {\n        ...state,\n        business: {\n          ...state.business,\n          industry: profileTemplate.business.industry,\n          market: profileTemplate.business.market,\n          currency: profileTemplate.business.currency,\n          name: profileTemplate.business.name,\n          employeeCount: workers.length,\n          expectedSalesByDay: profileTemplate.business.expectedSalesByDay,\n        },\n        workers,\n        demand: state.demand.map((window) => ({\n          ...window,\n          expectedSales: profileTemplate.business.expectedSalesByDay[window.day] ?? window.expectedSales,\n        })),\n      };\n\n      const preview = next.preview;\n      if (preview) {\n        const marketChanged = market !== state.business.market;\n        const proposed = applyChanges(next.shifts, preview.changes);\n        const candidate = next.workers.find((worker) => worker.id === preview.changes[0]?.workerId);\n        next = {\n          ...next,\n          preview: {\n            ...preview,\n            version: preview.version + (marketChanged ? 1 : 0),\n            title: preview.changes.length === 1 && candidate ? `${workerLabel(candidate)} covers the shift` : preview.title,\n            impact: calculateImpact(next, proposed),\n          },\n          activity: marketChanged\n            ? { state: "reviewNeeded", message: "Market context changed.", detail: "Candidate impact was recalculated against the new wage context. Agent review pending." }\n            : next.activity,\n        };\n      }\n\n      return next;\n    }\n'''
+          if old not in text:
+              raise SystemExit('create_schedule_draft anchor not found')
+          actions.write_text(text.replace(old, new, 1))
+
+          tools = Path('src/webmcp/register-tools.ts')
+          text = tools.read_text()
+          old = 'description: "Create or reconfigure the bounded weekly demo schedule. uiLocale MUST match the language of the user\'s latest instruction. industry and market are independent: set market only when the user explicitly identifies a country/city/market or asks for that market\'s wage context; otherwise preserve the current market. Never infer market from language.",'
+          new = 'description: "Create or reconfigure the bounded weekly demo profile without clearing the current live staffing state. Industry or market corrections preserve existing shifts, incidents, availability, and active previews. A market change rebases worker names, wage rates, currency, and candidate impact to the new market and requires any active preview to be reviewed again. uiLocale MUST match the language of the user\'s latest instruction. industry and market are independent: set market only when the user explicitly identifies a country/city/market or asks for that market\'s wage context; otherwise preserve the current market. Never infer market from language.",'
+          if old not in text:
+              raise SystemExit('tool description anchor not found')
+          tools.write_text(text.replace(old, new, 1))
+
+          tests = Path('tests/integration.test.ts')
+          text = tests.read_text()
+          anchor = '''  it("requires uiLocale at runtime instead of silently accepting a cached old schema", () => {\n'''
+          addition = '''  it("preserves a live incident and preview when the owner corrects only the industry", () => {\n    const web = bridge(createDemoState("pizza", "jp-tokyo"));\n    const executors = createToolExecutors(web);\n    executors.markWorkerUnavailable({ workerId: "minsoo", shiftId: "wed-minsoo-open", reason: "Called out", uiLocale: "ko" });\n    executors.previewStaffingChange({ title: "Aoi covers Wednesday opening", changes: [{ shiftId: "wed-minsoo-open", workerId: "jiyoung" }], uiLocale: "ko" });\n    const before = web.getState();\n    const beforeVersion = before.preview!.version;\n\n    executors.createScheduleDraft({ preset: "demo", industry: "sushi", uiLocale: "ko" });\n    const next = web.getState();\n\n    expect(next.business.industry).toBe("sushi");\n    expect(next.business.market).toBe("jp-tokyo");\n    expect(next.business.currency).toBe("JPY");\n    expect(next.incident).toEqual(before.incident);\n    expect(next.shifts.find((shift) => shift.id === "wed-minsoo-open")).toMatchObject({ workerId: null, status: "uncovered" });\n    expect(next.preview?.changes).toEqual(before.preview?.changes);\n    expect(next.preview?.version).toBe(beforeVersion);\n    expect(next.activity.state).toBe("proposalReady");\n    expect(next.workers.find((worker) => worker.id === "minsoo")?.availability).toEqual(before.workers.find((worker) => worker.id === "minsoo")?.availability);\n  });\n\n  it("rebases market data without clearing the incident and invalidates an active preview review", () => {\n    const web = bridge(createDemoState("pizza", "jp-tokyo"));\n    const executors = createToolExecutors(web);\n    executors.markWorkerUnavailable({ workerId: "minsoo", shiftId: "wed-minsoo-open", reason: "Called out", uiLocale: "ko" });\n    executors.previewStaffingChange({ title: "Aoi covers Wednesday opening", changes: [{ shiftId: "wed-minsoo-open", workerId: "jiyoung" }], uiLocale: "ko" });\n    web.runAction({ type: "set_activity", activity: { state: "reviewed", message: "Reviewed." } });\n    const beforeVersion = web.getState().preview!.version;\n\n    executors.createScheduleDraft({ preset: "demo", market: "us-nyc", uiLocale: "en" });\n    const next = web.getState();\n    const proposed = applyChanges(next.shifts, next.preview!.changes);\n\n    expect(next.business.market).toBe("us-nyc");\n    expect(next.business.currency).toBe("USD");\n    expect(next.workers.find((worker) => worker.id === "minsoo")?.name).toBe("Mason");\n    expect(next.workers.find((worker) => worker.id === "jiyoung")?.name).toBe("Jamie");\n    expect(next.incident).toMatchObject({ workerId: "minsoo", shiftId: "wed-minsoo-open" });\n    expect(next.shifts.find((shift) => shift.id === "wed-minsoo-open")).toMatchObject({ workerId: null, status: "uncovered" });\n    expect(next.preview?.changes[0]?.workerId).toBe("jiyoung");\n    expect(next.preview?.version).toBe(beforeVersion + 1);\n    expect(next.preview?.impact).toEqual(calculateImpact(next, proposed));\n    expect(next.activity.state).toBe("reviewNeeded");\n    expect(next.workers.find((worker) => worker.id === "minsoo")?.availability?.[0]).toMatchObject({ available: false });\n  });\n\n'''
+          if anchor not in text:
+              raise SystemExit('test insertion anchor not found')
+          tests.write_text(text.replace(anchor, addition + anchor, 1))
+          PY
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm audit --omit=dev
+      - name: Commit verified patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/domain/actions.ts src/webmcp/register-tools.ts tests/integration.test.ts
+          git commit -m "fix: preserve live state across profile corrections"
+          git push origin HEAD:fix/preserve-live-state-on-profile-change
