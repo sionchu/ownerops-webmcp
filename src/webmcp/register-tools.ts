@@ -169,8 +169,8 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
 
   register(document.modelContext.registerTool({
     name: "get_business_state",
-    title: "Get live business state",
-    description: "Inspect the exact OwnerOps schedule currently visible to the user, including UI language, labor market, currency, wage reference, masked demo contacts, workers, shifts, incident, preview, labor estimate, weekly hours, and warnings.",
+    title: "Read current live OwnerOps state",
+    description: "PRIMARY READ PATH for live OwnerOps work. Use this first whenever the owner asks about, analyzes, rebuilds, optimizes, rebalances, reviews, or changes the current schedule. It directly returns the exact schedule currently visible in OwnerOps, including workers, shifts, preview, weekly hours, warnings, market, currency, and wage context. Do not open, copy, export, or inspect the Snapshot UI to understand current state; snapshots are backup/restore handoff only.",
     inputSchema: emptySchema,
     annotations: { readOnlyHint: true },
     execute: async () => tools.getBusinessState(),
@@ -207,7 +207,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "get_response_options",
     title: "Generate staffing response plans",
-    description: "Generate deterministic staffing plans without committing anything. Use objective=incident_recovery for the current call-out. Use objective=rebuild_week when the owner asks to optimize, rebuild, reduce labor cost, rebalance hours, or expose missing qualified capacity across the whole week. Week rebuild always preserves the published peak-coverage windows. When the user asked for action rather than explanation only, prefer previewing the first returned plan without asking another permission question because preview is non-committing.",
+    description: "PRIMARY PLANNING PATH after get_business_state. Generate deterministic staffing plans directly from the live OwnerOps state without committing anything; never use a snapshot export/import as an intermediate planning step. Use objective=incident_recovery for the current call-out. Use objective=rebuild_week when the owner asks to optimize, rebuild, reduce labor cost, rebalance hours, or expose missing qualified capacity across the whole week. Week rebuild always preserves the published peak-coverage windows. When the owner asked for action rather than explanation only, preview the first returned plan without asking another permission question because preview is non-committing.",
     inputSchema: {
       type: "object",
       properties: {
@@ -225,7 +225,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "preview_staffing_change",
     title: "Preview staffing change",
-    description: "Display an incident recovery or a bounded full-week rebuild as a candidate preview without committing it. For rebuild_week, pass the recommendedPreview title, changes, planKind, and capacityGap when present from get_response_options. A preview may reshape many shifts at once; the human can still edit the live candidate before agent review.",
+    description: "Display the selected incident recovery or bounded full-week rebuild directly in the live OwnerOps UI without committing it. For rebuild_week, pass the recommendedPreview title, changes, planKind, and capacityGap returned by get_response_options. Do not round-trip through Snapshot text. A preview may reshape many shifts at once; the human can still edit the live candidate before agent review.",
     inputSchema: {
       type: "object",
       properties: {
@@ -247,7 +247,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "evaluate_current_plan",
     title: "Evaluate current live plan",
-    description: "Evaluate the exact schedule state currently visible after human edits, using the same deterministic calculations as the OwnerOps UI. Does not change UI language or market.",
+    description: "Evaluate the exact schedule state currently visible after human edits, using the same deterministic calculations as the OwnerOps UI. Read the live candidate directly; do not inspect or import Snapshot text. Does not change UI language or market.",
     inputSchema: emptySchema,
     annotations: { readOnlyHint: true },
     execute: async () => tools.evaluateCurrentPlan(),
@@ -264,9 +264,9 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
 
   register(document.modelContext.registerTool({
     name: "import_schedule_snapshot",
-    title: "Import OwnerOps schedule snapshot",
-    description: "Validate and transactionally restore a portable OWNEROPS_SNAPSHOT v1 document. Invalid input leaves the current state unchanged. uiLocale MUST match the language of the user's latest instruction.",
-    inputSchema: { type: "object", properties: { snapshotText: { type: "string", minLength: 40, maxLength: 100000, description: "Complete OWNEROPS_SNAPSHOT v1 text." }, uiLocale: uiLocaleField }, required: ["snapshotText", "uiLocale"], additionalProperties: false },
+    title: "Restore provided OwnerOps snapshot",
+    description: "BACKUP/RESTORE ONLY. Use this tool only when the user explicitly asks to restore/import a snapshot or directly provides complete OWNEROPS_SNAPSHOT v1 text. Never use this tool, Snapshot export, or the Snapshot UI to inspect, analyze, rebuild, optimize, review, or plan the current schedule; use get_business_state and the live planning tools instead. Invalid input leaves the current state unchanged. uiLocale MUST match the language of the user's latest instruction.",
+    inputSchema: { type: "object", properties: { snapshotText: { type: "string", minLength: 40, maxLength: 100000, description: "Complete OWNEROPS_SNAPSHOT v1 text supplied for explicit restore/import." }, uiLocale: uiLocaleField }, required: ["snapshotText", "uiLocale"], additionalProperties: false },
     annotations: { readOnlyHint: false },
     execute: async (input) => tools.importScheduleSnapshot(input as { snapshotText: string; uiLocale?: UiLocale }),
   }, { signal: controller.signal }));
