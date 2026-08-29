@@ -164,7 +164,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "create_schedule_draft",
     title: "Create demo schedule draft",
-    description: "Create or reconfigure the bounded weekly demo schedule. uiLocale MUST match the language of the user's latest instruction. industry and market are independent: set market only when the user explicitly identifies a country/city/market or asks for that market's wage context; otherwise preserve the current market. Never infer market from language.",
+    description: "Create or reconfigure the bounded weekly demo profile without clearing the current live staffing state. Industry or market corrections preserve existing shifts, incidents, availability, and active previews. A market change rebases worker names, wage rates, currency, and candidate impact to the new market and requires any active preview to be reviewed again. uiLocale MUST match the language of the user's latest instruction. industry and market are independent: set market only when the user explicitly identifies a country/city/market or asks for that market's wage context; otherwise preserve the current market. Never infer market from language.",
     inputSchema: {
       type: "object",
       properties: {

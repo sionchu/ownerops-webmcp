@@ -68,9 +68,58 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
   switch (action.type) {
     case "reset_demo":
       return createDemoState();
-    case "create_schedule_draft":
+    case "create_schedule_draft": {
       if (action.industry === undefined && action.market === undefined) return state;
-      return createDemoState(action.industry ?? state.business.industry, action.market ?? state.business.market);
+      const industry = action.industry ?? state.business.industry;
+      const market = action.market ?? state.business.market;
+      if (industry === state.business.industry && market === state.business.market) return state;
+
+      const profileTemplate = createDemoState(industry, market);
+      const templateWorkers = new Map(profileTemplate.workers.map((worker) => [worker.id, worker]));
+      const workers = state.workers.map((worker) => {
+        const template = templateWorkers.get(worker.id);
+        return template ? { ...worker, name: template.name, role: template.role, hourlyRate: template.hourlyRate } : worker;
+      });
+
+      let next: AppState = {
+        ...state,
+        business: {
+          ...state.business,
+          industry: profileTemplate.business.industry,
+          market: profileTemplate.business.market,
+          currency: profileTemplate.business.currency,
+          name: profileTemplate.business.name,
+          employeeCount: workers.length,
+          expectedSalesByDay: profileTemplate.business.expectedSalesByDay,
+        },
+        workers,
+        demand: state.demand.map((window) => ({
+          ...window,
+          expectedSales: profileTemplate.business.expectedSalesByDay[window.day] ?? window.expectedSales,
+        })),
+      };
+
+      const preview = next.preview;
+      if (preview) {
+        const marketChanged = market !== state.business.market;
+        const proposed = applyChanges(next.shifts, preview.changes);
+        const candidate = next.workers.find((worker) => worker.id === preview.changes[0]?.workerId);
+        next = {
+          ...next,
+          preview: {
+            ...preview,
+            version: preview.version + (marketChanged ? 1 : 0),
+            title: preview.changes.length === 1 && candidate ? `${workerLabel(candidate)} covers the shift` : preview.title,
+            impact: calculateImpact(next, proposed),
+          },
+          activity: marketChanged
+            ? { state: "reviewNeeded", message: "Market context changed.", detail: "Candidate impact was recalculated against the new wage context. Agent review pending." }
+            : next.activity,
+        };
+      }
+
+      return next;
+    }
     case "set_activity":
       return { ...state, activity: action.activity };
     case "mark_unavailable": {

@@ -64,6 +64,53 @@ describe("shared UI and WebMCP application path", () => {
     expect(englishTokyo.workers.find((worker) => worker.id === "minsoo")?.name).toBe("蓮");
   });
 
+  it("preserves a live incident and preview when the owner corrects only the industry", () => {
+    const web = bridge(createDemoState("pizza", "jp-tokyo"));
+    const executors = createToolExecutors(web);
+    executors.markWorkerUnavailable({ workerId: "minsoo", shiftId: "wed-minsoo-open", reason: "Called out", uiLocale: "ko" });
+    executors.previewStaffingChange({ title: "Aoi covers Wednesday opening", changes: [{ shiftId: "wed-minsoo-open", workerId: "jiyoung" }], uiLocale: "ko" });
+    const before = web.getState();
+    const beforeVersion = before.preview!.version;
+
+    executors.createScheduleDraft({ preset: "demo", industry: "sushi", uiLocale: "ko" });
+    const next = web.getState();
+
+    expect(next.business.industry).toBe("sushi");
+    expect(next.business.market).toBe("jp-tokyo");
+    expect(next.business.currency).toBe("JPY");
+    expect(next.incident).toEqual(before.incident);
+    expect(next.shifts.find((shift) => shift.id === "wed-minsoo-open")).toMatchObject({ workerId: null, status: "uncovered" });
+    expect(next.preview?.changes).toEqual(before.preview?.changes);
+    expect(next.preview?.version).toBe(beforeVersion);
+    expect(next.activity.state).toBe("proposalReady");
+    expect(next.workers.find((worker) => worker.id === "minsoo")?.availability).toEqual(before.workers.find((worker) => worker.id === "minsoo")?.availability);
+  });
+
+  it("rebases market data without clearing the incident and invalidates an active preview review", () => {
+    const web = bridge(createDemoState("pizza", "jp-tokyo"));
+    const executors = createToolExecutors(web);
+    executors.markWorkerUnavailable({ workerId: "minsoo", shiftId: "wed-minsoo-open", reason: "Called out", uiLocale: "ko" });
+    executors.previewStaffingChange({ title: "Aoi covers Wednesday opening", changes: [{ shiftId: "wed-minsoo-open", workerId: "jiyoung" }], uiLocale: "ko" });
+    web.runAction({ type: "set_activity", activity: { state: "reviewed", message: "Reviewed." } });
+    const beforeVersion = web.getState().preview!.version;
+
+    executors.createScheduleDraft({ preset: "demo", market: "us-nyc", uiLocale: "en" });
+    const next = web.getState();
+    const proposed = applyChanges(next.shifts, next.preview!.changes);
+
+    expect(next.business.market).toBe("us-nyc");
+    expect(next.business.currency).toBe("USD");
+    expect(next.workers.find((worker) => worker.id === "minsoo")?.name).toBe("Mason");
+    expect(next.workers.find((worker) => worker.id === "jiyoung")?.name).toBe("Jamie");
+    expect(next.incident).toMatchObject({ workerId: "minsoo", shiftId: "wed-minsoo-open" });
+    expect(next.shifts.find((shift) => shift.id === "wed-minsoo-open")).toMatchObject({ workerId: null, status: "uncovered" });
+    expect(next.preview?.changes[0]?.workerId).toBe("jiyoung");
+    expect(next.preview?.version).toBe(beforeVersion + 1);
+    expect(next.preview?.impact).toEqual(calculateImpact(next, proposed));
+    expect(next.activity.state).toBe("reviewNeeded");
+    expect(next.workers.find((worker) => worker.id === "minsoo")?.availability?.[0]).toMatchObject({ available: false });
+  });
+
   it("requires uiLocale at runtime instead of silently accepting a cached old schema", () => {
     const web = bridge();
     expect(() => createToolExecutors(web).createScheduleDraft({ preset: "demo", industry: "salon" })).toThrow(/uiLocale is required/i);
