@@ -73,7 +73,6 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
       checkedAt: CHECKED_AT,
       sourceLabel: "Japan Ministry of Health, Labour and Welfare — Tokyo regional minimum wage",
       sourceUrl: "https://saiteichingin.mhlw.go.jp/table/page_list_nationallist.html",
-      note: "Tokyo's 2026 council recommended ¥1,280, but as of 2026-08-29 the currently effective rate remains ¥1,226 until the new rate takes effect.",
     },
     wageRounding: 10,
     salesRounding: 10000,
@@ -91,7 +90,7 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
       checkedAt: CHECKED_AT,
       sourceLabel: "Spain BOE, Real Decreto 126/2026 — 2026 SMI",
       sourceUrl: "https://www.boe.es/buscar/act.php?id=BOE-A-2026-3815",
-      note: "Spain sets the general 2026 SMI at €17,094/year (€1,221 × 14). OwnerOps derives €8.22/hour using 40 hours/week × 52 weeks only as a demo planning reference, not as a universal statutory hourly quote.",
+      note: "Spain sets the general 2026 SMI at €40.70/day or €1,221/month. OwnerOps derives €8.22/hour from €17,094/year ÷ 2,080 hours only as a demo planning reference, not as a universal statutory hourly quote.",
     },
     wageRounding: 0.1,
     salesRounding: 50,
@@ -114,14 +113,6 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
     wageRounding: 0.5,
     salesRounding: 100,
   },
-};
-
-export const MARKET_BY_UI_LOCALE: Record<UiLocale, MarketId> = {
-  en: "us-nyc",
-  ko: "kr-seoul",
-  ja: "jp-tokyo",
-  es: "es-madrid",
-  "zh-CN": "cn-shanghai",
 };
 
 const BASE_KRW_REFERENCE = 10320;
@@ -155,27 +146,20 @@ export function getMarketProfile(market: MarketId): MarketProfile {
   return MARKET_PROFILES[market];
 }
 
-export function marketForUiLocale(locale: UiLocale): MarketId {
-  return MARKET_BY_UI_LOCALE[locale];
-}
-
 export function getMarketLocation(market: MarketId, locale: UiLocale): string {
   return MARKET_PROFILES[market].locationLabels[locale];
-}
-
-export function getWorkerDisplayName(market: MarketId, workerId: string, fallback?: string): string {
-  return MARKET_PROFILES[market].workerDisplayNames[workerId] ?? fallback ?? workerId;
 }
 
 export function createMarketWorkers(market: MarketId): Worker[] {
   const profile = MARKET_PROFILES[market];
   const rate = (workerId: string) => roundTo(profile.wageReference.hourly * WORKER_MULTIPLIERS[workerId], profile.wageRounding);
+  const displayName = (workerId: string) => profile.workerDisplayNames[workerId];
   return [
-    { id: "minsoo", name: "Minsoo", role: "barista", hourlyRate: rate("minsoo") },
-    { id: "jiyoung", name: "Jiyoung", role: "barista", hourlyRate: rate("jiyoung") },
-    { id: "younghee", name: "Younghee", role: "manager", hourlyRate: rate("younghee") },
-    { id: "chulsoo", name: "Chulsoo", role: "barista", hourlyRate: rate("chulsoo") },
-    { id: "hana", name: "Hana", role: "barista", hourlyRate: rate("hana") },
+    { id: "minsoo", name: "Minsoo", displayName: displayName("minsoo"), role: "barista", hourlyRate: rate("minsoo") },
+    { id: "jiyoung", name: "Jiyoung", displayName: displayName("jiyoung"), role: "barista", hourlyRate: rate("jiyoung") },
+    { id: "younghee", name: "Younghee", displayName: displayName("younghee"), role: "manager", hourlyRate: rate("younghee") },
+    { id: "chulsoo", name: "Chulsoo", displayName: displayName("chulsoo"), role: "barista", hourlyRate: rate("chulsoo") },
+    { id: "hana", name: "Hana", displayName: displayName("hana"), role: "barista", hourlyRate: rate("hana") },
   ];
 }
 
