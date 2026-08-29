@@ -109,7 +109,6 @@ function planFullWeek(state: AppState, maxWeeklyHours: number, strategy: Exclude
 }
 
 function minimalChangePlan(state: AppState, maxWeeklyHours: number): Shift[] {
-  const baselineCost = assignmentCost(state, state.shifts);
   const candidates: Shift[][] = [];
 
   for (const shift of state.shifts.filter((item) => item.role === "barista" && item.workerId)) {
