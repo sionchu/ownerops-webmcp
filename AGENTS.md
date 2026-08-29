@@ -1,9 +1,18 @@
 # OwnerOps — Codex Operating Contract
 
-This repository is governed by the documents in `docs/`. Read this file first, then read the documents in the order listed below before making code changes.
+This repository is governed by the canonical documents in `docs/`. Read this file first, then the documents below before changing product behavior.
 
 ## Mission
-Build a polished WebMCP hackathon product called **OwnerOps**: an operations copilot for small-business owners who manage hourly staff. The canonical demo is a last-minute staffing disruption in a café. The human edits a real schedule UI; the agent reads and acts on the same application state through WebMCP; the product compares operational and labor-cost impact before the human commits a change.
+Build **OwnerOps — an AI Store Manager for independent small businesses**. The owner speaks naturally; an external ChatGPT/WebMCP agent reads the exact live store state, identifies what matters, prepares coordinated actions, and materializes those actions in the same visual workspace the owner uses.
+
+The canonical café/restaurant demo connects five operating domains instead of treating staffing as a standalone app:
+- **People** — staff, skills, availability, schedule, attendance, wages.
+- **Sales** — sales/orders/item mix and operating demand.
+- **Stock** — inventory, recipes, purchase cost, waste, reorder risk, suppliers.
+- **Operations** — incidents, tasks, opening/closing checks, manager log.
+- **Context & fixed cost** — weather/events, rent/occupancy cost, market reference prices.
+
+The signature experience is: **read live store → prioritize issues → plan actions → preview → human edit/review → apply**.
 
 ## Required reading order
 1. `docs/00_PROJECT_CHARTER.md`
@@ -22,31 +31,49 @@ Build a polished WebMCP hackathon product called **OwnerOps**: an operations cop
 14. `docs/13_PAPERTHIN_REVIEW.md`
 15. `docs/14_CODEX_EXECUTION_PLAN.md`
 16. `docs/15_DECISION_LOG.md`
+17. `docs/16_AGENT_OPERATING_MANUAL.md`
 
 ## Non-negotiable engineering rules
-- **Scope is frozen.** Do not invent features because they look useful.
-- Prefer editing an existing canonical artifact over adding another helper, wrapper, manager, service, `v2`, `new`, `final`, or parallel implementation.
-- One canonical `AppState` is the source of truth for UI, calculations, persistence, snapshot serialization, and WebMCP tools.
-- Human UI actions and WebMCP actions must call the **same domain actions**. Never implement a second agent-only business-logic path.
-- Domain calculations must be deterministic TypeScript. Do not use an LLM API inside the app.
-- Do not add a backend, database, auth, RAG, vector DB, external MCP server, OR solver, POS integration, payroll provider, weather API, or messaging integration for the hackathon MVP.
-- `localStorage` is allowed for convenience; the portable schedule snapshot is the cross-session/cross-chat handoff mechanism.
-- WebMCP tools are user-intent tools, not micro-helpers. Do not expose `calculateFoo` for every calculation.
-- Treat labor-rule results as **warnings/estimates**, not legal compliance guarantees.
-- Avoid “AI SaaS” visual tropes: excessive gradients, glassmorphism, giant KPI cards, sparkle icons, floating neon orbs, mascot-first layouts, and gratuitous rounded cards.
-- The assistant avatar is a functional activity/status surface, not a decorative character.
-- If an external animated avatar asset would block progress, ship a high-quality local SVG/CSS 2.5D avatar first. Rive is an enhancement, not a dependency on the critical path.
-- Use real sample values and visible before/after outcomes so the demo feels operational, not conceptual.
+- The previous staffing-only MVP is a **RE0 baseline**, not a constraint on the new product scope.
+- Preserve the strongest existing invariant: **one canonical store state and one shared application-action path for UI and WebMCP**.
+- Do not create separate agent truth, chat truth, inventory truth, payroll truth, or snapshot truth.
+- Natural-language reasoning belongs to the external agent. Deterministic calculations, validation, plan materialization, and state transitions belong in TypeScript domain code.
+- WebMCP tools are user-intent capabilities, not calculator micro-tools.
+- Prefer a small number of broad store-operating tools over separate SaaS modules.
+- Stateful changes use preview/review/apply when they can materially affect staffing, purchasing, prep, pricing, tasks, or other operating commitments.
+- The store's own values are authoritative: actual wage, availability, stock count, supplier price, lease cost, actual attendance, and sales records override external references.
+- External data is **reference/context**, never silently treated as store truth. Every external value carries provider, geography, unit, observation time, and freshness.
+- The prototype must have deterministic seed fallbacks so the demo remains usable when an external API is unavailable. Live adapters are allowed when they fail soft and do not become a second business-logic path.
+- Market/labor/rent reference data must be presented as planning context, not legal, tax, accounting, or valuation guarantees.
+- Do not turn OwnerOps into a full payroll filing, tax, bookkeeping, ATS, LMS, or labor-law compliance suite.
+- Avoid menu-per-feature SaaS bloat. Capabilities may broaden while the UI remains a narrow operating workspace.
+- Prefer editing existing canonical artifacts over adding `v2`, `new`, `final`, wrapper-on-wrapper, or duplicate registries.
+
+## Product data boundary
+In-scope operational truth includes:
+- worker profile, employment type, role/skills, hourly rate, regular availability, exceptions, weekly limits;
+- shifts, attendance/time entries, incidents, swaps, scheduled/actual wage estimates;
+- menu/catalog, recipe quantities, inventory on-hand/par/reorder, waste, supplier and recent purchase prices;
+- sales/order/item-mix fixtures or connected summaries;
+- daily tasks/log entries;
+- occupancy cost: base rent, recurring fees, deposit metadata, lease dates/escalation;
+- weather/event context and external commodity/rent benchmarks with provenance.
+
+Out of scope unless explicitly re-approved:
+- statutory payroll filing, tax withholding, social insurance calculation, bank payroll transfer;
+- full accounting ledger and tax returns;
+- legal-compliance guarantees;
+- opaque autonomous purchasing or staffing commits without a reviewable plan.
 
 ## Verification discipline
 Before declaring completion:
-1. Run tests.
-2. Run lint.
-3. Run type check.
-4. Run production build.
-5. Re-read the final diff.
-6. Remove unused files, dependencies, duplicate constants, stale comments, and temporary workarounds.
-7. Test the canonical demo manually in browser.
-8. Test WebMCP with the supported browser environment if available.
+1. run tests;
+2. run lint;
+3. run typecheck;
+4. run production build;
+5. re-read the final diff;
+6. remove dead/duplicate artifacts;
+7. verify seed and live-reference fallback behavior;
+8. manually run the canonical natural-language demo in a WebMCP-capable browser when available.
 
 Do not claim a check passed unless it was actually run.
