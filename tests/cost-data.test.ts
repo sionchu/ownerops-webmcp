@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateUsableUnitCost, parsePriceNumber } from "@/cost-data/model";
+import { calculateUsableUnitCost, parsePriceNumber, toEffectiveIngredientPrice } from "@/cost-data/model";
 import { COST_DATA_SOURCES, getCostDataSourcesForMarket, validateCostDataSources } from "@/cost-data/sources";
 import type { MarketId } from "@/domain/model";
 
@@ -27,6 +27,27 @@ describe("OwnerOps F&B cost-data foundation", () => {
   it("calculates usable unit cost after edible-yield loss", () => {
     expect(calculateUsableUnitCost(30_000, 1_000, 0.8)).toBe(37.5);
     expect(calculateUsableUnitCost(12, 1_000)).toBe(0.012);
+  });
+
+  it("creates a tier-3 effective price without mutating the tier-2 observation", () => {
+    const observation = {
+      sourceId: "kamis" as const,
+      market: "kr-seoul" as const,
+      observedAt: "2026-08-30",
+      productLabel: "salmon benchmark",
+      price: 24_000,
+      currency: "KRW" as const,
+      purchaseQuantity: 1_000,
+      purchaseUnit: "g" as const,
+      priceLevel: "wholesale" as const,
+      sourceUrl: "https://www.kamis.or.kr/",
+      confidence: "official" as const,
+    };
+
+    const effective = toEffectiveIngredientPrice(observation, "salmon-whole", 0.48);
+    expect(effective.usableUnitCost).toBe(50);
+    expect(effective.canonicalIngredientId).toBe("salmon-whole");
+    expect(observation).not.toHaveProperty("usableUnitCost");
   });
 
   it("rejects impossible cost inputs", () => {
