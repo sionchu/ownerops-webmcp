@@ -30,7 +30,7 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
     currency: "KRW",
     intlLocale: "ko-KR",
     locationLabels: { en: "Seoul", ko: "서울", ja: "ソウル", es: "Seúl", "zh-CN": "首尔" },
-    workerNames: { minsoo: "Minsoo", jiyoung: "Jiyoung", younghee: "Younghee", chulsoo: "Chulsoo", hana: "Hana" },
+    workerNames: { minsoo: "민수", jiyoung: "지영", younghee: "영희", chulsoo: "철수", hana: "하나" },
     wageReference: {
       hourly: 10320,
       basis: "statutory-hourly-minimum",
