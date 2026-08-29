@@ -1,10 +1,10 @@
 import { createDemoState } from "./fixtures";
 import { applyChanges, calculateImpact } from "./impact";
-import type { AppState, IndustryId, StaffingChange, StaffingScenario } from "./model";
+import type { AppState, IndustryId, MarketId, StaffingChange, StaffingScenario } from "./model";
 
 export type ApplicationAction =
   | { type: "reset_demo" }
-  | { type: "create_schedule_draft"; preset: "demo"; industry?: IndustryId }
+  | { type: "create_schedule_draft"; preset: "demo"; industry?: IndustryId; market?: MarketId }
   | { type: "mark_unavailable"; workerId: string; shiftId: string; reason?: string }
   | { type: "preview_scenario"; scenarioId: string }
   | { type: "preview_changes"; title: string; changes: StaffingChange[] }
@@ -64,7 +64,7 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
     case "reset_demo":
       return createDemoState();
     case "create_schedule_draft":
-      return createDemoState(action.industry ?? "diner");
+      return createDemoState(action.industry ?? "diner", action.market ?? "kr-seoul");
     case "set_activity":
       return { ...state, activity: action.activity };
     case "mark_unavailable": {
