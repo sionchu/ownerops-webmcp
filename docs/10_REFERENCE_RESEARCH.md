@@ -1,6 +1,6 @@
 # 10 — Reference Research
 
-This file records evidence that should shape implementation and demo choices. It is not permission to copy proprietary UX or claim third-party data as OwnerOps truth.
+This file records evidence that should shape implementation and demo choices. It is not permission to copy proprietary UX or claim third-party/reference data as OwnerOps truth.
 
 ## Product-demand evidence
 ### Toast IQ Q1 2026 restaurant AI usage
@@ -21,6 +21,20 @@ Homebase: https://www.joinhomebase.com/employee-scheduling
 Deputy: https://www.deputy.com/
 
 Borrow the operational concepts—availability, scheduling, time/attendance, shift swap, labor visibility, tasks/logs—without recreating their module-by-module SaaS navigation.
+
+## User-supplied operating-cost reference pack
+The project also has a user-supplied global restaurant cost guide/dashboard/workbook covering 31 menu examples across Tokyo, New York, Seoul, Barcelona-oriented Spain, and Shanghai. It is **reference material**, not a live market-price or legal-compliance source.
+
+Implementation lessons extracted from it:
+- recipe cost must support preparation **yield rate**, not just raw quantity × unit cost;
+- packaging/consumables belong in operating cost, not hidden inside ingredients;
+- food cost should be visible as per-serving cost and food-cost ratio;
+- menu engineering can compare popularity/margin separately from store actual recipe truth;
+- short-horizon BEP separates food/other variable cost from labor + occupancy + other fixed/semi-fixed costs;
+- FL Cost is useful as an operating diagnostic but is not a universal legal/accounting threshold;
+- local payroll/tax examples in the workbook must **not** be generalized across markets or presented as legal advice.
+
+`src/industry/menu-cost-reference.ts` stores the 31 menu examples as a benchmark registry with explicit geography/source labels. The Barcelona-oriented Spain examples remain labeled as Barcelona references even though OwnerOps's configured Spanish market is Madrid.
 
 ## Commodity / wholesale reference sources
 These are candidate **reference providers**, not store purchase truth.
@@ -92,6 +106,7 @@ OwnerOps should combine:
 - workforce constraints from mature staff tools;
 - inventory/vendor/waste reasoning;
 - public market/weather/rent references with provenance;
+- yield-aware menu cost and BEP reasoning;
 - WebMCP shared-state execution;
 - Linear-like calm density.
 
