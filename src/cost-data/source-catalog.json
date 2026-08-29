@@ -7,7 +7,7 @@
     "automation": "configured",
     "endpoint": "https://www.kamis.or.kr/service/price/xml.do",
     "sourceUrl": "https://www.kamis.or.kr/customer/reference/openapi_list.do",
-    "authEnv": ["KAMIS_CERT_KEY", "KAMIS_CERT_ID"],
+    "configEnv": ["KAMIS_CERT_KEY", "KAMIS_CERT_ID"],
     "notes": "Primary Seoul/Korea commodity source. dailyPriceByCategoryList supports Seoul code 1101 and kg conversion."
   },
   {
@@ -18,7 +18,7 @@
     "automation": "configured",
     "endpoint": "https://api.e-stat.go.jp/rest/3.0/app/json/getStatsData",
     "sourceUrl": "https://www.e-stat.go.jp/api/index.php/en/api-info/api-spec",
-    "authEnv": ["ESTAT_APP_ID", "ESTAT_STATS_DATA_ID"],
+    "configEnv": ["ESTAT_APP_ID", "ESTAT_STATS_DATA_ID"],
     "notes": "Monthly Tokyo retail benchmark. Retail Price Survey statistics code is 00200571; pin a real statsDataId before sync."
   },
   {
@@ -29,7 +29,7 @@
     "automation": "configured",
     "endpoint": "https://marsapi.ams.usda.gov/services/v1.2/reports",
     "sourceUrl": "https://mymarketnews.ams.usda.gov/mymarketnews-api",
-    "authEnv": ["USDA_MMN_API_KEY"],
+    "configEnv": ["USDA_MMN_API_KEY"],
     "notes": "Wholesale/market report data. Retrieval is report/slug based, so keep an explicit report-to-ingredient mapping."
   },
   {
@@ -40,7 +40,7 @@
     "automation": "direct",
     "endpoint": "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data",
     "sourceUrl": "https://ec.europa.eu/eurostat/web/user-guides/data-browser/api-data-access/api-getting-started/api",
-    "authEnv": [],
+    "configEnv": [],
     "notes": "Useful for food-price indices and macro adjustment; not a restaurant supplier invoice source."
   },
   {
@@ -51,7 +51,7 @@
     "automation": "download",
     "endpoint": "https://www.mercamadrid.es/estadisticas/",
     "sourceUrl": "https://www.mercamadrid.es/estadisticas/",
-    "authEnv": [],
+    "configEnv": [],
     "notes": "Public product kilos and min/max/frequent EUR/kg prices with Excel export. No stable documented REST API verified."
   },
   {
@@ -62,7 +62,7 @@
     "automation": "document",
     "endpoint": "https://nyncw.sh.gov.cn/jcsj/index.html",
     "sourceUrl": "https://nyncw.sh.gov.cn/jcsj/index.html",
-    "authEnv": ["SHANGHAI_PRICE_URL"],
+    "configEnv": ["SHANGHAI_PRICE_URL"],
     "notes": "Monthly agriculture reports and daily staple-food XLS pages. Use an explicitly pinned page/file URL; no stable public REST endpoint verified."
   },
   {
@@ -73,7 +73,7 @@
     "automation": "direct",
     "endpoint": "https://prices.openfoodfacts.org/api/v1/prices",
     "sourceUrl": "https://prices.openfoodfacts.org/api/docs",
-    "authEnv": [],
+    "configEnv": [],
     "notes": "Supplemental retail observations. Coverage and joined product metadata can be sparse; preserve nulls and crowdsourced confidence."
   },
   {
@@ -84,7 +84,7 @@
     "automation": "merchant",
     "endpoint": "https://mcp.squareup.com/sse",
     "sourceUrl": "https://github.com/square/square-mcp-server",
-    "authEnv": [],
+    "configEnv": [],
     "notes": "Future merchant-owned catalog/order/inventory/labor actuals via OAuth. Keep separate from public market-price observations."
   }
 ]
