@@ -44,3 +44,6 @@ Develop in private repository; make public only for final Devpost requirement af
 
 ## D015 — Reviewed apply guard
 Applying a staffing preview requires the canonical activity state to be `reviewed`. This preserves the human-edit → exact agent review → explicit apply workflow in every adapter, including WebMCP.
+
+## D016 — Industry visual token refinement
+The six presentation profiles use the shared industry token specification for canvas, surfaces, state-safe accents, incident-lane focus, rail glow, shape language, motif opacity, and theme timing. These values are consumed only by the UI layer; staffing data, calculations, snapshots, and WebMCP remain unchanged.

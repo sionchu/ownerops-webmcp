@@ -62,6 +62,11 @@ Preferred frame:
 - Avatar idle motion may be slower/subtle.
 - Respect `prefers-reduced-motion`.
 
+### Visual token hierarchy
+The interface uses a small layered token system: global foundation tokens (type, shadows, timing), stable semantic state tokens (warning, uncovered, human edit, reviewed), and one profile object per industry. A profile supplies canvas, surface, elevated surface, ink, border, accent, incident-lane tint, agent glow, card/shift radius, motif opacity, and theme timing through CSS custom properties. Derived proposal, edit, and reviewed surfaces use `color-mix()` so state meaning stays consistent across industries.
+
+Industry motifs remain outside the core schedule cells: diner grid, pizza checker, coffee steam arcs, salon diagonals, sushi rules, and curry rings. They are deliberately faint and do not replace operational borders or labels.
+
 ## Schedule grid
 - Rows: workers.
 - Columns/time bands: days and/or hour ranges; optimize for the canonical week demo.
@@ -86,6 +91,8 @@ Natural-language conversation primarily happens in the external ChatGPT browser 
 
 ## Adaptive industry context
 OwnerOps uses one schedule UI and one staffing model for six lightweight generic demo profiles: diner, pizza, coffee, salon, sushi, and curry. The selected profile supplies the business name, display vocabulary, role labels, suggested prompt, assistant accessory, and a restrained accent/surface tint through CSS custom properties. It does not introduce a second dashboard, a domain-specific scheduler, or a second state store. Internal capability keys (`barista` and `manager`) remain stable for calculations and snapshots.
+
+The context header is an operational summary, not a marketing hero: product/business identity first, concise current-problem headline second, and date/context third. On an active Friday call-out, the Friday lane receives a muted `focusLane` wash with state borders while adjacent lanes remain readable. Candidate states are labeled and choreographed in order: `AGENT PROPOSAL` → `YOUR EDIT` → `REVIEWED` → committed. Motion is short and non-looping, with a normal CSS fallback when browser View Transitions are unavailable.
 
 ## Anti-AI-slop checklist
 Reject a design if it has several of these:

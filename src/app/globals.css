@@ -1,5 +1,7 @@
 @import "../styles/tokens.css";
 
+@layer reset, tokens, base, layout, components, states, themes, utilities;
+
 * { box-sizing: border-box; }
 html { background: var(--canvas); color: var(--ink); }
 body { margin: 0; font-family: var(--font); font-size: 14px; background: var(--canvas); }
@@ -255,3 +257,78 @@ h2 { font-size: 16px; letter-spacing: -.02em; }
 @keyframes option-settle { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
 @media (max-width: 900px) { .topbar { min-height:150px; padding:16px 18px 20px; }.workspace { display:block; }.assistant-rail { margin:0; border-radius:0; height:auto; }.primary-workspace { padding:22px 16px 38px; } }
 @media (max-width: 650px) { .topbar { min-height:136px; padding:14px 12px 18px; }.context-stage { margin-top:16px; }.context-stage h1 { font-size:26px; }.impact-strip { grid-template-columns:1fr; gap:16px; }.metric { border-bottom:1px solid color-mix(in srgb,var(--oo-accent) 10%,var(--line)); padding-bottom:14px; }.preview-bar { padding:12px 14px; }.avatar { width:128px; height:128px; } }
+
+/* Refined operating surface: compact context, semantic state, and profile tokens. */
+.app-shell {
+  --oo-proposal-fill: color-mix(in srgb, var(--oo-accent-soft) 74%, white);
+  --oo-proposal-border: color-mix(in srgb, var(--oo-accent) 65%, white);
+  --oo-human-edit-fill: color-mix(in srgb, #f5e3c8 72%, white);
+  --oo-human-edit-border: #b97832;
+  --oo-reviewed-fill: color-mix(in srgb, #ddefe7 74%, white);
+  --oo-reviewed-border: #2e7a5f;
+  background: var(--oo-canvas);
+  transition: opacity 180ms ease, background-color var(--oo-motion-theme, 460ms) var(--oo-ease-standard), color var(--oo-motion-theme, 460ms) var(--oo-ease-standard);
+}
+.app-shell::before { opacity: var(--oo-motif-opacity, .03); }
+.topbar {
+  min-height: 124px;
+  padding: 14px 30px 16px;
+  grid-template-rows: auto 1fr;
+  background: color-mix(in srgb, var(--oo-surface) 94%, transparent);
+}
+.context-stage { margin-top: 12px; max-width: 680px; }
+.context-stage h1 { max-width: 620px; font-size: clamp(30px, 2.45vw, 36px); line-height: 1.08; letter-spacing: -.045em; }
+.context-stage p { margin-top: 5px; font-size: 11px; }
+.workspace { min-height: calc(100vh - 124px); }
+.primary-workspace { padding-top: 20px; }
+.assistant-rail {
+  container: rail / inline-size;
+  background: var(--oo-surface-elevated);
+  border-color: var(--oo-border);
+  border-radius: var(--oo-radius-card);
+  box-shadow: 0 12px 32px rgb(20 20 20 / .08);
+}
+.assistant-rail::before { background: radial-gradient(circle at 50% 0%, var(--oo-agent-glow), transparent 70%); }
+.schedule-panel, .scenario-panel { border-color: var(--oo-border); border-radius: var(--oo-radius-card); box-shadow: 0 12px 32px rgb(20 20 20 / .06); }
+.schedule-panel { background: var(--oo-surface); }
+.section-heading { padding: 18px 22px 14px; }
+.grid-corner, .day-head { background: color-mix(in srgb, var(--oo-surface) 92%, var(--oo-accent-soft)); }
+.worker-label, .gap-label { background: var(--oo-surface); }
+.schedule-cell { background: color-mix(in srgb, var(--oo-surface) 98%, var(--oo-accent-soft)); }
+.day-head.focus-day, .schedule-cell.focus-day { background: color-mix(in srgb, var(--oo-surface) 98%, var(--oo-accent-soft)); }
+.day-head.focus-day:has(em), .schedule-cell.focus-day:has(.uncovered), .schedule-cell.focus-day:has(.preview) {
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--oo-focus-lane) 72%, transparent), transparent 82%);
+  box-shadow: inset 1px 0 color-mix(in srgb, var(--oo-accent) 25%, transparent), inset -1px 0 color-mix(in srgb, var(--oo-accent) 18%, transparent);
+}
+.day-head.focus-day:has(em) strong, .day-head.focus-day:has(em) span { color: var(--oo-ink); }
+.shift-chip { border-radius: var(--oo-radius-shift); background: color-mix(in srgb, var(--oo-accent-soft) 82%, white); }
+.shift-chip.preview { background: var(--oo-proposal-fill); border-color: var(--oo-proposal-border); animation: candidate-arrival 260ms var(--oo-ease-standard) both; }
+.shift-chip.preview.candidate-human-edit { background: var(--oo-human-edit-fill); border-color: var(--oo-human-edit-border); border-left-color: var(--oo-human-edit-border); animation: candidate-edit 220ms var(--oo-ease-standard) both; }
+.shift-chip.preview.candidate-reviewed { background: var(--oo-reviewed-fill); border-color: var(--oo-reviewed-border); border-left-color: var(--oo-reviewed-border); animation: candidate-reviewed 280ms var(--oo-ease-standard) both; }
+.chip-tag { transition: color var(--oo-motion-standard) var(--oo-ease-standard); }
+.candidate-card { border-color: var(--oo-proposal-border); background: var(--oo-proposal-fill); border-radius: var(--oo-radius-card); }
+.candidate-card.candidate-human-edit { border-color: var(--oo-human-edit-border); background: var(--oo-human-edit-fill); }
+.candidate-card.candidate-reviewed { border-color: var(--oo-reviewed-border); background: var(--oo-reviewed-fill); }
+.preview-bar { container: preview / inline-size; background: var(--oo-proposal-fill); border-color: var(--oo-proposal-border); }
+.preview-bar.preview-human-edit { background: var(--oo-human-edit-fill); border-color: var(--oo-human-edit-border); }
+.preview-bar.preview-reviewed { background: var(--oo-reviewed-fill); border-color: var(--oo-reviewed-border); }
+.preview-reviewed .preview-badge { background: #2e7a5f; }
+@keyframes candidate-arrival { from { opacity: .55; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes candidate-edit { 50% { box-shadow: 0 0 0 3px color-mix(in srgb, #b97832 24%, transparent); } }
+@keyframes candidate-reviewed { 50% { box-shadow: 0 0 0 3px color-mix(in srgb, #2e7a5f 24%, transparent); } }
+@container rail (max-width: 300px) {
+  .avatar { width: 132px; height: 132px; }
+  .candidate-metrics { grid-template-columns: 1fr; }
+}
+@container preview (max-width: 660px) { .preview-bar-impact { white-space: normal; flex-wrap: wrap; } }
+@media (max-width: 900px) {
+  .topbar { min-height: 112px; padding: 12px 18px 14px; }
+  .context-stage { margin-top: 8px; }
+  .workspace { min-height: calc(100vh - 112px); }
+}
+@media (max-width: 650px) {
+  .topbar { min-height: 104px; padding: 10px 12px 12px; }
+  .context-stage h1 { font-size: 25px; }
+  .context-stage p { display: none; }
+  .workspace { min-height: calc(100vh - 104px); }
+}

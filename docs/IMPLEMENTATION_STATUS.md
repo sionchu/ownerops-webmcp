@@ -1,7 +1,7 @@
 # Implementation Status
 
 ## Current phase
-Adaptive industry profiles and the live SVG assistant are implemented and deployed to Vercel over HTTPS. Chrome/WebMCP live validation is intentionally deferred; public submission remains pending.
+Adaptive industry profiles and the live SVG assistant are implemented and deployed to Vercel over HTTPS. The visual-system refinement aligns all six profile tokens, compresses the operational context header, focuses the active Friday incident lane, and adds restrained proposal/edit/review choreography without changing product behavior. Chrome/WebMCP live validation is intentionally deferred; public submission remains pending.
 
 ## Acceptance criteria
 - AC1–AC15: implemented.
@@ -10,6 +10,7 @@ Adaptive industry profiles and the live SVG assistant are implemented and deploy
 - AC2, AC4, and AC14 are covered by the shared action/registration integration tests and explicit eight-tool source registration.
 
 ## Verification
+- Visual-system refinement local verification — PASS: Pizza default, Friday incident/proposal, and salon default were checked in the browser with no application/runtime error observed. The default browser viewport was available; dedicated 1249/1024/700/600 viewport capture remains a release verification task.
 - `npm install` — PASS, audited 383 packages; no dependency diff retained.
 - `npm test` — PASS, 3 files and 19 tests for the adaptive profile release candidate.
 - `npm run lint` — PASS, no findings.

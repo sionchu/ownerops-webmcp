@@ -22,14 +22,18 @@ export type IndustryProfile = {
     accent: string;
     accentHover: string;
     accentSoft: string;
-    surfaceTint: string;
     canvas: string;
     surface: string;
+    surfaceElevated: string;
     ink: string;
     secondaryInk: string;
-    radiusStyle: string;
-    motif: string;
-    motionStyle: string;
+    border: string;
+    focusLane: string;
+    agentGlow: string;
+    radiusCard: string;
+    radiusShift: string;
+    motifOpacity: string;
+    motionTheme: string;
     avatarAccessory: AvatarAccessory;
     avatarDetail?: AvatarDetail;
   };
@@ -51,7 +55,7 @@ export const INDUSTRY_PROFILES: Record<IndustryId, IndustryProfile> = {
       suggestedPrompt: "Minsoo called out before dinner rush. Show me three options, but don't apply anything yet.",
       headline: "Friday rush. One person short. Three ways out.",
     },
-    visual: { accent: "#9b5947", accentHover: "#7f4536", accentSoft: "#f5e8e2", surfaceTint: "#f7f0eb", canvas: "#f6f0e9", surface: "#fffdf9", ink: "#242a2d", secondaryInk: "#6e6862", radiusStyle: "12px", motif: "diner", motionStyle: "crisp", avatarAccessory: "cap", avatarDetail: "name-tag" },
+    visual: { accent: "#A84F3D", accentHover: "#873B2D", accentSoft: "#F6E5DF", canvas: "#F8F3EC", surface: "#FFFDF9", surfaceElevated: "#FFF9F2", ink: "#20282C", secondaryInk: "#6F6A64", border: "#E8DED3", focusLane: "#F4E1D9", agentGlow: "#EBCFC5", radiusCard: "12px", radiusShift: "12px", motifOpacity: "0.035", motionTheme: "460ms", avatarAccessory: "cap", avatarDetail: "name-tag" },
   },
   pizza: {
     id: "pizza",
@@ -68,7 +72,7 @@ export const INDUSTRY_PROFILES: Record<IndustryId, IndustryProfile> = {
       suggestedPrompt: "Minsoo called out before Friday pizza rush. Show me three options, but don't apply anything yet.",
       headline: "Friday pizza rush. Keep the line moving.",
     },
-    visual: { accent: "#b24f3d", accentHover: "#923d30", accentSoft: "#f8e6e2", surfaceTint: "#fbf3ee", canvas: "#faf2e9", surface: "#fffdf9", ink: "#302722", secondaryInk: "#75665e", radiusStyle: "18px", motif: "pizza", motionStyle: "snappy", avatarAccessory: "chef-cap" },
+    visual: { accent: "#C8513B", accentHover: "#9E3E2E", accentSoft: "#F9E5DE", canvas: "#FBF3E9", surface: "#FFFDF8", surfaceElevated: "#FFF7EE", ink: "#302722", secondaryInk: "#75665E", border: "#EBDDCF", focusLane: "#F8DDD3", agentGlow: "#F0C9BC", radiusCard: "18px", radiusShift: "16px", motifOpacity: "0.05", motionTheme: "400ms", avatarAccessory: "chef-cap" },
   },
   coffee: {
     id: "coffee",
@@ -85,7 +89,7 @@ export const INDUSTRY_PROFILES: Record<IndustryId, IndustryProfile> = {
       suggestedPrompt: "Minsoo called out before the rush window. Show me three options, but don't apply anything yet.",
       headline: "Rush window. Keep the bar covered.",
     },
-    visual: { accent: "#4f7664", accentHover: "#3c5e50", accentSoft: "#e5efe9", surfaceTint: "#f1f5f1", canvas: "#f1f0e9", surface: "#fffdf8", ink: "#27352e", secondaryInk: "#69736b", radiusStyle: "18px", motif: "coffee", motionStyle: "calm", avatarAccessory: "apron" },
+    visual: { accent: "#3F6F5A", accentHover: "#315847", accentSoft: "#E5EFE9", canvas: "#F4F1EA", surface: "#FFFCF5", surfaceElevated: "#F9F5EB", ink: "#2C2925", secondaryInk: "#746E65", border: "#E5DED1", focusLane: "#E4EEE8", agentGlow: "#CFE1D7", radiusCard: "16px", radiusShift: "14px", motifOpacity: "0.03", motionTheme: "520ms", avatarAccessory: "apron" },
   },
   salon: {
     id: "salon",
@@ -102,7 +106,7 @@ export const INDUSTRY_PROFILES: Record<IndustryId, IndustryProfile> = {
       suggestedPrompt: "Minsoo called out before the booking peak. Show me three options, but don't apply anything yet.",
       headline: "Booking peak. Protect every chair.",
     },
-    visual: { accent: "#6a5d6e", accentHover: "#514654", accentSoft: "#eee8ef", surfaceTint: "#f5f2f4", canvas: "#f5f2f3", surface: "#fffefe", ink: "#252126", secondaryInk: "#716a72", radiusStyle: "6px", motif: "salon", motionStyle: "smooth", avatarAccessory: "salon-apron", avatarDetail: "tool-badge" },
+    visual: { accent: "#765E76", accentHover: "#5D495D", accentSoft: "#EFE7EF", canvas: "#F7F3F5", surface: "#FFFDFE", surfaceElevated: "#FAF5F8", ink: "#232126", secondaryInk: "#716A73", border: "#E5DDE5", focusLane: "#EEE4EE", agentGlow: "#DCCFDC", radiusCard: "9px", radiusShift: "8px", motifOpacity: "0.025", motionTheme: "440ms", avatarAccessory: "salon-apron", avatarDetail: "tool-badge" },
   },
   sushi: {
     id: "sushi",
@@ -119,7 +123,7 @@ export const INDUSTRY_PROFILES: Record<IndustryId, IndustryProfile> = {
       suggestedPrompt: "Minsoo called out before dinner service. Show me three options, but don't apply anything yet.",
       headline: "Dinner service. Keep the floor balanced.",
     },
-    visual: { accent: "#216565", accentHover: "#155250", accentSoft: "#e1f0ef", surfaceTint: "#eef6f5", canvas: "#f3f5f2", surface: "#fffffc", ink: "#1f2b2c", secondaryInk: "#63706d", radiusStyle: "7px", motif: "sushi", motionStyle: "deliberate", avatarAccessory: "headband" },
+    visual: { accent: "#246A67", accentHover: "#185552", accentSoft: "#E1F0EE", canvas: "#F1F5F3", surface: "#FFFDFC", surfaceElevated: "#F7FBFA", ink: "#1E2A2A", secondaryInk: "#657170", border: "#DCE7E4", focusLane: "#DDECEA", agentGlow: "#C9DFDC", radiusCard: "8px", radiusShift: "7px", motifOpacity: "0.025", motionTheme: "540ms", avatarAccessory: "headband" },
   },
   curry: {
     id: "curry",
@@ -136,7 +140,7 @@ export const INDUSTRY_PROFILES: Record<IndustryId, IndustryProfile> = {
       suggestedPrompt: "Minsoo called out before dinner rush. Show me three options, but don't apply anything yet.",
       headline: "Dinner rush. Keep service covered.",
     },
-    visual: { accent: "#a87619", accentHover: "#885c10", accentSoft: "#f7eed9", surfaceTint: "#fbf6e8", canvas: "#fbf4e3", surface: "#fffdf7", ink: "#382d1d", secondaryInk: "#766852", radiusStyle: "18px", motif: "curry", motionStyle: "warm", avatarAccessory: "apron", avatarDetail: "badge" },
+    visual: { accent: "#B27A18", accentHover: "#8B5C10", accentSoft: "#F7EDD7", canvas: "#FBF6E9", surface: "#FFFDF7", surfaceElevated: "#FFF8E9", ink: "#312A22", secondaryInk: "#776C5D", border: "#E9DFC9", focusLane: "#F5E8C8", agentGlow: "#EAD7A7", radiusCard: "16px", radiusShift: "15px", motifOpacity: "0.04", motionTheme: "480ms", avatarAccessory: "apron", avatarDetail: "badge" },
   },
 };
 

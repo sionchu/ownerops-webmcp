@@ -64,5 +64,7 @@ Avoid personality-heavy chatter, emojis, or fake human emotions.
 ## Current local implementation
 The shipped Tier 1 avatar is an inline SVG with semantic groups for shadow, body, head/face/eyes/mouth, accessory, and signal. CSS supplies a barely visible breathing/blink rhythm and state signal; the component uses the native Web Animations API for one-shot attentive, scan, notice, review, warning, and apply gestures. `prefers-reduced-motion` disables ambient and semantic motion. The same base assistant receives a small registry-driven work-context detail: diner cap/name tag, pizza chef cap, coffee apron, salon apron/tool mark, sushi headband, or curry apron/badge.
 
+The rail is a contained operational surface rather than a chatbot: it shows connection evidence, the current activity, a short timeline, candidate impact, and the next allowed action. The avatar keeps its stable face/body colors; only the accessory, one trim detail, and a low-opacity profile `agentGlow` change. In an active Friday incident it uses the existing checking/warning signal, scans before review, and gives its restrained approval gesture only after a reviewed plan is applied. Reduced-motion users receive the same state labels without ambient or one-shot movement.
+
 ## WebMCP linkage
 A tool execution may set a transient activity status before/after calling the shared domain action. This visual status is UI feedback only; the tool must not modify business state through an avatar-specific path.
