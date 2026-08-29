@@ -14,6 +14,10 @@ export type ApplicationAction =
   | { type: "import_state"; state: AppState }
   | { type: "set_activity"; activity: AppState["activity"] };
 
+function workerLabel(worker: AppState["workers"][number] | undefined, fallback = "Candidate") {
+  return worker?.displayName ?? worker?.name ?? fallback;
+}
+
 function unavailable(worker: AppState["workers"][number], start: string, end: string): boolean {
   return Boolean(worker.availability?.some((window) => !window.available && new Date(window.start) < new Date(end) && new Date(window.end) > new Date(start)));
 }
@@ -35,12 +39,13 @@ export function getResponseOptions(state: AppState): StaffingScenario[] {
     .filter((worker) => worker.role === shift.role || (worker.role === "manager" && shift.role === "barista"))
     .filter((worker) => !unavailable(worker, shift.start, shift.end))
     .map((worker) => {
+      const label = workerLabel(worker);
       const changes = [{ shiftId: shift.id, workerId: worker.id }];
       const impact = calculateImpact(state, applyChanges(state.shifts, changes), state.shifts);
       return {
         id: `cover-${shift.id}-${worker.id}`,
-        title: `${worker.name} covers the shift`,
-        summary: `${worker.name} takes ${shift.start.slice(11, 16)}–${shift.end.slice(11, 16)} as a single reassignment.`,
+        title: `${label} covers the shift`,
+        summary: `${label} takes ${shift.start.slice(11, 16)}–${shift.end.slice(11, 16)} as a single reassignment.`,
         rationale: `Restores peak coverage with one schedule change; estimated labor ratio ${(impact.laborRatio * 100).toFixed(1)}%.`,
         changes,
         impact,
@@ -64,7 +69,7 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
     case "reset_demo":
       return createDemoState();
     case "create_schedule_draft":
-      return createDemoState(action.industry ?? "diner", action.market ?? "kr-seoul");
+      return createDemoState(action.industry ?? state.business.industry, action.market ?? state.business.market);
     case "set_activity":
       return { ...state, activity: action.activity };
     case "mark_unavailable": {
@@ -79,13 +84,13 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
         shifts,
         preview: null,
         incident: { type: "worker_unavailable", workerId: worker.id, shiftId: shift.id, reason: action.reason },
-        activity: { state: "warning", message: "Coverage gap detected.", detail: `${worker.name} is unavailable for the Friday evening shift.` },
+        activity: { state: "warning", message: "Coverage gap detected.", detail: `${workerLabel(worker)} is unavailable for the Friday evening shift.` },
       };
     }
     case "preview_scenario": {
       const scenario = getResponseOptions(state).find((item) => item.id === action.scenarioId);
       if (!scenario) throw new Error("Scenario is not available for the current incident.");
-      const replacementName = state.workers.find((worker) => worker.id === scenario.changes[0]?.workerId)?.name ?? "Candidate";
+      const replacementName = workerLabel(state.workers.find((worker) => worker.id === scenario.changes[0]?.workerId));
       return { ...state, preview: { id: `preview-${scenario.id}`, version: 1, scenarioId: scenario.id, title: scenario.title, changes: scenario.changes, impact: scenario.impact }, activity: { state: "proposalReady", message: "Agent proposal ready.", detail: `${replacementName} is shown as a preview only. Nothing has been committed.` } };
     }
     case "preview_changes": {
@@ -98,7 +103,7 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
     case "apply_preview": {
       if (!state.preview || state.preview.id !== action.previewId || state.preview.version !== action.version) throw new Error("Preview is missing or stale. Review the current option again.");
       if (state.activity.state !== "reviewed") throw new Error("Review required before applying this staffing preview.");
-      const appliedWorkerName = state.workers.find((worker) => worker.id === state.preview?.changes[0]?.workerId)?.name ?? "The replacement";
+      const appliedWorkerName = workerLabel(state.workers.find((worker) => worker.id === state.preview?.changes[0]?.workerId), "The replacement");
       return { ...state, shifts: applyChanges(state.shifts, state.preview.changes), preview: null, incident: null, activity: { state: "applied", message: "Plan applied.", detail: `${appliedWorkerName} covers the reviewed shift. Preview cleared.` } };
     }
     case "reassign_shift": {
@@ -111,10 +116,10 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
         const previousWorker = state.workers.find((item) => item.id === currentChange?.workerId);
         const changes = state.preview.changes.map((change) => change.shiftId === current.id ? { ...change, workerId: worker.id, ...movedTime } : change);
         const proposed = applyChanges(state.shifts, changes);
-        return { ...state, preview: { ...state.preview, version: state.preview.version + 1, title: `${worker.name} covers the shift`, changes, impact: calculateImpact(state, proposed, state.shifts) }, activity: { state: "reviewNeeded", message: "Human edit detected.", detail: `${previousWorker?.name ?? "Proposed replacement"} → ${worker.name}; local impact updated. Agent review pending.` } };
+        return { ...state, preview: { ...state.preview, version: state.preview.version + 1, title: `${workerLabel(worker)} covers the shift`, changes, impact: calculateImpact(state, proposed, state.shifts) }, activity: { state: "reviewNeeded", message: "Human edit detected.", detail: `${workerLabel(previousWorker, "Proposed replacement")} → ${workerLabel(worker)}; local impact updated. Agent review pending.` } };
       }
       const shifts = state.shifts.map((item) => item.id === current.id ? { ...item, workerId: worker.id, ...movedTime, status: "scheduled" as const } : item);
-      return { ...state, shifts, preview: null, incident: state.incident?.shiftId === current.id ? null : state.incident, activity: { state: "reviewNeeded", message: "Human edit detected.", detail: `${worker.name} now owns the shift in the live schedule. Agent review pending.` } };
+      return { ...state, shifts, preview: null, incident: state.incident?.shiftId === current.id ? null : state.incident, activity: { state: "reviewNeeded", message: "Human edit detected.", detail: `${workerLabel(worker)} now owns the shift in the live schedule. Agent review pending.` } };
     }
     case "import_state":
       return { ...action.state, preview: null, activity: { state: "applied", message: "Schedule snapshot restored." } };
