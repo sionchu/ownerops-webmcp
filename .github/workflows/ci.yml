@@ -27,6 +27,8 @@ jobs:
         run: npm ci
       - name: Data source registry
         run: npm run data:sources
+      - name: Master template importer
+        run: npm run data:import-master -- --file tests/fixtures/fnb-master-mini.json --dry-run
       - name: Test
         run: npm test
       - name: Lint
