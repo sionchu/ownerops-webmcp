@@ -16,7 +16,7 @@ export type MarketProfile = {
   currency: CurrencyCode;
   intlLocale: string;
   locationLabels: Record<UiLocale, string>;
-  workerDisplayNames: Record<string, string>;
+  workerNames: Record<string, string>;
   wageReference: WageReference;
   wageRounding: number;
   salesRounding: number;
@@ -30,7 +30,7 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
     currency: "KRW",
     intlLocale: "ko-KR",
     locationLabels: { en: "Seoul", ko: "서울", ja: "ソウル", es: "Seúl", "zh-CN": "首尔" },
-    workerDisplayNames: { minsoo: "민수", jiyoung: "지영", younghee: "영희", chulsoo: "철수", hana: "하나" },
+    workerNames: { minsoo: "Minsoo", jiyoung: "Jiyoung", younghee: "Younghee", chulsoo: "Chulsoo", hana: "Hana" },
     wageReference: {
       hourly: 10320,
       basis: "statutory-hourly-minimum",
@@ -47,7 +47,7 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
     currency: "USD",
     intlLocale: "en-US",
     locationLabels: { en: "New York City", ko: "뉴욕", ja: "ニューヨーク", es: "Nueva York", "zh-CN": "纽约" },
-    workerDisplayNames: { minsoo: "Mason", jiyoung: "Jamie", younghee: "Taylor", chulsoo: "Chris", hana: "Hannah" },
+    workerNames: { minsoo: "Mason", jiyoung: "Jamie", younghee: "Taylor", chulsoo: "Chris", hana: "Hannah" },
     wageReference: {
       hourly: 17,
       basis: "statutory-hourly-minimum",
@@ -65,7 +65,7 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
     currency: "JPY",
     intlLocale: "ja-JP",
     locationLabels: { en: "Tokyo", ko: "도쿄", ja: "東京", es: "Tokio", "zh-CN": "东京" },
-    workerDisplayNames: { minsoo: "蓮", jiyoung: "葵", younghee: "美咲", chulsoo: "翔太", hana: "花" },
+    workerNames: { minsoo: "蓮", jiyoung: "葵", younghee: "美咲", chulsoo: "翔太", hana: "花" },
     wageReference: {
       hourly: 1226,
       basis: "statutory-hourly-minimum",
@@ -82,7 +82,7 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
     currency: "EUR",
     intlLocale: "es-ES",
     locationLabels: { en: "Madrid", ko: "마드리드", ja: "マドリード", es: "Madrid", "zh-CN": "马德里" },
-    workerDisplayNames: { minsoo: "Mateo", jiyoung: "Lucía", younghee: "Carmen", chulsoo: "Diego", hana: "Ana" },
+    workerNames: { minsoo: "Mateo", jiyoung: "Lucía", younghee: "Carmen", chulsoo: "Diego", hana: "Ana" },
     wageReference: {
       hourly: 8.22,
       basis: "derived-general-smi",
@@ -100,7 +100,7 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
     currency: "CNY",
     intlLocale: "zh-CN",
     locationLabels: { en: "Shanghai", ko: "상하이", ja: "上海", es: "Shanghái", "zh-CN": "上海" },
-    workerDisplayNames: { minsoo: "明宇", jiyoung: "嘉怡", younghee: "雅婷", chulsoo: "子豪", hana: "欣怡" },
+    workerNames: { minsoo: "明宇", jiyoung: "嘉怡", younghee: "雅婷", chulsoo: "子豪", hana: "欣怡" },
     wageReference: {
       hourly: 25,
       basis: "part-time-hourly-minimum",
@@ -153,13 +153,13 @@ export function getMarketLocation(market: MarketId, locale: UiLocale): string {
 export function createMarketWorkers(market: MarketId): Worker[] {
   const profile = MARKET_PROFILES[market];
   const rate = (workerId: string) => roundTo(profile.wageReference.hourly * WORKER_MULTIPLIERS[workerId], profile.wageRounding);
-  const displayName = (workerId: string) => profile.workerDisplayNames[workerId];
+  const name = (workerId: string) => profile.workerNames[workerId];
   return [
-    { id: "minsoo", name: "Minsoo", displayName: displayName("minsoo"), role: "barista", hourlyRate: rate("minsoo") },
-    { id: "jiyoung", name: "Jiyoung", displayName: displayName("jiyoung"), role: "barista", hourlyRate: rate("jiyoung") },
-    { id: "younghee", name: "Younghee", displayName: displayName("younghee"), role: "manager", hourlyRate: rate("younghee") },
-    { id: "chulsoo", name: "Chulsoo", displayName: displayName("chulsoo"), role: "barista", hourlyRate: rate("chulsoo") },
-    { id: "hana", name: "Hana", displayName: displayName("hana"), role: "barista", hourlyRate: rate("hana") },
+    { id: "minsoo", name: name("minsoo"), role: "barista", hourlyRate: rate("minsoo") },
+    { id: "jiyoung", name: name("jiyoung"), role: "barista", hourlyRate: rate("jiyoung") },
+    { id: "younghee", name: name("younghee"), role: "manager", hourlyRate: rate("younghee") },
+    { id: "chulsoo", name: name("chulsoo"), role: "barista", hourlyRate: rate("chulsoo") },
+    { id: "hana", name: name("hana"), role: "barista", hourlyRate: rate("hana") },
   ];
 }
 
