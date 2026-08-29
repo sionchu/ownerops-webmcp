@@ -62,8 +62,6 @@
   margin-top: 3px;
 }
 
-/* Korean benefits from phrase-level wrapping; Japanese and Chinese must be
-   allowed to break between CJK characters instead of escaping their boxes. */
 .app-shell[data-locale="ko"] {
   word-break: keep-all;
 }
@@ -78,20 +76,11 @@
   max-width: 760px;
 }
 
-/* Localized role + wage strings can be materially longer than English.
-   Let the metadata wrap inside the fixed worker column rather than bleeding
-   into Monday's schedule cell. */
 .worker-label > div,
-.gap-label > div {
+.gap-label > div,
+.assistant-heading > div {
   min-width: 0;
   overflow: hidden;
-}
-
-.worker-label strong,
-.gap-label strong {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .worker-label span:last-child,
@@ -102,9 +91,6 @@
   overflow-wrap: anywhere;
 }
 
-/* Keep the compact top status between the brand and actions. The detailed
-   market context is repeated below in the context stage, so clipping here is
-   preferable to overlapping either side of the header. */
 .topbar-center {
   min-width: 0;
   max-width: min(48vw, 620px);
@@ -118,56 +104,18 @@
   flex: 0 0 auto;
 }
 
-.context-stage,
-.context-stage h1 {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-/* Rail copy is intentionally verbose in some locales. Every text-bearing
-   column must be shrinkable so Japanese/Chinese/Spanish copy wraps in place. */
-.assistant-heading > div,
-.connection-state > div,
-.activity-copy,
-.timeline-step > div,
-.candidate-card,
-.agent-prompt,
-.rail-facts > div {
-  min-width: 0;
-}
-
+.context-stage h1,
 .assistant-heading h2,
-.connection-state strong,
-.connection-state small,
 .activity-copy strong,
-.activity-copy p,
-.timeline-step strong,
-.timeline-step span,
-.candidate-card,
-.agent-prompt strong,
-.agent-prompt small,
-.rail-facts span,
-.rail-facts strong {
+.activity-copy p {
   overflow-wrap: anywhere;
-}
-
-.rail-facts > div {
-  grid-template-columns: 18px minmax(0, 1fr) auto;
 }
 
 @media (max-width: 900px) {
-  .topbar-center {
-    max-width: 42vw;
-  }
+  .topbar-center { max-width: 42vw; }
 }
 
 @media (max-width: 650px) {
-  .timeline-step {
-    grid-template-columns: 22px minmax(0, 1fr);
-  }
-
-  .topbar-center {
-    max-width: 38vw;
-    font-size: 10px;
-  }
+  .timeline-step { grid-template-columns: 22px minmax(0, 1fr); }
+  .topbar-center { max-width: 38vw; font-size: 10px; }
 }
