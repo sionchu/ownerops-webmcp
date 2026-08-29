@@ -1,65 +1,80 @@
 # OwnerOps
 
-**OwnerOps** is a WebMCP-powered **AI Store Manager** for independent businesses. The owner speaks in operating intent—“오늘 장사 준비해줘”, “민수 못 나온대”, “우유 주말까지 버텨?”, “이번 주 인건비 왜 높아?”—and the agent reads the same canonical store state as the visible application, composes the required capabilities, previews consequential changes, re-reads human edits, and applies only reviewed plans.
+**OwnerOps** is a WebMCP-powered **AI Store Manager** for independent businesses. The owner speaks in operating intent—“오늘 장사 준비해줘”, “민수 못 나온대”, “우유 주말까지 버텨?”, “이번 주 인건비 왜 높아?”—and the agent reads the same live store projection as the visible application, composes the required capabilities, previews consequential changes, re-reads human edits, and applies only reviewed plans.
 
-The RE0 keeps the strongest part of the original staffing demo—human and agent collaboration on one live state—but expands that state across **People · Sales · Stock · Operations · Context · Costs**.
+The RE0 keeps the strongest part of the original staffing demo—human and agent collaboration on one live state—but expands across **People · Sales · Stock · Operations · Context · Costs**.
+
+## Product model
+
+```text
+PostgreSQL / Supabase
+  store-owned facts + cached references
+             │
+             ▼
+       Store Repository
+             │
+             ▼
+ live StoreState working projection
+             │
+    Daily Brief / StorePlan
+             │
+             ▼
+          WebMCP
+             │
+             ▼
+       ChatGPT Agent
+```
+
+The public hackathon deployment remains safe when no database is configured: deterministic seed data boots the complete demo. When Supabase contains a matching store projection/reference cache, the app hydrates from it server-side.
+
+**Store actuals are authoritative.** Supplier receipts, stock counts, wages, attendance, leases and connected POS data outrank commodity/rent/weather benchmarks. Public references always preserve provider, geography, timestamps and freshness (`live`, `recent`, `cached`, `seed`, `stale`).
 
 ## What OwnerOps understands
 
 ### People
-- worker role/skills,
-- regular availability and one-off exceptions,
-- weekly-hour limits,
-- published shifts,
-- actual time entries,
-- call-outs and incident history,
-- scheduled/actual wage context.
+- role/skills and employment type;
+- regular availability and one-off exceptions;
+- weekly-hour limits;
+- published shifts and actual time entries;
+- call-outs and incident history;
+- scheduled vs actual wage context.
 
-### Sales and menu
-- daily/item sales fixtures,
-- menu prices,
-- recipe quantities,
-- preparation yield rates,
-- per-serving food cost and food-cost ratio.
+### Sales / menu / Prep
+- daily/item sales;
+- menu prices;
+- ingredient → Prep → menu BOM;
+- procurement-form/yield-aware costing;
+- food-cost ratio and menu margin.
 
 ### Stock
-- industry-specific inventory,
-- on-hand/par/reorder point,
-- lead time and supplier,
-- recent actual purchase cost,
-- received purchases and planned purchase orders,
-- waste records,
-- mapped commodity-price references with provenance.
+- industry-specific purchased items;
+- on-hand/par/reorder/lead time;
+- suppliers, receipts and planned purchase orders;
+- waste/count variance;
+- actual purchase cost vs cached external reference.
 
-### Costs
-- food cost,
-- scheduled labor,
-- packaging/consumables,
-- payment and delivery/marketplace rates,
-- base rent and recurring occupancy fees,
-- utilities/software/security/rentals/marketing/other fixed costs,
-- FL Cost and short-horizon break-even sales.
+### Costs / context
+- food/labor/variable operating cost;
+- occupancy and other fixed cost;
+- FL Cost and short-horizon BEP;
+- weather/events and public market/rent reference context.
 
-### Context and operations
-- seeded or externally refreshed weather references,
-- rent/commodity reference observations,
-- opening/closing tasks,
-- manager log and incidents.
-
-Store-entered/seeded **actual store data is authoritative**. External commodity, rent and weather observations are reference/context only and always preserve provider, geography, timestamp and freshness (`live`, `recent`, `cached`, `seed`, `stale`).
+### Operations
+- incidents;
+- opening/closing tasks;
+- manager log;
+- coordinated multi-domain StorePlan.
 
 ## Why WebMCP
 
-Existing business software makes the owner translate intent into menus, reports and forms. OwnerOps exposes structured user-intent tools from the live application instead:
+Existing business software makes the owner translate intent into modules. OwnerOps exposes store-level intent tools from the live application instead:
 
 ```text
 owner intent
     ↓
-ChatGPT agent
+focused StoreState / Daily Brief
     ↓
-focused StoreState read
-    ↓
-Daily Brief / deterministic planning
+deterministic planning
     ↓
 StorePlan Before → After → Delta
     ↓
@@ -70,50 +85,28 @@ agent re-review
 explicit apply
 ```
 
-The agent never reconstructs the operating state from a screenshot or Snapshot text during normal work.
+The agent never reconstructs ordinary operating state from screenshots, snapshot files, raw SQL or provider-specific APIs.
 
-## Canonical demo
+## Canonical demo prompts
 
-### 1. Daily operating brief
-Ask:
-
+### Daily operating brief
 > 오늘 장사 준비해줘.
 
-The agent should read `get_daily_brief`, surface the top few store issues, and—when supported evidence exists—prepare one cross-domain StorePlan. In the seeded coffee demo this can combine a staffing recovery with inventory reorder recommendations.
-
-### 2. Staffing incident
-Tell the agent:
-
+### Staffing incident
 > 민수 금요일 저녁 못 나온대. 알아서 처리해.
 
-OwnerOps records the call-out as an availability exception + incident history, finds replacements that actually satisfy role/skill/regular-availability/hour limits, and previews the recovery. Once resolved, the call-out remains historical truth but no longer appears as an unresolved incident.
-
-### 3. Full-week rebuild
-Ask:
-
+### Full-week rebuild
 > 이번 주 전체 근무표 다시 짜줘. 40시간 안에서 피크 공백 최소화해.
 
-The planner preserves employee availability/hours/skills and peak coverage rather than treating workers as interchangeable cells.
-
-### 4. Inventory/cost question
-Ask:
-
+### Inventory / market reference
 > 우유 주말까지 버텨? 지금 사는 가격도 비싼지 봐줘.
 
-OwnerOps can compare current on-hand/usage/lead time to par and compare the store's recent actual purchase cost with a mapped external reference. If a provider is unavailable, the Reference Resolver falls back through recent/cached/seed/stale data and explicitly reports degraded freshness.
+### Occupancy pressure
+> 월세 10% 오르면 어떻게 메우지?
 
-### 5. Multi-domain review
-A StorePlan may contain staffing + purchase + task changes at once. The UI/agent keeps a shared:
+## WebMCP contract
 
-```text
-Before → After → Delta
-```
-
-for labor, food cost, purchase cash outlay, waste exposure, review flags and break-even sales. Purchase actions become **planned purchase orders** when applied; OwnerOps never pretends goods were received or a supplier was contacted without a real integration.
-
-## WebMCP tool contract
-
-The client registers exactly nine intent-level tools through `document.modelContext.registerTool`:
+The client registers exactly nine intent-level tools:
 
 1. `configure_demo_store`
 2. `get_store_state`
@@ -125,7 +118,7 @@ The client registers exactly nine intent-level tools through `document.modelCont
 8. `apply_store_plan`
 9. `restore_store_snapshot`
 
-Primary live path:
+Normal live path:
 
 ```text
 get_store_state / get_daily_brief
@@ -141,9 +134,16 @@ evaluate_current_plan
 apply_store_plan
 ```
 
-`restore_store_snapshot` is backup/restore only. Do not use Snapshot UI/export as an intermediate planning transport.
+`restore_store_snapshot` is backup/restore only.
 
-## Demo profiles
+## Markets and industry profiles
+
+Markets:
+- Seoul (`kr-seoul`)
+- New York City (`us-nyc`)
+- Tokyo (`jp-tokyo`)
+- Madrid (`es-madrid`)
+- Shanghai (`cn-shanghai`)
 
 Industries:
 - diner
@@ -153,38 +153,86 @@ Industries:
 - sushi
 - curry
 
-Markets:
-- Seoul (`kr-seoul`)
-- New York City (`us-nyc`)
-- Tokyo (`jp-tokyo`)
-- Madrid (`es-madrid`)
-- Shanghai (`cn-shanghai`)
+Market and UI language are independent. Industry profiles contain genuinely different purchased items/menu/skills/tasks rather than relabeling one generic fixture.
 
-Markets provide currency, wage-reference metadata, localized worker names, timezone, regular worker availability, occupancy seed and external-reference provider metadata. Industries provide actual differentiated inventory/menu/skill/task seeds rather than merely changing labels.
+## Database / cache setup
 
-A user-supplied 31-menu global restaurant-cost guide is kept as a **benchmark registry**, not live/store truth. It supplies examples of yield-aware costing and menu-cost ratios across Tokyo, New York, Seoul, Barcelona-oriented Spain and Shanghai. The Barcelona references remain labeled as such even when the configured OwnerOps Spanish market is Madrid.
+The app has **no required database dependency** for the deterministic demo. To enable persisted store/template/reference reads, apply the SQL migrations under `supabase/migrations/` and set server-only environment variables:
+
+```bash
+OWNEROPS_SUPABASE_URL=
+OWNEROPS_SUPABASE_SERVICE_ROLE_KEY=
+```
+
+Do not expose the service-role key to client code.
+
+Current migrations:
+- `001_ownerops_store_ssot.sql` — normalized store truth + external reference cache;
+- `002_working_store_projection_rpc.sql` — transactional server-only working projection load/replace RPC;
+- `003_fnb_template_catalog.sql` — market/industry benchmark template catalog.
+
+Runtime endpoints are read-only:
+- `/api/store-state?storeId=...` — persisted store hydration;
+- `/api/references?market=...` — cached public reference hydration.
+
+The unauthenticated public browser does **not** receive a service-role write endpoint. Per-owner write persistence waits for authenticated RLS/session ownership.
+
+## External price sync
+
+List providers:
+
+```bash
+npm run data:sources
+```
+
+Sync one provider:
+
+```bash
+npm run data:sync -- --source kamis
+```
+
+Sync configured providers:
+
+```bash
+npm run data:sync:all
+```
+
+KAMIS is the first normalized end-to-end connector: fetch → raw snapshot → exact alias/unit mapping → normalized observation → optional Supabase cache. Ambiguous/unmatched rows stay raw and are not promoted to reference truth.
+
+See `.env.example` for provider variables.
+
+## Global F&B master workbook
+
+The supplied global workbook is treated as **template/reference data**, not merchant truth. It covers five markets and contains approximately:
+- 196 ingredient benchmark rows;
+- 19 yield benchmarks;
+- 18 Prep items;
+- 85 Prep BOM rows;
+- 60 menu benchmarks;
+- 318 Menu BOM rows;
+- 80 labor template rows;
+- 31 supplementary menu references with arithmetic QA.
+
+Derived workbook surfaces (Prep Costing, Menu Costing, Dashboard) are not imported as truth because OwnerOps recalculates them.
+
+Import one canonical market JSON:
+
+```bash
+npm run data:import-master -- --file <market-template.json> --dry-run
+npm run data:import-master -- --file <market-template.json>
+```
+
+The importer replaces only benchmark/template rows for that market. It never overwrites actual store receipts, counts, lease terms or other store-owned facts.
 
 ## Snapshot
 
-Portable export now uses:
+Portable backup uses:
 
 ```text
 OWNEROPS_SNAPSHOT v2
 ```
 
-It preserves StoreState operating truth while excluding transient preview/StorePlan/activity. Legacy v1 staffing snapshots are migrated into the matching deterministic StoreState seed and then overlaid with their original staffing truth.
-
-## Boundaries
-
-OwnerOps deliberately does **not** claim to be:
-- tax/accounting/bookkeeping software,
-- statutory payroll filing,
-- a full labor-law compliance engine,
-- a real supplier ordering/payment integration unless one is connected,
-- a messaging provider unless one is connected,
-- a source of guaranteed commodity/rent/weather truth.
-
-Wage/labor/legal outputs are operational estimates/review flags. The demo call-out policy is explicitly `unpaid_hours`; real deployments would use the store's actual leave/pay policy.
+Snapshot remains a secondary backup/restore mechanism, not a normal Agent planning transport.
 
 ## Run locally
 
@@ -197,35 +245,32 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-The deterministic demo does not require API keys. Live external-reference adapters are optional enhancements; seeded references keep the demo reproducible when providers are unavailable.
+No API/database credentials are needed for the deterministic demo.
 
-## Verification commands
+## Verification
+
+GitHub Actions and local verification run:
 
 ```bash
+npm run data:sources
+npm run data:import-master -- --file tests/fixtures/fnb-master-mini.json --dry-run
 npm test
 npm run lint
 npm run typecheck
 npm run build
-npm audit --omit=dev
 ```
 
-Do not treat a Vercel deployment blocked by account build-rate limits as a code verification pass or failure; run the local verification commands or a successful Preview build before merge.
+## Key architecture paths
 
-## Architecture
+- `src/domain/` — StoreState, deterministic calculations/planning/validation
+- `src/persistence/` — store persistence projection boundary
+- `src/cost-data/` — external source catalog, aliases and normalization contract
+- `src/server/` — server-only Supabase repositories/adapters
+- `src/state/` — live React working projection + DB/seed hydration
+- `src/webmcp/` — nine store-intent tools
+- `src/snapshot/` — v2 backup/restore
+- `scripts/fnb-data-sync.mjs` — provider ingestion
+- `scripts/import-fnb-master.mjs` — benchmark/template admin import
+- `supabase/migrations/` — normalized database schema/RPC/template catalog
 
-- `src/domain/model.ts` — canonical StoreState and StorePlan types
-- `src/domain/actions.ts` — shared human/WebMCP state mutations
-- `src/domain/availability.ts` — worker hard constraints
-- `src/domain/rebuild.ts` — deterministic staffing rebuild
-- `src/domain/store-ops.ts` — yield-aware store metrics, Daily Brief and BEP/FL Cost
-- `src/domain/reference-resolver.ts` — live/recent/cached/seed/stale fallback semantics
-- `src/domain/store-plan.ts` — multi-domain Before/After/Delta and reviewed apply
-- `src/domain/store-planning.ts` — intent-level deterministic planning
-- `src/industry/` — industry operating seeds + user-supplied menu-cost benchmark registry
-- `src/market/` — market/wage/rent/reference-provider seeds
-- `src/state/` — one React-owned canonical state
-- `src/webmcp/` — nine-tool WebMCP registration/bridge
-- `src/snapshot/` — v2 StoreState portability + legacy migration
-- `tests/` — deterministic domain, StorePlan, snapshot and shared WebMCP path tests
-
-Product and implementation truth is governed by `AGENTS.md` and `docs/`. The current major expansion is developed on the `re0/ai-store-manager` branch until the draft PR verification gates pass.
+Product/implementation truth is governed by `AGENTS.md` and `docs/`. The major RE0 remains on `re0/ai-store-manager` / Draft PR #15 until the remaining live DB/provider/browser gates are verified.
