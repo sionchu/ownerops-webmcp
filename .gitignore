@@ -25,3 +25,6 @@ next-env.d.ts
 
 # E2E evidence is generated locally
 /.chatgpt2codex/
+
+# External F&B source snapshots are local/prebuild evidence, not source-controlled data
+/.cache/fnb/
