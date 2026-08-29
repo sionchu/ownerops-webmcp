@@ -33,16 +33,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     localeRef.current = nextLocale;
     setLocaleState(nextLocale);
     if (typeof document !== "undefined") document.documentElement.lang = nextLocale;
+    if (typeof window !== "undefined") window.sessionStorage.setItem(UI_LOCALE_STORAGE_KEY, nextLocale);
   }, []);
 
   useEffect(() => {
     const hydrationTimer = window.setTimeout(() => {
-      const persisted = loadPersistedState(window.localStorage);
+      const persisted = loadPersistedState(window.sessionStorage);
       if (persisted) {
         stateRef.current = persisted;
         setState(persisted);
       }
-      const detectedLocale = normalizeUiLocale(window.localStorage.getItem(UI_LOCALE_STORAGE_KEY))
+      const detectedLocale = normalizeUiLocale(window.sessionStorage.getItem(UI_LOCALE_STORAGE_KEY))
         ?? normalizeUiLocale(window.navigator.language)
         ?? "en";
       localeRef.current = detectedLocale;
@@ -55,14 +56,15 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
-    persistState(window.localStorage, state);
-    window.localStorage.setItem(UI_LOCALE_STORAGE_KEY, locale);
+    persistState(window.sessionStorage, state);
+    window.sessionStorage.setItem(UI_LOCALE_STORAGE_KEY, locale);
   }, [hydrated, state, locale]);
 
   const runAction = useCallback((action: ApplicationAction) => {
     const next = dispatchApplicationAction(stateRef.current, action);
     stateRef.current = next;
     setState(next);
+    if (typeof window !== "undefined") persistState(window.sessionStorage, next);
     return next;
   }, []);
   const getState = useCallback(() => stateRef.current, []);

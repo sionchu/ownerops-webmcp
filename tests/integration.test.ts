@@ -116,9 +116,14 @@ describe("shared UI and WebMCP application path", () => {
       "import_schedule_snapshot",
     ]);
     expect(registrations.every(({ tool }) => typeof tool.inputSchema === "object")).toBe(true);
-    const draftSchema = registrations.find(({ tool }) => tool.name === "create_schedule_draft")?.tool.inputSchema as { properties?: { industry?: { enum?: unknown[] } }; required?: unknown[] };
+    const draftSchema = registrations.find(({ tool }) => tool.name === "create_schedule_draft")?.tool.inputSchema as { properties?: { industry?: { enum?: unknown[] }; uiLocale?: { enum?: unknown[] } }; required?: unknown[] };
     expect(draftSchema.properties?.industry?.enum).toEqual(["diner", "pizza", "coffee", "salon", "sushi", "curry"]);
-    expect(draftSchema.required).toEqual(["preset"]);
+    expect(draftSchema.properties?.uiLocale?.enum).toEqual(["en", "ko", "ja", "es", "zh-CN"]);
+    expect(draftSchema.required).toEqual(["preset", "uiLocale"]);
+    for (const tool of registrations.filter(({ tool }) => tool.annotations?.readOnlyHint === false).map(({ tool }) => tool)) {
+      const schema = tool.inputSchema as { required?: unknown[] };
+      expect(schema.required).toContain("uiLocale");
+    }
     expect(registrations).toHaveLength(8);
     expect(registrations.filter(({ tool }) => tool.annotations?.readOnlyHint === true)).toHaveLength(3);
     expect(registrations.filter(({ tool }) => tool.annotations?.readOnlyHint === false)).toHaveLength(5);
