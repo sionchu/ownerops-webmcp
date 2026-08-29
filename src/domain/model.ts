@@ -14,6 +14,7 @@ export type AvailabilityWindow = {
 export type Worker = {
   id: string;
   name: string;
+  displayName?: string;
   role: WorkerRole;
   hourlyRate: number;
   availability?: AvailabilityWindow[];
