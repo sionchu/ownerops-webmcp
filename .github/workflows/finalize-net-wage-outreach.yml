@@ -1,0 +1,35 @@
+name: Finalize net wage outreach
+
+on:
+  push:
+    branches:
+      - feat/net-wage-outreach
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-commit:
+    if: "${{ github.actor != 'github-actions[bot]' }}"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/net-wage-outreach
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: python scripts/tmp_net_wage_outreach_patch.py
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm audit --omit=dev
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/domain/actions.ts src/webmcp/register-tools.ts src/styles/locale-timeline.css tests/integration.test.ts
+          git commit -m "refactor: finish net wage and outreach flow"
+          git push origin HEAD:feat/net-wage-outreach
