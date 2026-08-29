@@ -1,449 +1,240 @@
 # 06 — Data Model and Rules
 
-## Canonical StoreState
-The implementation may keep the TypeScript name `AppState` during migration, but the conceptual SSOT is now a **StoreState**.
+## Ownership model
+- **PostgreSQL/Supabase** stores durable canonical facts.
+- **StoreState/AppState** is the current live working projection used by UI and WebMCP.
+- **StorePlan** is a non-committed candidate until reviewed/applied.
+- **Seed data** is deterministic fallback/demo evidence, not higher-priority truth.
 
-```ts
-type StoreState = {
-  schemaVersion: 2;
-  store: Store;
-  people: Worker[];
-  shifts: Shift[];
-  timeEntries: TimeEntry[];
-  incidents: OperationalIncident[];
-  sales: SalesSnapshot[];
-  menu: MenuItem[];
-  inventory: InventoryItem[];
-  suppliers: Supplier[];
-  purchases: PurchaseRecord[];
-  waste: WasteRecord[];
-  tasks: StoreTask[];
-  log: StoreLogEntry[];
-  references: ReferenceObservation[];
-  context: OperatingContext;
-  preview: StorePlanPreview | null;
-  activity: Activity;
-};
-```
+Do not persist derived totals as competing truth when they can be recomputed.
 
-Do not persist derived totals as authoritative truth when they can be recomputed from the underlying records.
+## Truth hierarchy
+1. store actual/connected data: invoice, stock count, wage, attendance, lease, sales, availability;
+2. committed operating records/plans;
+3. normalized external reference observations;
+4. deterministic seed fallback.
 
-## Store
-```ts
-type Store = {
-  id: string;
-  name: string;
-  industry: IndustryId;
-  market: MarketId;
-  currency: CurrencyCode;
-  timezone: string;
-  employeeCount: number;
-  openingHours: Record<string, { open: string; close: string } | null>;
-  targets: {
-    weeklyHourReviewThreshold: number;
-    laborRatio?: number;
-    foodCostRatio?: number;
-  };
-  occupancy: OccupancyCost;
-};
+External market data never overwrites store actuals.
 
-type OccupancyCost = {
-  baseRentMonthly: number;
-  recurringFeesMonthly: number;
-  deposit?: number;
-  leaseStart?: string;
-  leaseEnd?: string;
-  nextEscalationDate?: string;
-  nextEscalationRate?: number;
-};
-```
+## Store / costs
+Store includes identity, industry, market, currency, timezone, opening hours, targets and policy settings.
 
-`baseRentMonthly` and actual recurring fees are store truth. External commercial-rent values are benchmark/reference observations only.
+Occupancy truth:
+- base rent;
+- recurring fees;
+- deposit/lease dates;
+- escalation metadata.
 
-## Worker / People
-```ts
-type EmploymentType = 'hourly_part_time' | 'hourly_full_time' | 'manager';
+Operating-cost planning inputs:
+- packaging/consumables rate;
+- card/payment rate;
+- delivery/marketplace rate;
+- utilities;
+- software/security/rentals;
+- marketing;
+- other fixed cost.
 
-type AvailabilityRule = {
-  weekday: 0 | 1 | 2 | 3 | 4 | 5 | 6;
-  start: string;
-  end: string;
-  available: boolean;
-};
+These support BEP/FL Cost planning, not audited accounting.
 
-type AvailabilityException = {
-  id: string;
-  start: string;
-  end: string;
-  available: boolean;
-  reason?: string;
-  source: 'owner' | 'worker' | 'incident';
-};
+## Worker / availability
+Worker profile contains:
+- employment type;
+- role/skills;
+- hourly rate;
+- regular availability;
+- one-time exceptions;
+- preferred/max weekly hours.
 
-type Worker = {
-  id: string;
-  name: string;
-  displayName?: string;
-  employmentType: EmploymentType;
-  role: WorkerRole;
-  skills: string[];
-  hourlyRate: number;
-  regularAvailability: AvailabilityRule[];
-  availabilityExceptions: AvailabilityException[];
-  preferredWeeklyHours?: number;
-  maxWeeklyHours: number;
-};
-```
-
-### Worker scheduling rules
-Hard constraints:
-1. explicit unavailability/exception;
-2. role/required skill;
-3. overlap with another assignment;
+Hard scheduling constraints:
+1. explicit unavailability;
+2. role/skill mismatch;
+3. overlapping assignment;
 4. configured max weekly hours;
 5. closed-store interval.
 
-Soft constraints/ranking:
-1. preserve the already-published assignment when possible;
-2. stay near preferred/normal weekly hours;
-3. minimize number of employee disruptions;
-4. maintain peak coverage;
-5. then optimize wage cost/balance according to owner intent.
+Soft ranking:
+1. preserve published assignment;
+2. remain near normal hours;
+3. minimize disruption;
+4. protect peak coverage;
+5. then optimize requested cost/balance objective.
 
-A cheaper plan that violates regular availability is invalid. A small cost saving that requires many unnecessary published-schedule changes should generally rank below a stable plan.
-
-## Shift and attendance
-```ts
-type Shift = {
-  id: string;
-  workerId: string | null;
-  start: string;
-  end: string;
-  role: WorkerRole;
-  requiredSkills?: string[];
-  status: 'scheduled' | 'uncovered' | 'completed';
-};
-
-type TimeEntry = {
-  id: string;
-  workerId: string;
-  shiftId?: string;
-  clockIn: string;
-  clockOut?: string;
-  source: 'demo' | 'manual' | 'timeclock';
-};
-```
-
-OwnerOps calculates **scheduled wage estimate** from scheduled hours and **actual wage estimate** from time entries. These are not statutory payroll statements.
+A cheap shift assignment outside a part-timer’s available time is invalid.
 
 ## Incident lifecycle
-```ts
-type OperationalIncident = {
-  id: string;
-  type: 'worker_unavailable' | 'stockout_risk' | 'equipment_issue' | 'abnormal_waste' | 'other';
-  status: 'open' | 'mitigated' | 'resolved';
-  createdAt: string;
-  resolvedAt?: string;
-  workerId?: string;
-  shiftId?: string;
-  inventoryItemId?: string;
-  reason?: string;
-};
+A worker call-out creates both an availability exception and a durable incident record. Recovery resolves/mitigates the incident but does not delete the unavailability fact.
+
+The same distinction applies to stock/equipment/waste/task exceptions: historical fact and current resolution are separate.
+
+## Scheduled vs actual labor
+- scheduled wage estimate derives from shifts;
+- actual wage estimate derives from time entries.
+
+Neither is a statutory payroll statement. Country-specific tax/social-insurance filing remains outside current product scope.
+
+## Ingredient master
+A canonical ingredient has stable identity/category/base unit. Store inventory items may reference that canonical ingredient but also carry store-specific procurement details.
+
+Important fields:
+- base unit;
+- supplier;
+- purchase form (`whole_raw`, `trimmed`, `fillet`, `prepped`, `packaged`, etc.);
+- store-specific yield if known;
+- on-hand/par/reorder/lead time;
+- optional market reference key.
+
+## Yield
+Yield belongs to a **procurement form → use form transformation**, not merely to an ingredient name.
+
+Examples:
+- whole flounder → sashimi: low yield;
+- salmon loin → sashimi: much higher yield;
+- whole jamón leg → sliced served product;
+- raw pork belly → braised served product.
+
+Do not apply whole/raw benchmarks to already trimmed purchases. Yield benchmarks are reference evidence and may be overridden by actual store yield.
+
+## External price pipeline
+### Tier 1 — Raw
+Provider payload + request/source provenance, kept source-faithful.
+
+### Tier 2 — Normalized
+One market/reference contract:
+- source/provider;
+- canonical/reference key;
+- geography;
+- price level;
+- original price/currency/quantity/unit;
+- price per base unit;
+- observed/fetched timestamps;
+- confidence;
+- source URL/metadata.
+
+### Tier 3 — Effective/reference usable cost
+For a specific procurement form/yield:
+
+```text
+price per base unit = purchase price / normalized purchase quantity
+usable reference cost = price per base unit / yield
 ```
 
-A worker call-out creates both:
-- an `availabilityException(available:false)` for the relevant interval;
-- an incident record.
+This tier remains **reference** unless derived from a real store purchase receipt.
 
-Applying replacement coverage may mark the incident `mitigated/resolved`; it must **not delete the worker's unavailability fact** or make the UI offer the same call-out action as though it never happened.
+## Store purchase truth
+A purchase receipt stores:
+- supplier/invoice;
+- item/ingredient;
+- quantity/unit;
+- total cost/currency;
+- procurement form;
+- store/receipt-specific yield when available;
+- received time/source.
+
+Actual usable store cost is derived from the latest defensible receipt and the relevant store yield. Public references are used only for comparison/fallback.
+
+## Ingredient → Prep → Menu BOM
+The canonical recipe graph is three-level:
+
+```text
+Inventory ingredient
+    ↓
+Prep item / batch BOM
+    ↓
+Menu item BOM
+```
+
+A Prep item has output quantity/unit and component lines. A menu BOM line may reference an ingredient or Prep item.
+
+This supports structures such as:
+`raw rice + vinegar + sugar + salt → seasoned sushi rice → nigiri`.
+
+Do not flatten Prep into arbitrary fixed menu cost constants when component data exists.
+
+## Menu economics
+Menu item stores selling price, category/concept, source/price basis, waste buffer and active state.
+
+Derived metrics may include:
+- portion food cost;
+- food cost %;
+- gross margin;
+- ingredient contribution;
+- menu-engineering signals.
+
+Benchmark menu prices and the supplied 31-menu reference dataset are context only. Source totals that fail arithmetic QA must stay flagged rather than silently corrected.
+
+## Inventory / purchase / waste
+Support:
+- on-hand/par/reorder;
+- lead time;
+- pending purchase orders;
+- actual purchase receipts;
+- inventory count history;
+- theoretical usage from BOM/sales;
+- actual usage/count variance;
+- waste quantity/reason/cost;
+- days of cover and stockout risk.
+
+Applying a purchase StorePlan creates a planned order record. It must not increase physical on-hand inventory until receipt/count truth exists.
 
 ## Sales
-```ts
-type SalesSnapshot = {
-  id: string;
-  date: string;
-  hour?: number;
-  grossSales: number;
-  netSales: number;
-  orderCount: number;
-  itemSales: Array<{ menuItemId: string; quantity: number; netSales: number }>;
-  source: 'demo' | 'pos';
-};
-```
+Sales snapshots support day/hour/item summaries and source provenance (`demo`, future POS connector). Item mix links to menu BOM for theoretical consumption.
 
-Sales fixtures should support:
-- day/hour demand;
-- item mix;
-- simple recent baseline comparison;
-- labor and inventory usage analysis.
+Do not build a bookkeeping ledger here.
 
-Do not build accounting journal entries.
+## External reference cache
+Runtime reads cached normalized references from the DB. Freshness labels:
+- `live`;
+- `recent`;
+- `cached`;
+- `seed`;
+- `stale`.
 
-## Menu / recipe
-```ts
-type RecipeLine = {
-  inventoryItemId: string;
-  quantity: number;
-  unit: InventoryUnit;
-};
+When the cache is unavailable, existing deterministic seed remains in StoreState. Agent language must disclose degraded/stale reference status when it affects a recommendation.
 
-type MenuItem = {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-  recipe: RecipeLine[];
-  active: boolean;
-};
-```
+## Reference sources
+Initial source registry:
+- Seoul: KAMIS;
+- Tokyo: e-Stat / MAFF where defensible;
+- NYC: USDA MyMarketNews;
+- Spain: Eurostat + Mercamadrid/MAPA context;
+- Shanghai: pinned official public monitoring pages/files;
+- global supplement: Open Prices;
+- future merchant truth: Square/Toast/etc. via merchant authorization.
 
-Recipe cost uses the store's current/last defensible purchase unit cost, not an external commodity reference unless no store purchase history exists and the UI clearly labels the fallback estimate.
+A source may be unsuitable for a specific SKU. No match is better than fake comparability.
 
-## Inventory
-```ts
-type InventoryUnit = 'g' | 'kg' | 'ml' | 'l' | 'ea' | 'pack' | 'box';
+## Occupancy / BEP / FL Cost
+Planning calculations separate:
+- food cost;
+- labor cost;
+- variable operating cost;
+- occupancy;
+- other fixed operating cost.
 
-type InventoryItem = {
-  id: string;
-  name: string;
-  category: string;
-  unit: InventoryUnit;
-  onHand: number;
-  parLevel: number;
-  reorderPoint: number;
-  leadTimeDays: number;
-  supplierId?: string;
-  lastPurchaseUnitCost?: number;
-  marketReferenceKey?: string;
-  perishable?: boolean;
-};
+BEP uses contribution margin and fixed/semi-fixed costs. FL Cost = food + labor as a planning ratio. These are operational estimates, not audited P&L.
 
-type Supplier = {
-  id: string;
-  name: string;
-  contactLabel?: string;
-  defaultLeadTimeDays: number;
-};
+## StorePlan
+Supported change types stay bounded:
+- staffing assignment;
+- shift release;
+- purchase;
+- Prep target;
+- task.
 
-type PurchaseRecord = {
-  id: string;
-  supplierId: string;
-  inventoryItemId: string;
-  receivedAt: string;
-  quantity: number;
-  unit: InventoryUnit;
-  totalCost: number;
-};
+Impact always exposes Before / After / Delta and keeps labor, purchase cash, waste and other operating-cost effects distinct.
 
-type WasteRecord = {
-  id: string;
-  inventoryItemId: string;
-  recordedAt: string;
-  quantity: number;
-  unit: InventoryUnit;
-  reason: 'expired' | 'prep' | 'remake' | 'damage' | 'count_variance' | 'other';
-};
-```
+Hard-constraint violations such as availability/role mismatch cannot be bypassed merely because a plan was marked reviewed.
 
-### Inventory calculations
-At minimum support:
-- recent consumption velocity;
-- theoretical usage from menu sales/recipes;
-- actual usage/count variance when fixture data exists;
-- days of cover;
-- stockout risk before lead-time delivery;
-- suggested reorder to par;
-- waste rate/trend;
-- store purchase price vs normalized market reference where a defensible match exists.
+## Database mapping
+The first migration is `supabase/migrations/001_ownerops_store_ssot.sql`.
 
-## Industry seed catalogs
-Seed catalogs should be realistic but bounded; 8–15 inventory SKUs per industry is enough for the hackathon.
+Key tables/views:
+- `oo_stores`, `oo_workers`, availability, shifts, attendance, incidents;
+- `oo_ingredients`, aliases, yield benchmarks;
+- `oo_inventory_items`, suppliers, receipts, orders, counts, waste;
+- `oo_prep_items`, `oo_prep_bom`, `oo_menu_items`, `oo_menu_bom`;
+- sales/tasks/log/cost tables;
+- `oo_price_sources`, `oo_raw_price_observations`, `oo_normalized_price_observations`;
+- `oo_latest_reference_prices` and `oo_latest_store_purchase_costs` read projections.
 
-### Coffee
-- espresso beans
-- filter beans
-- whole milk
-- oat milk
-- vanilla/caramel syrup
-- cocoa/chocolate
-- tea
-- croissant/pastry
-- 12/16 oz cups and lids
-- napkins
-- espresso-machine cleaner / sanitizer
-
-### Pizza
-- flour
-- yeast
-- tomato sauce
-- mozzarella
-- pepperoni
-- olive oil
-- onion / bell pepper / mushroom
-- parmesan
-- pizza boxes
-- gloves / sanitizer
-
-### Diner
-- eggs
-- milk
-- bread
-- rice or potato
-- cooking oil
-- chicken
-- pork/beef demo protein
-- onion / tomato / lettuce
-- sauce/condiment
-- beverages
-- takeaway containers
-
-### Sushi
-- sushi rice
-- rice vinegar
-- nori
-- salmon / tuna demo SKU
-- soy sauce
-- wasabi
-- ginger
-- cucumber / avocado or local substitute seed
-- takeaway tray/container
-- gloves / sanitizer
-
-### Curry
-- rice
-- onion
-- potato
-- carrot
-- chicken/protein
-- curry base/spice blend
-- cooking oil
-- coconut milk or dairy seed by profile
-- takeaway container
-- gloves / sanitizer
-
-### Salon
-- shampoo
-- conditioner
-- color/bleach
-- developer
-- treatment product
-- gloves
-- foil
-- towels/laundry consumables
-- disinfectant
-- neck strips/capes consumables
-- selected retail product
-
-Food/commodity reference matching must be explicit by `marketReferenceKey`. Consumables such as branded cups, chemicals, color products, or packaging usually use supplier history only.
-
-## External reference observation
-```ts
-type ReferenceObservation = {
-  id: string;
-  kind: 'commodity_price' | 'wage_reference' | 'rent_benchmark' | 'weather' | 'event';
-  provider: string;
-  referenceKey: string;
-  geography: string;
-  observedAt: string;
-  fetchedAt: string;
-  value: number | string;
-  unit?: string;
-  currency?: CurrencyCode;
-  sourceUrl?: string;
-  freshness: 'live' | 'recent' | 'seed' | 'stale';
-};
-```
-
-### Reference-source registry
-Preferred/verified public sources where practical:
-- **Korea / Seoul commodity** — KAMIS agricultural/livestock/fisheries wholesale/retail price APIs; Seoul market/location filters supported.
-- **Korea / commercial rent** — Korea Real Estate Board / KOSIS Commercial Real Estate Rental Trend Survey; quarterly benchmark only.
-- **US / NYC produce** — USDA AMS MyMarketNews / New York Terminal Market reports/API for wholesale produce.
-- **Japan / Tokyo produce** — MAFF fruit/vegetable wholesale market surveys, including Tokyo market/city datasets and daily/periodic prices.
-- **Spain / Madrid fresh food** — MAPA Observatorio de la Cadena Alimentaria origin-wholesale price system for selected fresh products.
-- **China / Shanghai/general agricultural context** — Ministry of Agriculture and Rural Affairs agricultural wholesale price data/index; use only the geography/item detail the source actually supports.
-- **Weather** — provider adapter such as OpenWeather for current/forecast context, with deterministic seed fallback.
-
-A source may be unsuitable for a specific SKU/unit. In that case set no market reference instead of fabricating comparability.
-
-## Operating context
-```ts
-type OperatingContext = {
-  businessDate: string;
-  weather?: {
-    provider: string;
-    summary: string;
-    temperatureC?: number;
-    precipitationProbability?: number;
-    observedAt: string;
-    freshness: ReferenceObservation['freshness'];
-  };
-  localEvents?: Array<{ id: string; name: string; start: string; end: string; expectedEffect?: string }>;
-};
-```
-
-Weather is context, not a deterministic demand oracle. Seed fixtures may encode a simple historical rainy-day effect for demo reasoning as long as it is labeled a demo/store estimate.
-
-## Occupancy / break-even calculations
-OwnerOps may calculate planning metrics such as:
-- monthly occupancy cost = base rent + recurring fees;
-- occupancy-to-sales ratio;
-- simple contribution margin;
-- daily/monthly break-even estimate;
-- scenario impact of a rent escalation.
-
-Do not present these as audited P&L or lease valuation.
-
-## Tasks / log
-```ts
-type StoreTask = {
-  id: string;
-  title: string;
-  dueAt?: string;
-  shiftId?: string;
-  workerId?: string;
-  status: 'open' | 'done';
-};
-
-type StoreLogEntry = {
-  id: string;
-  createdAt: string;
-  type: 'incident' | 'stock' | 'task' | 'attendance' | 'note';
-  summary: string;
-  relatedIds?: string[];
-};
-```
-
-## Generic plan
-```ts
-type StorePlanChange =
-  | { type: 'staffing'; shiftId: string; workerId: string; start?: string; end?: string }
-  | { type: 'purchase'; inventoryItemId: string; supplierId?: string; quantity: number; unit: InventoryUnit }
-  | { type: 'prep'; menuItemId: string; targetQuantity: number }
-  | { type: 'task'; task: StoreTask }
-  | { type: 'shift_release'; shiftId: string; newEnd: string };
-
-type StorePlanPreview = {
-  id: string;
-  version: number;
-  objective: string;
-  title: string;
-  changes: StorePlanChange[];
-  evidence: string[];
-  reviewFlags: string[];
-  status: 'proposed' | 'human_edit' | 'reviewed';
-};
-```
-
-## Daily brief prioritization
-Rank issues by an explicit deterministic score using a small number of factors:
-1. immediate service/coverage/stockout risk;
-2. irreversible or time-sensitive action deadline;
-3. estimated financial impact;
-4. deviation from recent store baseline;
-5. owner review requirement.
-
-Show 3–5 items, not every warning.
-
-## Calculation truth
-All UI summaries, Agent/WebMCP responses, plan impacts, and briefs derive from the same domain functions and canonical state. External reference adapters provide normalized observations only; they do not independently calculate business recommendations.
+RLS is enabled and browser code does not receive service-role credentials.
