@@ -1,4 +1,142 @@
+import type { AssistantState } from "@/domain/model";
 import type { UiLocale } from "@/i18n";
+
+const SUMMARY_INTL: Record<UiLocale, string> = {
+  en: "en-US",
+  ko: "ko-KR",
+  ja: "ja-JP",
+  es: "es-ES",
+  "zh-CN": "zh-CN",
+};
+
+export type LiveOperatingSummary = {
+  headline: string;
+  detail: string;
+  tone: "stable" | "warning" | "proposal" | "review" | "applied" | "error";
+};
+
+export type LiveOperatingSummaryInput = {
+  activityState: AssistantState;
+  hasIncident: boolean;
+  hasPreview: boolean;
+  optionCount: number;
+  uncoveredPeakMinutes: number;
+  warningCount: number;
+  laborRatio: number;
+  incidentWindow: string;
+};
+
+function percent(locale: UiLocale, value: number): string {
+  return new Intl.NumberFormat(SUMMARY_INTL[locale], {
+    style: "percent",
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
+function metricDetail(locale: UiLocale, input: LiveOperatingSummaryInput): string {
+  const ratio = percent(locale, input.laborRatio);
+  switch (locale) {
+    case "ko": return `피크 공백 ${input.uncoveredPeakMinutes}분 · 인건비율 ${ratio} · 검토 ${input.warningCount}건`;
+    case "ja": return `ピーク不足 ${input.uncoveredPeakMinutes}分 · 人件費率 ${ratio} · レビュー ${input.warningCount}件`;
+    case "es": return `Brecha punta ${input.uncoveredPeakMinutes} min · Coste laboral ${ratio} · ${input.warningCount} revisión${input.warningCount === 1 ? "" : "es"}`;
+    case "zh-CN": return `高峰缺口 ${input.uncoveredPeakMinutes} 分钟 · 人工成本率 ${ratio} · ${input.warningCount} 项待复核`;
+    default: return `Peak gap ${input.uncoveredPeakMinutes} min · Labor ratio ${ratio} · ${input.warningCount} review item${input.warningCount === 1 ? "" : "s"}`;
+  }
+}
+
+export function liveOperatingSummary(locale: UiLocale, input: LiveOperatingSummaryInput): LiveOperatingSummary {
+  const metrics = metricDetail(locale, input);
+
+  if (input.activityState === "error") {
+    switch (locale) {
+      case "ko": return { headline: "에이전트 연결을 확인해야 합니다.", detail: "수동 스케줄 편집은 계속 사용할 수 있습니다.", tone: "error" };
+      case "ja": return { headline: "エージェント接続を確認してください。", detail: "手動のスケジュール編集は引き続き利用できます。", tone: "error" };
+      case "es": return { headline: "Hay que revisar la conexión del agente.", detail: "La edición manual del horario sigue disponible.", tone: "error" };
+      case "zh-CN": return { headline: "需要检查智能体连接。", detail: "仍可继续手动编辑排班。", tone: "error" };
+      default: return { headline: "Agent connection needs attention.", detail: "Manual scheduling remains available.", tone: "error" };
+    }
+  }
+
+  if (input.activityState === "reviewNeeded") {
+    switch (locale) {
+      case "ko": return { headline: "사람이 수정한 후보를 에이전트가 다시 검토해야 합니다.", detail: `${metrics} · 아직 확정되지 않았습니다.`, tone: "review" };
+      case "ja": return { headline: "人が編集した候補をエージェントが再確認する必要があります。", detail: `${metrics} · まだ確定されていません。`, tone: "review" };
+      case "es": return { headline: "El agente debe revisar de nuevo la edición humana.", detail: `${metrics} · Aún no se ha confirmado nada.`, tone: "review" };
+      case "zh-CN": return { headline: "人工修改后的方案需要智能体重新复核。", detail: `${metrics} · 尚未提交。`, tone: "review" };
+      default: return { headline: "The human edit needs agent review.", detail: `${metrics} · Nothing is committed yet.`, tone: "review" };
+    }
+  }
+
+  if (input.activityState === "reviewed") {
+    switch (locale) {
+      case "ko": return { headline: "검토된 계획을 적용할 준비가 됐습니다.", detail: `${metrics} · 승인 전까지 확정되지 않습니다.`, tone: "review" };
+      case "ja": return { headline: "確認済みのプランを適用できます。", detail: `${metrics} · 承認するまで確定されません。`, tone: "review" };
+      case "es": return { headline: "El plan revisado está listo para aplicarse.", detail: `${metrics} · No se confirma hasta recibir aprobación.`, tone: "review" };
+      case "zh-CN": return { headline: "已复核方案可以应用。", detail: `${metrics} · 获得批准前不会提交。`, tone: "review" };
+      default: return { headline: "The reviewed plan is ready to apply.", detail: `${metrics} · Nothing commits until approval.`, tone: "review" };
+    }
+  }
+
+  if (input.activityState === "applied") {
+    const restored = input.uncoveredPeakMinutes === 0;
+    switch (locale) {
+      case "ko": return { headline: restored ? "계획을 적용했고 피크 커버리지가 복구됐습니다." : "계획을 적용했습니다. 남은 커버리지 공백을 확인하세요.", detail: metrics, tone: "applied" };
+      case "ja": return { headline: restored ? "プランを適用し、ピーク時間のカバレッジが回復しました。" : "プランを適用しました。残っているカバレッジ不足を確認してください。", detail: metrics, tone: "applied" };
+      case "es": return { headline: restored ? "Plan aplicado. La cobertura punta se ha recuperado." : "Plan aplicado. Revisa las brechas de cobertura restantes.", detail: metrics, tone: "applied" };
+      case "zh-CN": return { headline: restored ? "方案已应用，高峰时段覆盖已恢复。" : "方案已应用，请检查剩余的覆盖缺口。", detail: metrics, tone: "applied" };
+      default: return { headline: restored ? "Plan applied. Peak coverage is restored." : "Plan applied. Review the remaining coverage gaps.", detail: metrics, tone: "applied" };
+    }
+  }
+
+  if (input.hasPreview) {
+    switch (locale) {
+      case "ko": return { headline: "에이전트 제안을 미리보고 있습니다.", detail: `${metrics} · 확정 스케줄은 그대로입니다.`, tone: "proposal" };
+      case "ja": return { headline: "エージェント案をプレビューしています。", detail: `${metrics} · 確定済みのスケジュールは変更されていません。`, tone: "proposal" };
+      case "es": return { headline: "Se está previsualizando la propuesta del agente.", detail: `${metrics} · El horario confirmado no ha cambiado.`, tone: "proposal" };
+      case "zh-CN": return { headline: "正在预览智能体方案。", detail: `${metrics} · 已确认排班保持不变。`, tone: "proposal" };
+      default: return { headline: "The agent proposal is being previewed.", detail: `${metrics} · The committed schedule is unchanged.`, tone: "proposal" };
+    }
+  }
+
+  if (input.activityState === "proposalReady" && input.optionCount > 0) {
+    switch (locale) {
+      case "ko": return { headline: `${input.optionCount}가지 대응안을 비교할 준비가 됐습니다.`, detail: metrics, tone: "proposal" };
+      case "ja": return { headline: `${input.optionCount}つの対応案を比較できます。`, detail: metrics, tone: "proposal" };
+      case "es": return { headline: `Hay ${input.optionCount} opciones de recuperación listas para comparar.`, detail: metrics, tone: "proposal" };
+      case "zh-CN": return { headline: `${input.optionCount} 个恢复方案已准备好进行比较。`, detail: metrics, tone: "proposal" };
+      default: return { headline: `${input.optionCount} recovery options are ready to compare.`, detail: metrics, tone: "proposal" };
+    }
+  }
+
+  if (input.hasIncident || input.uncoveredPeakMinutes > 0) {
+    switch (locale) {
+      case "ko": return { headline: `${input.incidentWindow}에 인력 공백이 발생했습니다.`, detail: metrics, tone: "warning" };
+      case "ja": return { headline: `${input.incidentWindow}に人員不足が発生しています。`, detail: metrics, tone: "warning" };
+      case "es": return { headline: `Hay una brecha de personal en ${input.incidentWindow}.`, detail: metrics, tone: "warning" };
+      case "zh-CN": return { headline: `${input.incidentWindow}出现人员缺口。`, detail: metrics, tone: "warning" };
+      default: return { headline: `${input.incidentWindow} has a staffing gap.`, detail: metrics, tone: "warning" };
+    }
+  }
+
+  if (input.activityState === "checking") {
+    switch (locale) {
+      case "ko": return { headline: "현재 스케줄을 실시간으로 분석하고 있습니다.", detail: metrics, tone: "stable" };
+      case "ja": return { headline: "現在のスケジュールをリアルタイムで分析しています。", detail: metrics, tone: "stable" };
+      case "es": return { headline: "Analizando el horario actual en tiempo real.", detail: metrics, tone: "stable" };
+      case "zh-CN": return { headline: "正在实时分析当前排班。", detail: metrics, tone: "stable" };
+      default: return { headline: "Analyzing the current schedule in real time.", detail: metrics, tone: "stable" };
+    }
+  }
+
+  switch (locale) {
+    case "ko": return { headline: "피크 시간 커버리지가 유지되고 있습니다.", detail: metrics, tone: "stable" };
+    case "ja": return { headline: "ピーク時間のカバレッジは確保されています。", detail: metrics, tone: "stable" };
+    case "es": return { headline: "La cobertura de horas punta está asegurada.", detail: metrics, tone: "stable" };
+    case "zh-CN": return { headline: "高峰时段覆盖正常。", detail: metrics, tone: "stable" };
+    default: return { headline: "Peak coverage is intact.", detail: metrics, tone: "stable" };
+  }
+}
 
 export function unavailableLabel(locale: UiLocale, name: string): string {
   switch (locale) {
