@@ -1,0 +1,25 @@
+name: Apply net wage outreach
+
+on:
+  push:
+    branches:
+      - feat/net-wage-outreach
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: "${{ github.actor != 'github-actions[bot]' }}"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/net-wage-outreach
+      - run: python scripts/tmp_net_wage_outreach_patch.py
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/domain/impact.ts src/domain/actions.ts src/state/app-state.tsx src/webmcp/register-tools.ts src/market/profiles.ts src/i18n/dynamic.ts src/i18n/index.ts src/components/ownerops-app.tsx src/styles/locale-timeline.css tests/domain.test.ts tests/i18n.test.ts tests/integration.test.ts
+          git commit -m "feat: add net wage impact and outreach draft"
+          git push origin HEAD:feat/net-wage-outreach
