@@ -30,6 +30,7 @@ describe("thin UI locale layer", () => {
     let locale: UiLocale = "en";
     const executors = createToolExecutors({
       getState: () => state,
+      getLocale: () => locale,
       runAction: (action) => (state = dispatchApplicationAction(state, action)),
       setLocale: (next) => { locale = next; },
     });
