@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "data:sources": "node scripts/fnb-data-sync.mjs --list",
     "data:sync": "node scripts/fnb-data-sync.mjs",
-    "data:sync:all": "node scripts/fnb-data-sync.mjs --all"
+    "data:sync:all": "node scripts/fnb-data-sync.mjs --all",
+    "data:import-master": "node scripts/import-fnb-master.mjs"
   },
   "dependencies": {
     "next": "16.3.3",
