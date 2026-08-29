@@ -2,11 +2,11 @@
 
 **OwnerOps** is a WebMCP-powered staffing decision workbench for small-business owners with hourly teams. A human can edit the weekly schedule directly while an agent reads and acts on the same live application state. Every recovery option is compared on coverage, weekly hours, estimated payroll, labor ratio, warnings, and schedule-change count before the owner applies it.
 
-The MVP is intentionally focused on one operational incident: Minsoo becomes unavailable for the Friday 18:00–22:00 shift. The default demo context is **Good Shift Diner** in Seoul; the same staffing fixture can be re-contextualized as a generic diner, pizza shop, coffee shop, salon, sushi restaurant, or curry house.
+The MVP supports two bounded operational workflows on the same canonical schedule: a last-minute staffing incident and a deterministic full-week staffing rebuild. The default demo context is **Good Shift Diner** in Seoul; the same staffing fixture can be re-contextualized as a generic diner, pizza shop, coffee shop, salon, sushi restaurant, or curry house.
 
 ## Problem
 
-A small business can publish a credible weekly schedule and still lose coverage when a worker calls out at the last minute. The owner needs to compare who can cover the shift, what the change costs, and whether any coverage or work-rule warning remains before committing it.
+A small business can publish a credible weekly schedule and still lose coverage when a worker calls out at the last minute. The owner needs to compare who can cover the shift, what the change costs, and whether any coverage or work-rule warning remains before committing it. The same live state can also be rebalanced across the full week when the owner asks to control weekly hours, reduce cost, preserve peak coverage, or expose missing qualified capacity.
 
 ## Why WebMCP
 
@@ -39,16 +39,25 @@ npm audit --omit=dev
 
 ## Canonical demo
 
+### Incident recovery
+
 1. Reset the demo fixture.
-2. Move a shift by drag/drop or press a shift to use the accessible reassignment dialog.
-3. Mark Minsoo unavailable for Friday 18:00–22:00.
-4. Compare the three deterministic recovery scenarios.
-5. Preview the recommended option; the committed schedule remains unchanged.
-6. Manually change the candidate replacement and review the recalculated impact.
-7. Ask the agent to evaluate the current plan; it reads the exact human-edited candidate.
-8. Apply the reviewed preview.
-9. Refresh to confirm `localStorage` persistence.
-10. Copy a portable snapshot, reset, and import it to restore the schedule.
+2. Mark Minsoo unavailable for Friday 18:00–22:00.
+3. Compare the three deterministic recovery scenarios.
+4. Preview the recommended option; the committed schedule remains unchanged.
+5. Manually change the candidate replacement and review the recalculated impact.
+6. Ask the agent to evaluate the current plan; it reads the exact human-edited candidate.
+7. Apply the reviewed preview.
+8. Refresh to confirm `localStorage` persistence.
+
+### Full-week rebuild
+
+1. Ask the agent to rebuild or rebalance the current week, optionally with a weekly-hour ceiling or cost/balance priority.
+2. The agent reads the live OwnerOps state, generates deterministic `rebuild_week` plans, and previews the recommended multi-shift candidate directly in the UI.
+3. If the current team cannot satisfy the requested ceiling, OwnerOps surfaces an explicit qualified-role capacity gap instead of hiding the shortage.
+4. The owner can edit the candidate in the schedule, then ask the agent to evaluate the exact live edit before applying it.
+
+Portable snapshots remain available for explicit backup/restore or handoff, but they are not an intermediate planning path for live schedule work.
 
 Industry profiles change only the business identity, operational labels, restrained accent palette, suggested prompt, and assistant accessory. Staffing IDs, hours, rates, calculations, and the canonical workflow remain shared.
 
@@ -67,9 +76,11 @@ The client registers these eight user-intent tools through `document.modelContex
 
 Tool handlers and human UI controls call the same deterministic application actions. The page remains fully functional when `document.modelContext` is absent.
 
+For live schedule analysis, rebuilds, optimization, review, or changes, the primary route is `get_business_state` → `get_response_options` → `preview_staffing_change`. `import_schedule_snapshot` is reserved for explicit restore/import requests when the user provides or asks to restore a portable snapshot; agents should not open or export the Snapshot UI to understand the current schedule.
+
 `create_schedule_draft` accepts the required `preset: "demo"` plus an optional generic `industry` enum: `diner`, `pizza`, `coffee`, `salon`, `sushi`, or `curry`. Branded requests should be mapped by the external agent to the nearest generic category; OwnerOps does not reproduce branded identities.
 
-Implementation entry point: [`src/webmcp/register-tools.ts`](src/webmcp/register-tools.ts). The eight tools are intentionally bounded to state inspection, schedule drafting, incident handling, recovery comparison, preview, evaluation, apply, and snapshot restore.
+Implementation entry point: [`src/webmcp/register-tools.ts`](src/webmcp/register-tools.ts). The eight tools are intentionally bounded to state inspection, schedule drafting, incident handling, staffing-plan generation, preview, evaluation, apply, and explicit snapshot restore.
 
 For local Chrome testing, enable `chrome://flags/#enable-webmcp-testing`, relaunch Chrome, open the app, and inspect/call the registered tools with a WebMCP-capable agent or the Model Context Tool Inspector. WebMCP requires an origin-isolated context; the app sends `Origin-Agent-Cluster: ?1`.
 
