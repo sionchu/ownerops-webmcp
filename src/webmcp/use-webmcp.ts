@@ -16,8 +16,6 @@ export function useWebMcpRegistration() {
     let retryTimer: number | null = null;
     let activeRegistration: ReturnType<typeof registerOwnerOpsTools> | null = null;
 
-    setSupported(null);
-
     const attemptRegistration = () => {
       if (cancelled) return;
 
