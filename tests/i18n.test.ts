@@ -74,7 +74,7 @@ describe("thin UI locale layer", () => {
       incidentWindow: "금 18:00–22:00",
     });
     expect(reviewed.headline).toContain("적용");
-    expect(reviewed.detail).toContain("복구 비용");
+    expect(reviewed.detail).toContain("순 임금 영향");
     expect(reviewed.tone).toBe("review");
   });
 
