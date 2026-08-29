@@ -1,0 +1,90 @@
+[
+  {
+    "id": "kamis",
+    "label": "KAMIS Open API",
+    "markets": ["kr-seoul"],
+    "kind": "official-api",
+    "automation": "configured",
+    "endpoint": "https://www.kamis.or.kr/service/price/xml.do",
+    "sourceUrl": "https://www.kamis.or.kr/customer/reference/openapi_list.do",
+    "configEnv": ["KAMIS_CERT_KEY", "KAMIS_CERT_ID"],
+    "notes": "Primary Seoul/Korea commodity reference. Use mapped items only; store invoices remain truth."
+  },
+  {
+    "id": "estat-retail-price",
+    "label": "Japan e-Stat Retail Price Survey",
+    "markets": ["jp-tokyo"],
+    "kind": "official-api",
+    "automation": "configured",
+    "endpoint": "https://api.e-stat.go.jp/rest/3.0/app/json/getStatsData",
+    "sourceUrl": "https://www.e-stat.go.jp/api/index.php/en/api-info/api-spec",
+    "configEnv": ["ESTAT_APP_ID", "ESTAT_STATS_DATA_ID"],
+    "notes": "Monthly Tokyo retail benchmark. Pin a verified Retail Price Survey statsDataId before sync."
+  },
+  {
+    "id": "usda-mmn",
+    "label": "USDA MyMarketNews",
+    "markets": ["us-nyc"],
+    "kind": "official-api",
+    "automation": "configured",
+    "endpoint": "https://marsapi.ams.usda.gov/services/v1.2/reports",
+    "sourceUrl": "https://mymarketnews.ams.usda.gov/mymarketnews-api",
+    "configEnv": ["USDA_MMN_API_KEY"],
+    "notes": "Wholesale/market report data. Explicit report/section/commodity mapping is required."
+  },
+  {
+    "id": "eurostat",
+    "label": "Eurostat Statistics API",
+    "markets": ["es-madrid"],
+    "kind": "official-api",
+    "automation": "direct",
+    "endpoint": "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data",
+    "sourceUrl": "https://ec.europa.eu/eurostat/web/user-guides/data-browser/api-data-access/api-getting-started/api",
+    "configEnv": [],
+    "notes": "Food-price index / macro adjustment only; not a restaurant supplier invoice source."
+  },
+  {
+    "id": "mercamadrid",
+    "label": "Mercamadrid Product Statistics",
+    "markets": ["es-madrid"],
+    "kind": "official-download",
+    "automation": "download",
+    "endpoint": "https://www.mercamadrid.es/estadisticas/",
+    "sourceUrl": "https://www.mercamadrid.es/estadisticas/",
+    "configEnv": [],
+    "notes": "Public product kilos and min/max/frequent EUR/kg prices. Use download adapter until a supported API is verified."
+  },
+  {
+    "id": "shanghai-price-monitor",
+    "label": "Shanghai Government Food Price Monitoring",
+    "markets": ["cn-shanghai"],
+    "kind": "official-page",
+    "automation": "document",
+    "endpoint": "https://nyncw.sh.gov.cn/jcsj/index.html",
+    "sourceUrl": "https://nyncw.sh.gov.cn/jcsj/index.html",
+    "configEnv": ["SHANGHAI_PRICE_URL"],
+    "notes": "Pinned page/file ingestion only; do not imply more granular geography than the source supplies."
+  },
+  {
+    "id": "open-prices",
+    "label": "Open Food Facts Open Prices",
+    "markets": ["kr-seoul", "us-nyc", "jp-tokyo", "es-madrid", "cn-shanghai"],
+    "kind": "crowdsourced-api",
+    "automation": "direct",
+    "endpoint": "https://prices.openfoodfacts.org/api/v1/prices",
+    "sourceUrl": "https://prices.openfoodfacts.org/api/docs",
+    "configEnv": [],
+    "notes": "Supplemental retail observations. Preserve sparse coverage and crowdsourced confidence."
+  },
+  {
+    "id": "square",
+    "label": "Square merchant data",
+    "markets": ["kr-seoul", "us-nyc", "jp-tokyo", "es-madrid", "cn-shanghai"],
+    "kind": "merchant-api",
+    "automation": "merchant",
+    "endpoint": "https://connect.squareup.com/v2",
+    "sourceUrl": "https://developer.squareup.com/",
+    "configEnv": [],
+    "notes": "Future merchant-owned actuals via OAuth. Keep separate from public benchmark observations."
+  }
+]
