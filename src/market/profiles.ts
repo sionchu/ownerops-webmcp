@@ -193,11 +193,11 @@ const WORKER_MULTIPLIERS: Record<string, number> = {
 const availability = (rules: Array<[number, string, string]>): AvailabilityRule[] => rules.map(([weekday, start, end]) => ({ weekday: weekday as AvailabilityRule["weekday"], start, end, available: true }));
 
 const WORKER_AVAILABILITY: Record<string, AvailabilityRule[]> = {
-  minsoo: availability([[1, "07:00", "15:00"], [3, "07:00", "15:00"], [5, "17:00", "23:00"], [0, "08:00", "18:00"]]),
-  jiyoung: availability([[1, "13:00", "21:00"], [3, "13:00", "21:00"], [5, "09:00", "19:00"], [0, "11:00", "21:00"]]),
+  minsoo: availability([[1, "07:00", "21:00"], [3, "07:00", "21:00"], [5, "17:00", "23:00"], [0, "08:00", "20:00"]]),
+  jiyoung: availability([[1, "07:00", "21:00"], [3, "07:00", "21:00"], [5, "09:00", "23:00"], [0, "09:00", "23:00"]]),
   younghee: availability([[1, "09:00", "23:00"], [2, "09:00", "23:00"], [3, "09:00", "23:00"], [4, "09:00", "23:00"], [5, "09:00", "23:00"], [6, "09:00", "23:00"]]),
-  chulsoo: availability([[2, "07:00", "15:00"], [4, "07:00", "15:00"], [5, "11:00", "19:00"], [6, "13:00", "23:00"]]),
-  hana: availability([[2, "13:00", "21:00"], [4, "13:00", "21:00"], [6, "07:00", "17:00"], [0, "13:00", "23:00"]]),
+  chulsoo: availability([[2, "07:00", "21:00"], [4, "07:00", "21:00"], [5, "11:00", "23:00"], [6, "07:00", "23:00"]]),
+  hana: availability([[2, "07:00", "21:00"], [4, "07:00", "21:00"], [5, "17:00", "23:00"], [6, "07:00", "23:00"], [0, "09:00", "23:00"]]),
 };
 
 function roundTo(value: number, increment: number): number {
