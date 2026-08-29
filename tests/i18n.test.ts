@@ -3,6 +3,7 @@ import { dispatchApplicationAction } from "@/domain/actions";
 import { createDemoState } from "@/domain/fixtures";
 import type { AppState } from "@/domain/model";
 import { getLocalizedIndustryProfile, normalizeUiLocale, type UiLocale } from "@/i18n";
+import { liveOperatingSummary } from "@/i18n/dynamic";
 import { getIndustryProfile } from "@/industry/profiles";
 import { createToolExecutors } from "@/webmcp/register-tools";
 
@@ -23,6 +24,51 @@ describe("thin UI locale layer", () => {
     expect(localized.copy.headline).toContain("금요일");
     expect(localized.roleLabels.barista).toBe("카운터 크루");
     expect(base.label).toBe("Neighborhood pizza shop");
+  });
+
+  it("summarizes the live operating state instead of repeating industry marketing copy", () => {
+    const stable = liveOperatingSummary("ja", {
+      activityState: "idle",
+      hasIncident: false,
+      hasPreview: false,
+      optionCount: 0,
+      uncoveredPeakMinutes: 0,
+      warningCount: 1,
+      laborRatio: 0.158,
+      incidentWindow: "金 18:00–22:00",
+    });
+    expect(stable.headline).toContain("カバレッジ");
+    expect(stable.headline).not.toContain("予約ピーク");
+    expect(stable.detail).toContain("人件費率");
+    expect(stable.tone).toBe("stable");
+
+    const incident = liveOperatingSummary("es", {
+      activityState: "warning",
+      hasIncident: true,
+      hasPreview: false,
+      optionCount: 3,
+      uncoveredPeakMinutes: 120,
+      warningCount: 2,
+      laborRatio: 0.171,
+      incidentWindow: "vie 18:00–22:00",
+    });
+    expect(incident.headline).toContain("vie 18:00–22:00");
+    expect(incident.detail).toContain("120 min");
+    expect(incident.tone).toBe("warning");
+
+    const reviewed = liveOperatingSummary("ko", {
+      activityState: "reviewed",
+      hasIncident: true,
+      hasPreview: true,
+      optionCount: 3,
+      uncoveredPeakMinutes: 0,
+      warningCount: 1,
+      laborRatio: 0.164,
+      incidentWindow: "금 18:00–22:00",
+    });
+    expect(reviewed.headline).toContain("적용");
+    expect(reviewed.detail).toContain("승인 전까지");
+    expect(reviewed.tone).toBe("review");
   });
 
   it("lets state-changing WebMCP tools carry UI locale separately from AppState", () => {
