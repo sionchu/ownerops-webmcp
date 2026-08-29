@@ -1,0 +1,17 @@
+[
+  {"market":"kr-seoul","sourceId":"kamis","alias":"쌀","referenceKey":"rice","ingredientId":"rice","baseUnit":"kg"},
+  {"market":"kr-seoul","sourceId":"kamis","alias":"양파","referenceKey":"onion","ingredientId":"onion","baseUnit":"kg"},
+  {"market":"kr-seoul","sourceId":"kamis","alias":"대파","referenceKey":"scallion","ingredientId":"scallion","baseUnit":"kg"},
+  {"market":"kr-seoul","sourceId":"kamis","alias":"쪽파","referenceKey":"scallion","ingredientId":"scallion","baseUnit":"kg"},
+  {"market":"kr-seoul","sourceId":"kamis","alias":"마늘","referenceKey":"garlic","ingredientId":"garlic","baseUnit":"kg"},
+  {"market":"kr-seoul","sourceId":"kamis","alias":"감자","referenceKey":"potato","ingredientId":"potato","baseUnit":"kg"},
+  {"market":"kr-seoul","sourceId":"kamis","alias":"배추","referenceKey":"cabbage","ingredientId":"cabbage","baseUnit":"kg"},
+  {"market":"kr-seoul","sourceId":"kamis","alias":"상추","referenceKey":"lettuce","ingredientId":"lettuce","baseUnit":"kg"},
+  {"market":"kr-seoul","sourceId":"kamis","alias":"시금치","referenceKey":"spinach","ingredientId":"spinach","baseUnit":"kg"},
+  {"market":"kr-seoul","sourceId":"kamis","alias":"계란","referenceKey":"eggs","ingredientId":"eggs","baseUnit":"ea"},
+  {"market":"kr-seoul","sourceId":"kamis","alias":"달걀","referenceKey":"eggs","ingredientId":"eggs","baseUnit":"ea"},
+  {"market":"kr-seoul","sourceId":"kamis","alias":"닭고기","referenceKey":"chicken","ingredientId":"chicken","baseUnit":"kg"},
+  {"market":"kr-seoul","sourceId":"kamis","alias":"돼지고기","referenceKey":"pork","ingredientId":"pork","baseUnit":"kg"},
+  {"market":"kr-seoul","sourceId":"kamis","alias":"쇠고기","referenceKey":"beef","ingredientId":"beef","baseUnit":"kg"},
+  {"market":"kr-seoul","sourceId":"kamis","alias":"소고기","referenceKey":"beef","ingredientId":"beef","baseUnit":"kg"}
+]
