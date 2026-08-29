@@ -1,4 +1,4 @@
-import type { AssistantState } from "@/domain/model";
+import type { AssistantState, CurrencyCode } from "@/domain/model";
 import type { UiLocale } from "@/i18n";
 
 const SUMMARY_INTL: Record<UiLocale, string> = {
@@ -22,7 +22,9 @@ export type LiveOperatingSummaryInput = {
   optionCount: number;
   uncoveredPeakMinutes: number;
   warningCount: number;
-  laborRatio: number;
+  payrollDelta: number;
+  scheduleChangeCount: number;
+  currencyCode: CurrencyCode;
   incidentWindow: string;
 };
 
@@ -35,13 +37,39 @@ function percent(locale: UiLocale, value: number): string {
 }
 
 function metricDetail(locale: UiLocale, input: LiveOperatingSummaryInput): string {
-  const ratio = percent(locale, input.laborRatio);
+  const currency = new Intl.NumberFormat(SUMMARY_INTL[locale], {
+    style: "currency",
+    currency: input.currencyCode,
+    maximumFractionDigits: input.currencyCode === "KRW" || input.currencyCode === "JPY" ? 0 : 2,
+  });
+  const cost = `${input.payrollDelta >= 0 ? "+" : "−"}${currency.format(Math.abs(input.payrollDelta))}`;
+
+  if (input.hasPreview) {
+    switch (locale) {
+      case "ko": return `피크 공백 ${input.uncoveredPeakMinutes}분 · 복구 비용 ${cost} · 변경 ${input.scheduleChangeCount}건 · 검토 ${input.warningCount}건`;
+      case "ja": return `ピーク不足 ${input.uncoveredPeakMinutes}分 · 復旧コスト ${cost} · 変更 ${input.scheduleChangeCount}件 · レビュー ${input.warningCount}件`;
+      case "es": return `Brecha punta ${input.uncoveredPeakMinutes} min · Coste de recuperación ${cost} · ${input.scheduleChangeCount} cambio${input.scheduleChangeCount === 1 ? "" : "s"} · ${input.warningCount} revisión${input.warningCount === 1 ? "" : "es"}`;
+      case "zh-CN": return `高峰缺口 ${input.uncoveredPeakMinutes} 分钟 · 恢复成本 ${cost} · ${input.scheduleChangeCount} 项变更 · ${input.warningCount} 项待复核`;
+      default: return `Peak gap ${input.uncoveredPeakMinutes} min · Recovery cost ${cost} · ${input.scheduleChangeCount} change${input.scheduleChangeCount === 1 ? "" : "s"} · ${input.warningCount} review item${input.warningCount === 1 ? "" : "s"}`;
+    }
+  }
+
+  if (input.activityState === "applied") {
+    switch (locale) {
+      case "ko": return `피크 공백 ${input.uncoveredPeakMinutes}분 · 검토 ${input.warningCount}건 · 계획 확정`;
+      case "ja": return `ピーク不足 ${input.uncoveredPeakMinutes}分 · レビュー ${input.warningCount}件 · プラン確定`;
+      case "es": return `Brecha punta ${input.uncoveredPeakMinutes} min · ${input.warningCount} revisión${input.warningCount === 1 ? "" : "es"} · Plan confirmado`;
+      case "zh-CN": return `高峰缺口 ${input.uncoveredPeakMinutes} 分钟 · ${input.warningCount} 项待复核 · 方案已提交`;
+      default: return `Peak gap ${input.uncoveredPeakMinutes} min · ${input.warningCount} review item${input.warningCount === 1 ? "" : "s"} · Plan committed`;
+    }
+  }
+
   switch (locale) {
-    case "ko": return `피크 공백 ${input.uncoveredPeakMinutes}분 · 인건비율 ${ratio} · 검토 ${input.warningCount}건`;
-    case "ja": return `ピーク不足 ${input.uncoveredPeakMinutes}分 · 人件費率 ${ratio} · レビュー ${input.warningCount}件`;
-    case "es": return `Brecha punta ${input.uncoveredPeakMinutes} min · Coste laboral ${ratio} · ${input.warningCount} revisión${input.warningCount === 1 ? "" : "es"}`;
-    case "zh-CN": return `高峰缺口 ${input.uncoveredPeakMinutes} 分钟 · 人工成本率 ${ratio} · ${input.warningCount} 项待复核`;
-    default: return `Peak gap ${input.uncoveredPeakMinutes} min · Labor ratio ${ratio} · ${input.warningCount} review item${input.warningCount === 1 ? "" : "s"}`;
+    case "ko": return `피크 공백 ${input.uncoveredPeakMinutes}분 · 검토 ${input.warningCount}건`;
+    case "ja": return `ピーク不足 ${input.uncoveredPeakMinutes}分 · レビュー ${input.warningCount}件`;
+    case "es": return `Brecha punta ${input.uncoveredPeakMinutes} min · ${input.warningCount} revisión${input.warningCount === 1 ? "" : "es"}`;
+    case "zh-CN": return `高峰缺口 ${input.uncoveredPeakMinutes} 分钟 · ${input.warningCount} 项待复核`;
+    default: return `Peak gap ${input.uncoveredPeakMinutes} min · ${input.warningCount} review item${input.warningCount === 1 ? "" : "s"}`;
   }
 }
 
