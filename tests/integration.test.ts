@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { dispatchApplicationAction } from "@/domain/actions";
 import { createDemoState } from "@/domain/fixtures";
-import type { AppState, StorePlanChange } from "@/domain/model";
+import type { AppState } from "@/domain/model";
 import type { UiLocale } from "@/i18n";
 import { createToolExecutors, registerOwnerOpsTools } from "@/webmcp/register-tools";
 
@@ -120,7 +120,7 @@ describe("shared UI and WebMCP StoreState path", () => {
     expect(web.getState().incident).toBeNull();
     expect(web.getState().incidents?.some((incident) => incident.type === "worker_unavailable" && incident.status === "resolved")).toBe(true);
     expect(web.getState().purchaseOrders?.some((order) => order.status === "planned")).toBe(true);
-    expect(applied.state.dailyBrief).toBeTruthy();
+    expect("dailyBrief" in applied.state ? applied.state.dailyBrief : undefined).toBeTruthy();
   });
 
   it("does not increase on-hand inventory when a purchase plan is merely applied", () => {
