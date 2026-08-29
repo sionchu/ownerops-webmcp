@@ -83,6 +83,24 @@ export type OccupancyCost = {
   nextEscalationRate?: number;
 };
 
+/**
+ * Operating-cost inputs intentionally stop short of bookkeeping/tax accounting.
+ * Variable rates support operational what-if analysis; fixed monthly costs support BEP.
+ */
+export type StoreOperatingCosts = {
+  variableRates: {
+    packagingAndConsumables: number;
+    paymentProcessing: number;
+    deliveryAndMarketplace: number;
+  };
+  fixedMonthly: {
+    utilities: number;
+    softwareSecurityRentals: number;
+    marketing: number;
+    other: number;
+  };
+};
+
 export type CalloutPayPolicy = "unpaid_hours" | "paid_scheduled_hours" | "manual_review";
 
 export type StorePolicies = {
@@ -104,6 +122,7 @@ export type Business = {
   timezone?: string;
   openingHours?: Record<string, { open: string; close: string } | null>;
   occupancy?: OccupancyCost;
+  operatingCosts?: StoreOperatingCosts;
   targetFoodCostRatio?: number;
   policies?: StorePolicies;
 };
@@ -207,6 +226,8 @@ export type RecipeLine = {
   inventoryItemId: string;
   quantity: number;
   unit: InventoryUnit;
+  /** Usable output / purchased input. 1 means no preparation loss. */
+  yieldRate?: number;
 };
 
 export type MenuItem = {
@@ -276,7 +297,7 @@ export type StoreLogEntry = {
   relatedIds?: string[];
 };
 
-export type ReferenceFreshness = "live" | "recent" | "seed" | "stale";
+export type ReferenceFreshness = "live" | "recent" | "cached" | "seed" | "stale";
 export type ReferenceObservation = {
   id: string;
   kind: "commodity_price" | "wage_reference" | "rent_benchmark" | "weather" | "event";
@@ -307,10 +328,71 @@ export type OperatingContext = {
 
 export type StorePlanChange =
   | { type: "staffing"; shiftId: string; workerId: string; start?: string; end?: string }
-  | { type: "purchase"; inventoryItemId: string; supplierId?: string; quantity: number; unit: InventoryUnit }
+  | { type: "purchase"; inventoryItemId: string; supplierId?: string; quantity: number; unit: InventoryUnit; estimatedUnitCost?: number }
   | { type: "prep"; menuItemId: string; targetQuantity: number }
   | { type: "task"; task: StoreTask }
   | { type: "shift_release"; shiftId: string; newEnd: string };
+
+export type StoreMetricSnapshot = {
+  netSales: number;
+  foodCost: number;
+  laborCost: number;
+  variableOperatingCost: number;
+  occupancyCost: number;
+  fixedOperatingCost: number;
+  purchaseCashOutlay: number;
+  estimatedWasteCost: number;
+  uncoveredPeakMinutes: number;
+  reviewFlagCount: number;
+  breakEvenSales: number;
+};
+
+export type StoreMetricDelta = {
+  [K in keyof StoreMetricSnapshot]: number;
+};
+
+export type StorePlanDomainImpact = {
+  people?: {
+    scheduleChanges: number;
+    laborCostDelta: number;
+    uncoveredPeakMinutesDelta: number;
+  };
+  stock?: {
+    purchaseCashOutlay: number;
+    affectedInventoryItemIds: string[];
+    estimatedWasteCostDelta: number;
+  };
+  sales?: {
+    netSalesDelta: number;
+  };
+  operations?: {
+    taskChanges: number;
+    prepChanges: number;
+  };
+  costs?: {
+    foodCostDelta: number;
+    variableOperatingCostDelta: number;
+    fixedOperatingCostDelta: number;
+    breakEvenSalesDelta: number;
+  };
+};
+
+export type StorePlanImpact = {
+  before: StoreMetricSnapshot;
+  after: StoreMetricSnapshot;
+  delta: StoreMetricDelta;
+  domains: StorePlanDomainImpact;
+  reviewFlags: string[];
+};
+
+export type StorePlan = {
+  id: string;
+  version: number;
+  title: string;
+  changes: StorePlanChange[];
+  impact: StorePlanImpact;
+  state: "preview" | "reviewed";
+};
 
 export type AssistantState = "idle" | "listening" | "checking" | "proposalReady" | "reviewNeeded" | "reviewed" | "warning" | "applied" | "error";
 
@@ -343,6 +425,7 @@ export type AppState = {
   log?: StoreLogEntry[];
   references?: ReferenceObservation[];
   context?: OperatingContext;
+  storePlan?: StorePlan | null;
 };
 
 export type StoreState = AppState;
