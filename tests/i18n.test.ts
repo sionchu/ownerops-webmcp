@@ -30,6 +30,7 @@ describe("thin UI locale layer", () => {
     let locale: UiLocale = "en";
     const executors = createToolExecutors({
       getState: () => state,
+      getLocale: () => locale,
       runAction: (action) => (state = dispatchApplicationAction(state, action)),
       setLocale: (next) => { locale = next; },
     });
@@ -40,5 +41,26 @@ describe("thin UI locale layer", () => {
     expect((state as AppState & { locale?: string }).locale).toBeUndefined();
 
     expect(() => executors.previewStaffingChange({ changes: [], uiLocale: "fr" })).toThrow(/unsupported ui locale/i);
+  });
+
+  it("changes only the UI language when industry and market are omitted", () => {
+    let state: AppState = createDemoState("pizza", "us-nyc");
+    state = dispatchApplicationAction(state, { type: "mark_unavailable", workerId: "minsoo", shiftId: "fri-minsoo-18" });
+    let locale: UiLocale = "en";
+    const executors = createToolExecutors({
+      getState: () => state,
+      getLocale: () => locale,
+      runAction: (action) => (state = dispatchApplicationAction(state, action)),
+      setLocale: (next) => { locale = next; },
+    });
+    const before = JSON.stringify(state);
+
+    const result = executors.createScheduleDraft({ preset: "demo", uiLocale: "es" });
+
+    expect(locale).toBe("es");
+    expect(JSON.stringify(state)).toBe(before);
+    expect(result.business.market).toBe("us-nyc");
+    expect(result.business.industry).toBe("pizza");
+    expect(result.incident).not.toBeNull();
   });
 });

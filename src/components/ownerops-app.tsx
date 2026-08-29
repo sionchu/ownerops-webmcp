@@ -6,12 +6,14 @@ import { DEMO_WEEK } from "@/domain/fixtures";
 import { applyChanges } from "@/domain/impact";
 import type { AppState, PlanImpact, Shift } from "@/domain/model";
 import { INTL_LOCALE, getLocalizedIndustryProfile, getUiCopy, type UiLocale } from "@/i18n";
+import { disruptionBody, markUnavailableLabel, marketScheduleContext, minimumWageLabel, suggestedIncidentPrompt, unavailableLabel } from "@/i18n/dynamic";
 import { getIndustryProfile } from "@/industry/profiles";
+import { getMarketLocation, getMarketProfile } from "@/market/profiles";
 import { parseSnapshot, serializeSnapshot } from "@/snapshot/snapshot";
 import { useAppState } from "@/state/app-state";
 import { useWebMcpRegistration } from "@/webmcp/use-webmcp";
 
-const won = new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW", maximumFractionDigits: 0 });
+const moneyFormatters = new Map<string, Intl.NumberFormat>();
 
 function Icon({ name }: { name: "copy" | "upload" | "refresh" | "alert" | "check" | "clock" | "wallet" | "users" }) {
   const paths = {
@@ -29,9 +31,25 @@ function Icon({ name }: { name: "copy" | "upload" | "refresh" | "alert" | "check
 
 function formatTime(iso: string) { return iso.slice(11, 16); }
 function shiftDay(shift: Shift) { return shift.start.slice(0, 10); }
-function signedWon(value: number) { return `${value >= 0 ? "+" : "−"}${won.format(Math.abs(value))}`; }
 function formatDay(locale: UiLocale, day: string, options: Intl.DateTimeFormatOptions) {
   return new Intl.DateTimeFormat(INTL_LOCALE[locale], options).format(new Date(`${day}T12:00:00`));
+}
+function formatMoney(state: AppState, locale: UiLocale, value: number) {
+  const key = `${locale}:${state.business.currency}`;
+  let formatter = moneyFormatters.get(key);
+  if (!formatter) {
+    const zeroDecimals = state.business.currency === "KRW" || state.business.currency === "JPY";
+    formatter = new Intl.NumberFormat(INTL_LOCALE[locale], {
+      style: "currency",
+      currency: state.business.currency,
+      maximumFractionDigits: zeroDecimals ? 0 : 2,
+    });
+    moneyFormatters.set(key, formatter);
+  }
+  return formatter.format(value);
+}
+function signedMoney(state: AppState, locale: UiLocale, value: number) {
+  return `${value >= 0 ? "+" : "−"}${formatMoney(state, locale, Math.abs(value))}`;
 }
 
 type CandidateStage = "proposal" | "human-edit" | "reviewed";
@@ -74,6 +92,8 @@ function AssistantRail({ supported }: { supported: boolean | null }) {
   const { state, impact, previewImpact, scenarios, locale } = useAppState();
   const ui = getUiCopy(locale);
   const profile = getLocalizedIndustryProfile(getIndustryProfile(state.business.industry), locale);
+  const market = getMarketProfile(state.business.market);
+  const incidentWorker = state.workers.find((worker) => worker.id === (state.incident?.workerId ?? "minsoo"));
   const visibleImpact = previewImpact ?? impact;
   const applied = state.activity.state === "applied";
   const reviewed = state.activity.state === "reviewed";
@@ -87,9 +107,12 @@ function AssistantRail({ supported }: { supported: boolean | null }) {
   const candidateHours = candidate.worker ? visibleImpact.workerWeeklyHours[candidate.worker.id] ?? 0 : 0;
   const candidateLabel = stage === "human-edit" ? ui.rail.humanEdit : stage === "reviewed" ? ui.rail.reviewed : ui.rail.agentProposal;
   const activity = ui.activity[state.activity.state];
+  const activityDetail = state.activity.state === "warning" && incidentWorker
+    ? `${unavailableLabel(locale, incidentWorker.name)} · ${ui.timeline.fridayGap}`
+    : activity.detail;
   const timeline = [
     { label: ui.timeline.readLive, detail: ui.timeline.canonicalLoaded, status: "complete" as TimelineStatus },
-    { label: `${profile.copy.incidentLabel} · ${ui.timeline.unavailable}`, detail: hasIncident ? `${ui.timeline.fridayGap} · ${profile.copy.peakLabel}` : ui.timeline.waitingIncident, status: hasIncident ? "complete" as TimelineStatus : "pending" as TimelineStatus },
+    { label: `${profile.copy.incidentLabel} · ${unavailableLabel(locale, incidentWorker?.name ?? "Minsoo")}`, detail: hasIncident ? `${ui.timeline.fridayGap} · ${profile.copy.peakLabel}` : ui.timeline.waitingIncident, status: hasIncident ? "complete" as TimelineStatus : "pending" as TimelineStatus },
     { label: ui.timeline.compared, detail: hasOptions ? ui.timeline.recoveryReady : hasIncident ? ui.timeline.comparing : ui.timeline.openIncident, status: hasOptions ? "complete" as TimelineStatus : hasIncident ? "active" as TimelineStatus : "pending" as TimelineStatus },
     { label: ui.timeline.proposal, detail: state.preview ? `${candidateName} · ${ui.timeline.previewOnly}` : ui.timeline.chooseOption, status: hasProposal ? "complete" as TimelineStatus : state.activity.state === "proposalReady" ? "active" as TimelineStatus : "pending" as TimelineStatus },
     { label: ui.timeline.humanReview, detail: applied || reviewed ? ui.timeline.editInReviewedPlan : needsReview ? ui.timeline.reviewPending : state.preview ? ui.timeline.waitingEdit : ui.timeline.editUncommitted, status: applied || reviewed ? "complete" as TimelineStatus : needsReview || state.preview ? "active" as TimelineStatus : "pending" as TimelineStatus },
@@ -104,7 +127,7 @@ function AssistantRail({ supported }: { supported: boolean | null }) {
         <div><strong>{supported === null ? ui.rail.checkingSharedState : supported ? ui.rail.liveSharedState : ui.rail.agentNotConnected}</strong><small>{supported === null ? ui.rail.checkingBrowser : supported ? "WebMCP · 8 tools" : ui.rail.manualStillWorks}</small></div>
       </div>
       <AssistantAvatar state={state.activity.state} accessory={profile.visual.avatarAccessory} detail={profile.visual.avatarDetail} />
-      <div className={`activity-copy activity-${state.activity.state}`} aria-live="polite"><span className="activity-kicker">{activity.kicker}</span><strong>{activity.message}</strong>{activity.detail && <p>{activity.detail}</p>}</div>
+      <div className={`activity-copy activity-${state.activity.state}`} aria-live="polite"><span className="activity-kicker">{activity.kicker}</span><strong>{activity.message}</strong>{activityDetail && <p>{activityDetail}</p>}</div>
       <ol className="activity-timeline" aria-label={ui.rail.sharedStateActivity}>
         {timeline.map((step) => <TimelineStep key={step.label} {...step} />)}
       </ol>
@@ -113,7 +136,7 @@ function AssistantRail({ supported }: { supported: boolean | null }) {
         <h3>{candidate.label}</h3>
         <small>{stage === "human-edit" ? ui.rail.localImpactPending : stage === "reviewed" ? ui.rail.reviewedReady : ui.rail.previewUncommitted}</small>
         <div className="candidate-metrics">
-          <div><span>{ui.rail.addedPayroll}</span><strong>{signedWon(visibleImpact.payrollDelta)}</strong></div>
+          <div><span>{ui.rail.addedPayroll}</span><strong>{signedMoney(state, locale, visibleImpact.payrollDelta)}</strong></div>
           <div><span>{ui.rail.weeklyHours}</span><strong>{candidateHours} h</strong></div>
           <div><span>{profile.copy.coverageLabel}</span><strong>{visibleImpact.uncoveredPeakMinutes ? `${visibleImpact.uncoveredPeakMinutes} ${ui.rail.minutesGap}` : ui.rail.covered}</strong></div>
           <div><span>{ui.rail.warnings}</span><strong>{visibleImpact.warnings.length}</strong></div>
@@ -121,10 +144,11 @@ function AssistantRail({ supported }: { supported: boolean | null }) {
         <p className="candidate-note">{stage === "human-edit" ? ui.rail.localImpactPending : stage === "reviewed" ? ui.rail.reviewedReady : ui.rail.previewUncommitted}</p>
       </section>}
       {needsReview && <div className="agent-prompt"><span>{ui.rail.nextAgentAction}</span><strong>{ui.rail.evaluateCurrentPlan}</strong><small>{ui.rail.rereadExactEdit}</small></div>}
-      {!state.preview && !needsReview && <div className="agent-prompt agent-suggestion"><span>{ui.rail.tryAsking}</span><strong>{profile.copy.suggestedPrompt}</strong><small>{ui.rail.sameLiveSchedule}</small></div>}
+      {!state.preview && !needsReview && <div className="agent-prompt agent-suggestion"><span>{ui.rail.tryAsking}</span><strong>{suggestedIncidentPrompt(locale, incidentWorker?.name ?? "Minsoo", profile.copy.peakLabel)}</strong><small>{ui.rail.sameLiveSchedule}</small></div>}
       <div className="rail-facts">
         <div><Icon name="users"/><span>{profile.copy.coverageLabel}</span><strong>{visibleImpact.uncoveredPeakMinutes ? `${visibleImpact.uncoveredPeakMinutes} ${ui.rail.minutesGap}` : ui.rail.covered}</strong></div>
         <div><Icon name="wallet"/><span>{ui.rail.laborRatio}</span><strong>{(visibleImpact.laborRatio * 100).toFixed(1)}%</strong></div>
+        <div title={market.wageReference.sourceLabel}><Icon name="wallet"/><span>{minimumWageLabel(locale)}</span><strong>{formatMoney(state, locale, market.wageReference.hourly)}/h</strong></div>
         <div><Icon name="clock"/><span>{ui.rail.warnings}</span><strong>{visibleImpact.warnings.length}</strong></div>
       </div>
     </aside>
@@ -135,6 +159,7 @@ function ScheduleGrid() {
   const { state, runAction, locale } = useAppState();
   const ui = getUiCopy(locale);
   const profile = getLocalizedIndustryProfile(getIndustryProfile(state.business.industry), locale);
+  const location = getMarketLocation(state.business.market, locale);
   const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
   const displayShifts = useMemo(() => state.preview ? applyChanges(state.shifts, state.preview.changes) : state.shifts, [state]);
   const previewIds = new Set(state.preview?.changes.map((change) => change.shiftId) ?? []);
@@ -150,14 +175,14 @@ function ScheduleGrid() {
 
   return (
     <section className="schedule-panel" aria-label={ui.schedule.weekTitle}>
-      <div className="section-heading"><div><span className="eyebrow">{profile.copy.scheduleContext}</span><h1>{ui.schedule.weekTitle}</h1></div><div className="schedule-legend"><span><i className="legend-scheduled"/>{ui.schedule.committed}</span><span><i className="legend-preview"/>{ui.schedule.agentProposal}</span><span><i className="legend-human"/>{ui.schedule.humanEdit}</span><span><i className="legend-gap"/>{ui.schedule.uncovered}</span></div></div>
+      <div className="section-heading"><div><span className="eyebrow">{marketScheduleContext(locale, profile.copy.scheduleContext, location)}</span><h1>{ui.schedule.weekTitle}</h1></div><div className="schedule-legend"><span><i className="legend-scheduled"/>{ui.schedule.committed}</span><span><i className="legend-preview"/>{ui.schedule.agentProposal}</span><span><i className="legend-human"/>{ui.schedule.humanEdit}</span><span><i className="legend-gap"/>{ui.schedule.uncovered}</span></div></div>
       <div className="schedule-scroll">
         <div className="schedule-grid">
           <div className="grid-corner">{ui.schedule.teamMember}</div>
           {DEMO_WEEK.map((day) => <div key={day} className={`day-head ${day === "2026-08-28" ? "focus-day" : ""}`}><strong>{formatDay(locale, day, { weekday: "short" })}</strong><span>{day.slice(5).replace("-", "/")}</span>{day === "2026-08-28" && state.incident && <em>{profile.copy.incidentLabel}</em>}</div>)}
           {state.workers.map((worker) => (
             <div className="worker-row-fragment" key={worker.id}>
-              <div className="worker-label"><span className={`worker-avatar role-${worker.role}`}>{worker.name.slice(0, 1)}</span><div><strong>{worker.name}</strong><span>{profile.roleLabels[worker.role]} · {won.format(worker.hourlyRate)}/h</span></div></div>
+              <div className="worker-label"><span className={`worker-avatar role-${worker.role}`}>{worker.name.slice(0, 1)}</span><div><strong>{worker.name}</strong><span>{profile.roleLabels[worker.role]} · {formatMoney(state, locale, worker.hourlyRate)}/h</span></div></div>
               {DEMO_WEEK.map((day) => {
                 const shifts = displayShifts.filter((item) => item.workerId === worker.id && shiftDay(item) === day);
                 return <div key={day} className={`schedule-cell ${day === "2026-08-28" ? "focus-day" : ""}`} onDragOver={(event) => event.preventDefault()} onDrop={(event) => onDrop(event, worker.id, day)}>
@@ -193,8 +218,9 @@ function ScenarioPanel() {
   const ui = getUiCopy(locale);
   const profile = getLocalizedIndustryProfile(getIndustryProfile(state.business.industry), locale);
   const incidentShift = state.shifts.find((item) => item.id === state.incident?.shiftId);
+  const incidentWorker = state.workers.find((worker) => worker.id === (state.incident?.workerId ?? "minsoo"));
   if (!state.incident) {
-    return <section className="scenario-panel pre-incident"><div><span className="eyebrow">{profile.copy.incidentLabel} · {ui.scenario.canonicalDisruption}</span><h2>{profile.copy.disruptionTitle}</h2><p>{profile.copy.disruptionBody}</p></div><button className="danger-soft" onClick={() => runAction({ type: "mark_unavailable", workerId: "minsoo", shiftId: "fri-minsoo-18", reason: "Last-minute absence" })}><Icon name="alert"/>{ui.scenario.markUnavailable}</button></section>;
+    return <section className="scenario-panel pre-incident"><div><span className="eyebrow">{profile.copy.incidentLabel} · {ui.scenario.canonicalDisruption}</span><h2>{profile.copy.disruptionTitle}</h2><p>{disruptionBody(locale, incidentWorker?.name ?? "Minsoo")}</p></div><button className="danger-soft" onClick={() => runAction({ type: "mark_unavailable", workerId: "minsoo", shiftId: "fri-minsoo-18", reason: "Last-minute absence" })}><Icon name="alert"/>{markUnavailableLabel(locale, incidentWorker?.name ?? "Minsoo")}</button></section>;
   }
   return (
     <section className="scenario-panel">
@@ -208,7 +234,7 @@ function ScenarioPanel() {
           const end = incidentShift ? formatTime(incidentShift.end) : "22:00";
           return <article key={scenario.id} className={`scenario-row ${state.preview?.scenarioId === scenario.id ? "selected" : ""}`}>
             <div className="rank">{index + 1}</div><div className="scenario-main"><div><strong>{ui.scenario.coversShift(replacementName)}</strong>{index === 0 && <span className="recommended">{ui.scenario.recommended}</span>}</div><p>{ui.scenario.takesShift(replacementName, start, end)}</p><small>{ui.scenario.restoresCoverage(`${(scenario.impact.laborRatio * 100).toFixed(1)}%`)}</small></div>
-            <div className="scenario-stat"><span>{ui.scenario.addedPayroll}</span><strong>{won.format(scenario.impact.payrollDelta)}</strong></div>
+            <div className="scenario-stat"><span>{ui.scenario.addedPayroll}</span><strong>{formatMoney(state, locale, scenario.impact.payrollDelta)}</strong></div>
             <div className="scenario-stat"><span>{ui.scenario.weeklyHours}</span><strong>{replacement ? `${scenario.impact.workerWeeklyHours[replacement.id]} h` : "—"}</strong></div>
             <div className="scenario-stat"><span>{profile.copy.peakLabel} {ui.scenario.gap}</span><strong>{scenario.impact.uncoveredPeakMinutes} min</strong></div>
             <div className="scenario-stat optional"><span>{ui.scenario.warnings}</span><strong>{scenario.impact.warnings.length}</strong></div>
@@ -226,7 +252,7 @@ function ImpactStrip({ impact }: { impact: PlanImpact }) {
   const ui = getUiCopy(locale);
   const profile = getLocalizedIndustryProfile(getIndustryProfile(state.business.industry), locale);
   const fridaySales = state.business.expectedSalesByDay["2026-08-28"];
-  return <section className="impact-strip" aria-label={ui.top.liveSharedState}><Metric label={ui.metrics.estimatedWeeklyLabor} value={won.format(impact.projectedLaborCost)} hint={`${impact.payrollDelta >= 0 ? "+" : ""}${won.format(impact.payrollDelta)} · ${ui.metrics.currentComparison}`} /><Metric label={ui.metrics.fridayExpectedSales} value={won.format(fridaySales)} hint={`${profile.copy.peakLabel} · 19:00–21:00`}/><Metric label={ui.metrics.estimatedLaborRatio} value={`${(impact.laborRatio * 100).toFixed(1)}%`} hint={`${(state.business.targetLaborRatio * 100).toFixed(0)}% ${ui.metrics.target}`} tone={impact.laborRatio > state.business.targetLaborRatio ? "warning" : "good"}/><Metric label={`${profile.copy.coverageLabel} ${ui.metrics.coverageStatus}`} value={impact.uncoveredPeakMinutes ? `${impact.uncoveredPeakMinutes} ${ui.rail.minutesGap}` : ui.metrics.peakCovered} hint={`${impact.warnings.length} ${ui.metrics.reviewFlag}`} tone={impact.uncoveredPeakMinutes ? "warning" : "good"}/></section>;
+  return <section className="impact-strip" aria-label={ui.top.liveSharedState}><Metric label={ui.metrics.estimatedWeeklyLabor} value={formatMoney(state, locale, impact.projectedLaborCost)} hint={`${impact.payrollDelta >= 0 ? "+" : ""}${formatMoney(state, locale, impact.payrollDelta)} · ${ui.metrics.currentComparison}`} /><Metric label={ui.metrics.fridayExpectedSales} value={formatMoney(state, locale, fridaySales)} hint={`${profile.copy.peakLabel} · 19:00–21:00`}/><Metric label={ui.metrics.estimatedLaborRatio} value={`${(impact.laborRatio * 100).toFixed(1)}%`} hint={`${(state.business.targetLaborRatio * 100).toFixed(0)}% ${ui.metrics.target}`} tone={impact.laborRatio > state.business.targetLaborRatio ? "warning" : "good"}/><Metric label={`${profile.copy.coverageLabel} ${ui.metrics.coverageStatus}`} value={impact.uncoveredPeakMinutes ? `${impact.uncoveredPeakMinutes} ${ui.rail.minutesGap}` : ui.metrics.peakCovered} hint={`${impact.warnings.length} ${ui.metrics.reviewFlag}`} tone={impact.uncoveredPeakMinutes ? "warning" : "good"}/></section>;
 }
 
 function PreviewBar() {
@@ -238,7 +264,7 @@ function PreviewBar() {
   const stageLabel = stage === "human-edit" ? ui.preview.humanEdit : stage === "reviewed" ? ui.preview.reviewed : ui.preview.agentProposal;
   const stageCopy = stage === "human-edit" ? ui.preview.localImpactPending : stage === "reviewed" ? ui.preview.reviewedReady : ui.preview.candidateOnly;
   const candidate = candidateDetails(state, ui.rail.candidatePlan);
-  return <div className={`preview-bar preview-${stage}`}><div className="preview-bar-copy"><div className="preview-bar-title"><span className="preview-badge">{stageLabel}</span><strong>{candidate.label}</strong><span className="preview-version">v{state.preview.version}</span></div><span>{stageCopy}</span></div><div className="preview-bar-impact"><span>{signedWon(previewImpact.payrollDelta)} {ui.preview.payroll}</span><span>{previewImpact.uncoveredPeakMinutes ? `${previewImpact.uncoveredPeakMinutes} ${ui.preview.gap}` : ui.preview.covered}</span><span>{previewImpact.warnings.length} {ui.preview.warning}</span></div><div className="preview-bar-actions"><button className="secondary" onClick={() => runAction({ type: "reject_preview" })}>{ui.preview.reject}</button><button className="primary" disabled={!canApply} onClick={() => runAction({ type: "apply_preview", previewId: state.preview!.id, version: state.preview!.version })}><Icon name="check"/>{canApply ? ui.preview.applyReviewed : ui.preview.reviewRequired}</button></div></div>;
+  return <div className={`preview-bar preview-${stage}`}><div className="preview-bar-copy"><div className="preview-bar-title"><span className="preview-badge">{stageLabel}</span><strong>{candidate.label}</strong><span className="preview-version">v{state.preview.version}</span></div><span>{stageCopy}</span></div><div className="preview-bar-impact"><span>{signedMoney(state, locale, previewImpact.payrollDelta)} {ui.preview.payroll}</span><span>{previewImpact.uncoveredPeakMinutes ? `${previewImpact.uncoveredPeakMinutes} ${ui.preview.gap}` : ui.preview.covered}</span><span>{previewImpact.warnings.length} {ui.preview.warning}</span></div><div className="preview-bar-actions"><button className="secondary" onClick={() => runAction({ type: "reject_preview" })}>{ui.preview.reject}</button><button className="primary" disabled={!canApply} onClick={() => runAction({ type: "apply_preview", previewId: state.preview!.id, version: state.preview!.version })}><Icon name="check"/>{canApply ? ui.preview.applyReviewed : ui.preview.reviewRequired}</button></div></div>;
 }
 
 function SnapshotDialog({ onClose }: { onClose: () => void }) {
@@ -257,10 +283,11 @@ export function OwnerOpsApp() {
   const [snapshotOpen, setSnapshotOpen] = useState(false);
   const ui = getUiCopy(locale);
   const profile = getLocalizedIndustryProfile(getIndustryProfile(state.business.industry), locale);
+  const location = getMarketLocation(state.business.market, locale);
   const visibleImpact = previewImpact ?? impact;
   return (
-    <main className={`app-shell ${hydrated ? "hydrated" : ""}`} data-industry={profile.id} data-locale={locale} style={{ "--oo-accent": profile.visual.accent, "--oo-accent-hover": profile.visual.accentHover, "--oo-accent-soft": profile.visual.accentSoft, "--oo-canvas": profile.visual.canvas, "--oo-surface": profile.visual.surface, "--oo-surface-elevated": profile.visual.surfaceElevated, "--oo-ink": profile.visual.ink, "--oo-secondary-ink": profile.visual.secondaryInk, "--oo-border": profile.visual.border, "--oo-focus-lane": profile.visual.focusLane, "--oo-agent-glow": profile.visual.agentGlow, "--oo-radius-card": profile.visual.radiusCard, "--oo-radius-shift": profile.visual.radiusShift, "--oo-motif-opacity": profile.visual.motifOpacity, "--oo-motion-theme": profile.visual.motionTheme } as CSSProperties}>
-      <header className="topbar"><div className="brand"><span className="brand-mark">O</span><div><strong>OwnerOps</strong><span>{state.business.name}</span></div></div><div className="topbar-center"><span className="live-dot"/>{ui.top.liveSharedState}<span className="divider"/>{profile.label}</div><nav><button className="top-action" onClick={() => setSnapshotOpen(true)}><Icon name="copy"/>{ui.top.snapshot}</button><button className="top-action" onClick={() => runAction({ type: "reset_demo" })}><Icon name="refresh"/>{ui.top.resetDemo}</button></nav><div className="context-stage"><span className="eyebrow">{profile.label} · {ui.top.dateRange}</span><h1>{profile.copy.headline}</h1><p>{profile.copy.scheduleContext}</p></div></header>
+    <main className={`app-shell ${hydrated ? "hydrated" : ""}`} data-industry={profile.id} data-locale={locale} data-market={state.business.market} style={{ "--oo-accent": profile.visual.accent, "--oo-accent-hover": profile.visual.accentHover, "--oo-accent-soft": profile.visual.accentSoft, "--oo-canvas": profile.visual.canvas, "--oo-surface": profile.visual.surface, "--oo-surface-elevated": profile.visual.surfaceElevated, "--oo-ink": profile.visual.ink, "--oo-secondary-ink": profile.visual.secondaryInk, "--oo-border": profile.visual.border, "--oo-focus-lane": profile.visual.focusLane, "--oo-agent-glow": profile.visual.agentGlow, "--oo-radius-card": profile.visual.radiusCard, "--oo-radius-shift": profile.visual.radiusShift, "--oo-motif-opacity": profile.visual.motifOpacity, "--oo-motion-theme": profile.visual.motionTheme } as CSSProperties}>
+      <header className="topbar"><div className="brand"><span className="brand-mark">O</span><div><strong>OwnerOps</strong><span>{state.business.name}</span></div></div><div className="topbar-center"><span className="live-dot"/>{ui.top.liveSharedState}<span className="divider"/>{profile.label} · {location} · {state.business.currency}</div><nav><button className="top-action" onClick={() => setSnapshotOpen(true)}><Icon name="copy"/>{ui.top.snapshot}</button><button className="top-action" onClick={() => runAction({ type: "reset_demo" })}><Icon name="refresh"/>{ui.top.resetDemo}</button></nav><div className="context-stage"><span className="eyebrow">{profile.label} · {location} · {ui.top.dateRange}</span><h1>{profile.copy.headline}</h1><p>{marketScheduleContext(locale, profile.copy.scheduleContext, location)}</p></div></header>
       <PreviewBar />
       <div className="workspace"><div className="primary-workspace"><ImpactStrip impact={visibleImpact}/><ScheduleGrid/><ScenarioPanel/></div><AssistantRail supported={supported}/></div>
       {snapshotOpen && <SnapshotDialog onClose={() => setSnapshotOpen(false)}/>} 

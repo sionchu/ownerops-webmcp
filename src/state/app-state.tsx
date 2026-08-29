@@ -5,8 +5,7 @@ import { dispatchApplicationAction, getResponseOptions, type ApplicationAction }
 import { createDemoState } from "@/domain/fixtures";
 import { applyChanges, calculateImpact } from "@/domain/impact";
 import type { AppState, PlanImpact, StaffingScenario } from "@/domain/model";
-import { normalizeUiLocale, UI_LOCALE_STORAGE_KEY, type UiLocale } from "@/i18n";
-import { loadPersistedState, persistState } from "./persistence";
+import { normalizeUiLocale, type UiLocale } from "@/i18n";
 
 type AppStateContextValue = {
   state: AppState;
@@ -18,6 +17,7 @@ type AppStateContextValue = {
   setLocale: (locale: UiLocale) => void;
   runAction: (action: ApplicationAction) => AppState;
   getState: () => AppState;
+  getLocale: () => UiLocale;
 };
 
 const AppStateContext = createContext<AppStateContextValue | null>(null);
@@ -33,19 +33,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     localeRef.current = nextLocale;
     setLocaleState(nextLocale);
     if (typeof document !== "undefined") document.documentElement.lang = nextLocale;
-    if (typeof window !== "undefined") window.sessionStorage.setItem(UI_LOCALE_STORAGE_KEY, nextLocale);
   }, []);
 
   useEffect(() => {
     const hydrationTimer = window.setTimeout(() => {
-      const persisted = loadPersistedState(window.sessionStorage);
-      if (persisted) {
-        stateRef.current = persisted;
-        setState(persisted);
-      }
-      const detectedLocale = normalizeUiLocale(window.sessionStorage.getItem(UI_LOCALE_STORAGE_KEY))
-        ?? normalizeUiLocale(window.navigator.language)
-        ?? "en";
+      const detectedLocale = normalizeUiLocale(window.navigator.language) ?? "en";
       localeRef.current = detectedLocale;
       setLocaleState(detectedLocale);
       document.documentElement.lang = detectedLocale;
@@ -54,20 +46,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     return () => window.clearTimeout(hydrationTimer);
   }, []);
 
-  useEffect(() => {
-    if (!hydrated) return;
-    persistState(window.sessionStorage, state);
-    window.sessionStorage.setItem(UI_LOCALE_STORAGE_KEY, locale);
-  }, [hydrated, state, locale]);
-
   const runAction = useCallback((action: ApplicationAction) => {
     const next = dispatchApplicationAction(stateRef.current, action);
     stateRef.current = next;
     setState(next);
-    if (typeof window !== "undefined") persistState(window.sessionStorage, next);
     return next;
   }, []);
   const getState = useCallback(() => stateRef.current, []);
+  const getLocale = useCallback(() => localeRef.current, []);
 
   const value = useMemo<AppStateContextValue>(() => ({
     state,
@@ -79,7 +65,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setLocale,
     runAction,
     getState,
-  }), [state, hydrated, locale, setLocale, runAction, getState]);
+    getLocale,
+  }), [state, hydrated, locale, setLocale, runAction, getState, getLocale]);
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }

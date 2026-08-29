@@ -1,5 +1,6 @@
 import { isIndustryId } from "@/industry/profiles";
-import type { AppState, Business, SnapshotState } from "@/domain/model";
+import { getMarketProfile, isMarketId } from "@/market/profiles";
+import type { AppState, Business, CurrencyCode, SnapshotState } from "@/domain/model";
 
 const HEADER = "OWNEROPS_SNAPSHOT v1";
 const FOOTER = "END_OWNEROPS_SNAPSHOT";
@@ -42,6 +43,11 @@ export function parseSnapshot(text: string): AppState {
   const business = snapshot.business as Partial<Business>;
   const industry = business.industry === undefined ? "coffee" : business.industry;
   required(isIndustryId(industry), `Snapshot business.industry '${String(industry)}' is not supported.`);
+  const market = business.market === undefined ? "kr-seoul" : business.market;
+  required(isMarketId(market), `Snapshot business.market '${String(market)}' is not supported.`);
+  const expectedCurrency = getMarketProfile(market).currency;
+  const currency = (business.currency ?? expectedCurrency) as CurrencyCode;
+  required(currency === expectedCurrency, `Snapshot business.currency '${String(currency)}' does not match market '${market}'.`);
   required(Array.isArray(snapshot.workers) && snapshot.workers.length > 0, "Snapshot workers must be a non-empty array.");
   required(Array.isArray(snapshot.shifts), "Snapshot shifts must be an array.");
   required(Array.isArray(snapshot.demand), "Snapshot demand must be an array.");
@@ -57,7 +63,7 @@ export function parseSnapshot(text: string): AppState {
   }
   return {
     schemaVersion: 1,
-    business: { ...business, industry } as Business,
+    business: { ...business, industry, market, currency } as Business,
     workers: snapshot.workers,
     shifts: snapshot.shifts,
     demand: snapshot.demand,
