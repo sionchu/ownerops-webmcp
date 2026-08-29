@@ -64,6 +64,7 @@ function businessState(state: AppState, locale: UiLocale) {
       ...worker,
       displayName: displayName(worker),
       roleLabel: profile.roleLabels[worker.role],
+      demoContact: market.workerContacts[worker.id] ?? null,
       weeklyHours: impact.workerWeeklyHours[worker.id] ?? 0,
     })),
     shifts: planShifts.map((shift) => ({ ...shift, roleLabel: profile.roleLabels[shift.role] })),
@@ -154,7 +155,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "get_business_state",
     title: "Get live business state",
-    description: "Inspect the exact OwnerOps schedule currently visible to the user, including UI language, labor market, currency, wage reference, workers, shifts, incident, preview, labor estimate, weekly hours, and warnings.",
+    description: "Inspect the exact OwnerOps schedule currently visible to the user, including UI language, labor market, currency, wage reference, masked demo contacts, workers, shifts, incident, preview, labor estimate, weekly hours, and warnings.",
     inputSchema: emptySchema,
     annotations: { readOnlyHint: true },
     execute: async () => tools.getBusinessState(),

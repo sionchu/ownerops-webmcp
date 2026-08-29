@@ -46,7 +46,7 @@ export function getResponseOptions(state: AppState): StaffingScenario[] {
         id: `cover-${shift.id}-${worker.id}`,
         title: `${label} covers the shift`,
         summary: `${label} takes ${shift.start.slice(11, 16)}–${shift.end.slice(11, 16)} as a single reassignment.`,
-        rationale: `Restores peak coverage with one schedule change; estimated labor ratio ${(impact.laborRatio * 100).toFixed(1)}%.`,
+        rationale: `Restores peak coverage with one schedule change; net wage impact is calculated against the originally assigned worker.`,
         changes,
         impact,
       } satisfies StaffingScenario;

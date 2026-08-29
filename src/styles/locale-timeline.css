@@ -175,3 +175,7 @@
 .outreach-draft > p { margin: 12px 0; font-size: 13px; line-height: 1.55; }
 .outreach-footer small { color: var(--secondary); line-height: 1.35; }
 @media (max-width: 900px) { .scenario-actions { grid-auto-flow: column; justify-content: start; } .outreach-head, .outreach-footer { align-items: flex-start; flex-direction: column; } }
+
+@media (min-width: 901px) {
+  .scenario-row { grid-template-columns: 28px minmax(220px, 1.8fr) repeat(5, minmax(67px, .55fr)) minmax(116px, .8fr); }
+}

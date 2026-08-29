@@ -49,6 +49,7 @@ describe("shared UI and WebMCP application path", () => {
     expect(spanishNyc.business.currency).toBe("USD");
     expect(spanishNyc.business.wageReference.hourly).toBe(17);
     expect(spanishNyc.workers.find((worker) => worker.id === "minsoo")?.name).toBe("Mason");
+    expect(spanishNyc.workers.find((worker) => worker.id === "minsoo")?.demoContact).toContain("555");
 
     const japaneseUiSameMarket = executors.createScheduleDraft({ preset: "demo", industry: "salon", uiLocale: "ja" });
     expect(japaneseUiSameMarket.uiLocale).toBe("ja");
