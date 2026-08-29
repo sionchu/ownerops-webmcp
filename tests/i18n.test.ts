@@ -34,12 +34,15 @@ describe("thin UI locale layer", () => {
       optionCount: 0,
       uncoveredPeakMinutes: 0,
       warningCount: 1,
-      laborRatio: 0.158,
+      payrollDelta: 0,
+      scheduleChangeCount: 0,
+      currencyCode: "JPY",
       incidentWindow: "金 18:00–22:00",
     });
     expect(stable.headline).toContain("カバレッジ");
     expect(stable.headline).not.toContain("予約ピーク");
-    expect(stable.detail).toContain("人件費率");
+    expect(stable.detail).not.toContain("人件費率");
+    expect(stable.detail).toContain("レビュー");
     expect(stable.tone).toBe("stable");
 
     const incident = liveOperatingSummary("es", {
@@ -49,7 +52,9 @@ describe("thin UI locale layer", () => {
       optionCount: 3,
       uncoveredPeakMinutes: 120,
       warningCount: 2,
-      laborRatio: 0.171,
+      payrollDelta: 0,
+      scheduleChangeCount: 0,
+      currencyCode: "EUR",
       incidentWindow: "vie 18:00–22:00",
     });
     expect(incident.headline).toContain("vie 18:00–22:00");
@@ -63,11 +68,13 @@ describe("thin UI locale layer", () => {
       optionCount: 3,
       uncoveredPeakMinutes: 0,
       warningCount: 1,
-      laborRatio: 0.164,
+      payrollDelta: 84000,
+      scheduleChangeCount: 1,
+      currencyCode: "KRW",
       incidentWindow: "금 18:00–22:00",
     });
     expect(reviewed.headline).toContain("적용");
-    expect(reviewed.detail).toContain("승인 전까지");
+    expect(reviewed.detail).toContain("복구 비용");
     expect(reviewed.tone).toBe("review");
   });
 

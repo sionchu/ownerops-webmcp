@@ -147,7 +147,7 @@ function AssistantRail({ supported }: { supported: boolean | null }) {
       {!state.preview && !needsReview && <div className="agent-prompt agent-suggestion"><span>{ui.rail.tryAsking}</span><strong>{suggestedIncidentPrompt(locale, incidentWorker?.name ?? "Minsoo", profile.copy.peakLabel)}</strong><small>{ui.rail.sameLiveSchedule}</small></div>}
       <div className="rail-facts">
         <div><Icon name="users"/><span>{profile.copy.coverageLabel}</span><strong>{visibleImpact.uncoveredPeakMinutes ? `${visibleImpact.uncoveredPeakMinutes} ${ui.rail.minutesGap}` : ui.rail.covered}</strong></div>
-        <div><Icon name="wallet"/><span>{ui.rail.laborRatio}</span><strong>{(visibleImpact.laborRatio * 100).toFixed(1)}%</strong></div>
+        <div><Icon name="refresh"/><span>{ui.scenario.changes}</span><strong>{visibleImpact.scheduleChangeCount}</strong></div>
         <div title={market.wageReference.sourceLabel}><Icon name="wallet"/><span>{minimumWageLabel(locale)}</span><strong>{formatMoney(state, locale, market.wageReference.hourly)}/h</strong></div>
         <div><Icon name="clock"/><span>{ui.rail.warnings}</span><strong>{visibleImpact.warnings.length}</strong></div>
       </div>
@@ -250,9 +250,16 @@ function ScenarioPanel() {
 function ImpactStrip({ impact }: { impact: PlanImpact }) {
   const { state, locale } = useAppState();
   const ui = getUiCopy(locale);
-  const profile = getLocalizedIndustryProfile(getIndustryProfile(state.business.industry), locale);
-  const fridaySales = state.business.expectedSalesByDay["2026-08-28"];
-  return <section className="impact-strip" aria-label={ui.top.liveSharedState}><Metric label={ui.metrics.estimatedWeeklyLabor} value={formatMoney(state, locale, impact.projectedLaborCost)} hint={`${impact.payrollDelta >= 0 ? "+" : ""}${formatMoney(state, locale, impact.payrollDelta)} · ${ui.metrics.currentComparison}`} /><Metric label={ui.metrics.fridayExpectedSales} value={formatMoney(state, locale, fridaySales)} hint={`${profile.copy.peakLabel} · 19:00–21:00`}/><Metric label={ui.metrics.estimatedLaborRatio} value={`${(impact.laborRatio * 100).toFixed(1)}%`} hint={`${(state.business.targetLaborRatio * 100).toFixed(0)}% ${ui.metrics.target}`} tone={impact.laborRatio > state.business.targetLaborRatio ? "warning" : "good"}/><Metric label={`${profile.copy.coverageLabel} ${ui.metrics.coverageStatus}`} value={impact.uncoveredPeakMinutes ? `${impact.uncoveredPeakMinutes} ${ui.rail.minutesGap}` : ui.metrics.peakCovered} hint={`${impact.warnings.length} ${ui.metrics.reviewFlag}`} tone={impact.uncoveredPeakMinutes ? "warning" : "good"}/></section>;
+  const hasCandidate = Boolean(state.preview);
+  const applied = state.activity.state === "applied";
+  const recoveryCost = hasCandidate ? signedMoney(state, locale, impact.payrollDelta) : applied ? ui.metrics.committed : "—";
+  const changeValue = hasCandidate ? String(impact.scheduleChangeCount) : applied ? ui.metrics.committed : "0";
+  return <section className="impact-strip decision-strip" aria-label={ui.top.liveSharedState}>
+    <Metric label={ui.metrics.coverage} value={impact.uncoveredPeakMinutes ? `${impact.uncoveredPeakMinutes} ${ui.rail.minutesGap}` : ui.metrics.covered} hint={impact.uncoveredPeakMinutes ? ui.metrics.actionNeeded : ui.metrics.noGap} tone={impact.uncoveredPeakMinutes ? "warning" : "good"}/>
+    <Metric label={ui.metrics.recoveryCost} value={recoveryCost} hint={hasCandidate ? ui.metrics.candidateImpact : applied ? ui.metrics.appliedPlan : ui.metrics.selectOption}/>
+    <Metric label={ui.metrics.scheduleChanges} value={changeValue} hint={hasCandidate ? ui.metrics.candidateImpact : applied ? ui.metrics.appliedPlan : ui.metrics.liveSchedule}/>
+    <Metric label={ui.metrics.reviewFlags} value={String(impact.warnings.length)} hint={impact.warnings.length ? ui.metrics.needsReview : ui.metrics.clear} tone={impact.warnings.length ? "warning" : "good"}/>
+  </section>;
 }
 
 function PreviewBar() {
@@ -292,14 +299,16 @@ export function OwnerOpsApp() {
     optionCount: scenarios.length,
     uncoveredPeakMinutes: visibleImpact.uncoveredPeakMinutes,
     warningCount: visibleImpact.warnings.length,
-    laborRatio: visibleImpact.laborRatio,
+    payrollDelta: visibleImpact.payrollDelta,
+    scheduleChangeCount: visibleImpact.scheduleChangeCount,
+    currencyCode: state.business.currency,
     incidentWindow: ui.timeline.fridayGap,
   });
   return (
     <main className={`app-shell ${hydrated ? "hydrated" : ""}`} data-industry={profile.id} data-locale={locale} data-market={state.business.market} data-operating-tone={operatingSummary.tone} style={{ "--oo-accent": profile.visual.accent, "--oo-accent-hover": profile.visual.accentHover, "--oo-accent-soft": profile.visual.accentSoft, "--oo-canvas": profile.visual.canvas, "--oo-surface": profile.visual.surface, "--oo-surface-elevated": profile.visual.surfaceElevated, "--oo-ink": profile.visual.ink, "--oo-secondary-ink": profile.visual.secondaryInk, "--oo-border": profile.visual.border, "--oo-focus-lane": profile.visual.focusLane, "--oo-agent-glow": profile.visual.agentGlow, "--oo-radius-card": profile.visual.radiusCard, "--oo-radius-shift": profile.visual.radiusShift, "--oo-motif-opacity": profile.visual.motifOpacity, "--oo-motion-theme": profile.visual.motionTheme } as CSSProperties}>
       <header className="topbar"><div className="brand"><span className="brand-mark">O</span><div><strong>OwnerOps</strong><span>{state.business.name}</span></div></div><div className="topbar-center"><span className="live-dot"/>{ui.top.liveSharedState}<span className="divider"/>{profile.label} · {location} · {state.business.currency}</div><nav><button className="top-action" onClick={() => setSnapshotOpen(true)}><Icon name="copy"/>{ui.top.snapshot}</button><button className="top-action" onClick={() => runAction({ type: "reset_demo" })}><Icon name="refresh"/>{ui.top.resetDemo}</button></nav><div className="context-stage"><span className="eyebrow">{profile.label} · {location} · {ui.top.dateRange}</span><h1>{operatingSummary.headline}</h1><p>{operatingSummary.detail}</p></div></header>
       <PreviewBar />
-      <div className="workspace"><div className="primary-workspace"><ImpactStrip impact={visibleImpact}/><ScheduleGrid/><ScenarioPanel/></div><AssistantRail supported={supported}/></div>
+      <div className="workspace"><div className="primary-workspace"><ImpactStrip impact={visibleImpact}/><ScenarioPanel/><ScheduleGrid/></div><AssistantRail supported={supported}/></div>
       {snapshotOpen && <SnapshotDialog onClose={() => setSnapshotOpen(false)}/>} 
     </main>
   );
