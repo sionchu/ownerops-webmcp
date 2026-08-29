@@ -221,13 +221,36 @@ export type SalesSnapshot = {
 };
 
 export type InventoryUnit = "g" | "kg" | "ml" | "l" | "ea" | "pack" | "box";
+export type IngredientPurchaseForm = "raw" | "trimmed" | "fillet" | "prepped" | "packaged" | "unknown";
 
-export type RecipeLine = {
+export type InventoryRecipeLine = {
   inventoryItemId: string;
+  prepItemId?: never;
   quantity: number;
   unit: InventoryUnit;
-  /** Usable output / purchased input. 1 means no preparation loss. */
+  /** Optional line-specific usable output / purchased input. */
   yieldRate?: number;
+};
+
+export type PrepRecipeLine = {
+  prepItemId: string;
+  inventoryItemId?: never;
+  quantity: number;
+  unit: InventoryUnit;
+};
+
+export type RecipeLine = InventoryRecipeLine | PrepRecipeLine;
+
+export type PrepItem = {
+  id: string;
+  name: string;
+  category: string;
+  outputQuantity: number;
+  outputUnit: InventoryUnit;
+  recipe: InventoryRecipeLine[];
+  /** Yield of the prep batch after cooking/processing. Defaults to 1 when not modeled. */
+  batchYieldRate?: number;
+  active: boolean;
 };
 
 export type MenuItem = {
@@ -252,6 +275,19 @@ export type InventoryItem = {
   lastPurchaseUnitCost?: number;
   marketReferenceKey?: string;
   perishable?: boolean;
+  purchaseForm?: IngredientPurchaseForm;
+};
+
+export type YieldBenchmark = {
+  id: string;
+  ingredientKey: string;
+  inputForm: IngredientPurchaseForm;
+  outputForm: IngredientPurchaseForm;
+  yieldRate: number;
+  geography?: string;
+  note?: string;
+  source: string;
+  quality: "verified_reference" | "reference_only" | "qa_required";
 };
 
 export type Supplier = {
@@ -312,7 +348,7 @@ export type StoreLogEntry = {
 export type ReferenceFreshness = "live" | "recent" | "cached" | "seed" | "stale";
 export type ReferenceObservation = {
   id: string;
-  kind: "commodity_price" | "wage_reference" | "rent_benchmark" | "weather" | "event";
+  kind: "commodity_price" | "wage_reference" | "rent_benchmark" | "weather" | "event" | "menu_price";
   provider: string;
   referenceKey: string;
   geography: string;
@@ -429,7 +465,9 @@ export type AppState = {
   incidents?: OperationalIncident[];
   sales?: SalesSnapshot[];
   menu?: MenuItem[];
+  prepItems?: PrepItem[];
   inventory?: InventoryItem[];
+  yieldBenchmarks?: YieldBenchmark[];
   suppliers?: Supplier[];
   purchases?: PurchaseRecord[];
   purchaseOrders?: PurchaseOrder[];
