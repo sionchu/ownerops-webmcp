@@ -160,11 +160,12 @@ function createSales(expectedSalesByDay: Record<string, number>, menu: MenuItem[
 
 function createTimeEntries(workers: Worker[]): TimeEntry[] {
   const exists = (id: string) => workers.some((worker) => worker.id === id);
-  return [
-    exists("minsoo") ? { id: "time-mon-minsoo", workerId: "minsoo", shiftId: "mon-minsoo-open", clockIn: "2026-08-24T08:05:00", clockOut: "2026-08-24T14:02:00", source: "demo" as const } : null,
-    exists("jiyoung") ? { id: "time-mon-jiyoung", workerId: "jiyoung", shiftId: "mon-jiyoung-close", clockIn: "2026-08-24T13:58:00", clockOut: "2026-08-24T20:17:00", source: "demo" as const } : null,
-    exists("younghee") ? { id: "time-mon-younghee", workerId: "younghee", shiftId: "mon-younghee", clockIn: "2026-08-24T09:54:00", clockOut: "2026-08-24T18:21:00", source: "demo" as const } : null,
-  ].filter((entry): entry is TimeEntry => entry !== null);
+  const entries: Array<TimeEntry | null> = [
+    exists("minsoo") ? { id: "time-mon-minsoo", workerId: "minsoo", shiftId: "mon-minsoo-open", clockIn: "2026-08-24T08:05:00", clockOut: "2026-08-24T14:02:00", source: "demo" } : null,
+    exists("jiyoung") ? { id: "time-mon-jiyoung", workerId: "jiyoung", shiftId: "mon-jiyoung-close", clockIn: "2026-08-24T13:58:00", clockOut: "2026-08-24T20:17:00", source: "demo" } : null,
+    exists("younghee") ? { id: "time-mon-younghee", workerId: "younghee", shiftId: "mon-younghee", clockIn: "2026-08-24T09:54:00", clockOut: "2026-08-24T18:21:00", source: "demo" } : null,
+  ];
+  return entries.filter((entry): entry is TimeEntry => entry !== null);
 }
 
 function createTasks(industry: IndustryId): StoreTask[] {
