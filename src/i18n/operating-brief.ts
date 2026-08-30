@@ -305,7 +305,8 @@ export function localizeDailyBriefItem(locale: UiLocale, state: AppState, item: 
     const comparison = inventoryItem ? purchaseReferenceComparison(state, inventoryItem) : null;
     if (inventoryItem && comparison) {
       const actual = operatingBriefMoney(locale, state.business.currency, comparison.actualUnitCost);
-      const reference = operatingBriefMoney(locale, comparison.reference.currency, Number(comparison.reference.value));
+      const referenceCurrency = comparison.reference.currency ?? state.business.currency;
+      const reference = operatingBriefMoney(locale, referenceCurrency, Number(comparison.reference.value));
       return {
         ...base,
         title: pick(locale, {
