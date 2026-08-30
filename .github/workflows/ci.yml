@@ -31,6 +31,18 @@ jobs:
         run: npm run data:import-master -- --file tests/fixtures/fnb-master-mini.json --dry-run
       - name: Test
         run: npm test
+      - name: Export canonical coffee projection
+        run: |
+          cat > tests/__seed_export.test.ts <<'EOF'
+          import { it } from "vitest";
+          import { createDemoState } from "@/domain/fixtures";
+          import { projectStateForPersistence } from "@/persistence/store-projection";
+          it("exports canonical coffee projection", () => {
+            console.log("OWNEROPS_COFFEE_PROJECTION=" + JSON.stringify(projectStateForPersistence(createDemoState("coffee", "kr-seoul"))));
+          });
+          EOF
+          npx vitest run tests/__seed_export.test.ts
+          rm tests/__seed_export.test.ts
       - name: Lint
         run: npm run lint
       - name: Typecheck
