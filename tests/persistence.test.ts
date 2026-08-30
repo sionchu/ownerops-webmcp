@@ -29,6 +29,17 @@ describe("Store persistence projection", () => {
     expect(projection).not.toHaveProperty("references");
   });
 
+  it("namespaces global event ids so five stores can coexist in one database", () => {
+    const seoul = projectStateForPersistence(createDemoState("coffee", "kr-seoul"));
+    const nyc = projectStateForPersistence(createDemoState("coffee", "us-nyc"));
+    expect(seoul.timeEntries[0].id).toBe("demo-kr-seoul-coffee:time-mon-minsoo");
+    expect(nyc.timeEntries[0].id).toBe("demo-us-nyc-coffee:time-mon-minsoo");
+    expect(seoul.sales[0].id).not.toBe(nyc.sales[0].id);
+    expect(seoul.purchases[0].id).not.toBe(nyc.purchases[0].id);
+    expect(seoul.tasks[0].id).not.toBe(nyc.tasks[0].id);
+    expect(seoul.log[0].id).not.toBe(nyc.log[0].id);
+  });
+
   it("merges persisted store facts while retaining the live reference cache", () => {
     const persistedBase = createDemoState("coffee", "kr-seoul");
     const projection = projectStateForPersistence({
