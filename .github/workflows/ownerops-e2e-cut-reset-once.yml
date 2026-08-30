@@ -1,0 +1,46 @@
+name: OwnerOps segmented video E2E reset once
+on:
+  push:
+    branches: [re0/ai-store-manager]
+    paths: [.github/workflows/ownerops-e2e-cut-reset-once.yml]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: re0/ai-store-manager
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Segment profitability and call-out E2E
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/webmcp-browser-e2e.mjs')
+          text=p.read_text()
+          old='''    const profitCard = await page.getByText("운영 추정 손익", { exact: true }).count();\n    assert(profitCard > 0, "Profitability-first StorePlan card is missing from the rendered UI.");\n\n    step("record Minsoo Friday call-out");'''
+          new='''    const profitCard = await page.getByText("운영 추정 손익", { exact: true }).count();\n    assert(profitCard > 0, "Profitability-first StorePlan card is missing from the rendered UI.");\n\n    step("reset between profitability and workforce incident video cuts");\n    await resetButton.click();\n    const resetAfterProfitability = await waitForDbMarket("kr-seoul");\n    assert(resetAfterProfitability.activeStorePlan == null, "Profitability preview survived the demo-cut reset.", resetAfterProfitability.activeStorePlan);\n\n    step("record Minsoo Friday call-out");'''
+          if text.count(old) != 1: raise SystemExit(f'expected one profitability/callout anchor, got {text.count(old)}')
+          p.write_text(text.replace(old,new,1))
+          PY
+      - name: Verify source
+        run: |
+          npm ci
+          npm test
+          npm run lint
+          npm run typecheck
+          npm run build
+      - name: Commit verified E2E
+        run: |
+          git config user.name "OwnerOps CI"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/ownerops-e2e-cut-reset-once.yml
+          git add scripts/webmcp-browser-e2e.mjs
+          git commit -m "test: separate profitability and callout demo cuts"
+          git push origin HEAD:re0/ai-store-manager
