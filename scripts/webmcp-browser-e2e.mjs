@@ -140,10 +140,40 @@ async function main() {
       });
     }
 
-    step("verify month to week schedule hierarchy");
+    step("verify July-August-September schedule history hierarchy");
     await page.getByTestId("schedule-view-month").click();
     await page.getByTestId("schedule-month-overview").waitFor({ state: "visible", timeout: 10_000 });
-    await page.locator("[data-testid^=month-week-]").filter({ hasText: /h/ }).first().click();
+
+    await page.getByTestId("schedule-prev-month").click();
+    await page.getByText("DEMO · 실적", { exact: true }).first().waitFor({ state: "visible", timeout: 10_000 });
+    const julyWeek = page.locator("[data-testid^=month-week-]").filter({ hasText: "DEMO · 실적" }).first();
+    await julyWeek.click();
+    await page.getByTestId("schedule-history-mode").waitFor({ state: "visible", timeout: 10_000 });
+    assert((await page.getByTestId("schedule-history-mode").textContent())?.includes("DEMO · 실적"), "July history did not render as demo actual.");
+    const julyShift = page.locator("button.shift-chip").first();
+    await julyShift.waitFor({ state: "visible", timeout: 10_000 });
+    assert((await julyShift.getAttribute("draggable")) === "false", "Historical July shift should be read-only.");
+    await julyShift.click();
+    assert(await page.locator(".shift-editor").count() === 0, "Historical July shift opened an editor.");
+
+    await page.getByTestId("schedule-view-month").click();
+    await page.getByTestId("schedule-next-month").click();
+    await page.getByTestId("schedule-next-month").click();
+    await page.getByText("DEMO · 계획", { exact: true }).first().waitFor({ state: "visible", timeout: 10_000 });
+    const septemberWeek = page.locator("[data-testid^=month-week-]").filter({ hasText: "DEMO · 계획" }).first();
+    await septemberWeek.click();
+    await page.getByTestId("schedule-history-mode").waitFor({ state: "visible", timeout: 10_000 });
+    assert((await page.getByTestId("schedule-history-mode").textContent())?.includes("DEMO · 계획"), "September history did not render as demo plan.");
+    const septemberShift = page.locator("button.shift-chip").first();
+    await septemberShift.waitFor({ state: "visible", timeout: 10_000 });
+    assert((await septemberShift.getAttribute("draggable")) === "false", "Future September shift should be read-only.");
+
+    await page.getByTestId("schedule-view-month").click();
+    await page.getByTestId("schedule-prev-month").click();
+    const currentWeekCard = page.getByTestId("month-week-2026-08-24");
+    await currentWeekCard.waitFor({ state: "visible", timeout: 10_000 });
+    assert((await currentWeekCard.textContent())?.includes("DB"), "Current August week is not marked as DB working state.");
+    await currentWeekCard.click();
 
     step("continue full reviewed-apply flow on Seoul");
     const apiEvidence = await page.evaluate(async () => {
