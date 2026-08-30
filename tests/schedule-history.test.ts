@@ -20,4 +20,35 @@ describe("schedule history read model", () => {
     expect(summary.actualWage).toBeGreaterThan(0);
     expect(summary.actualSalesBasis).toBeGreaterThan(0);
   });
+
+  it("keeps forecast history explicitly separate from the editable current week", () => {
+    const base = createDemoState("coffee", "kr-seoul");
+    const originalShiftIds = base.shifts.map((shift) => shift.id);
+    const future: ScheduleHistoryWeek = {
+      storeId: "demo-kr-seoul-coffee",
+      weekStart: "2026-09-07",
+      shifts: base.shifts.map((shift) => ({
+        ...shift,
+        id: `forecast-${shift.id}`,
+        start: shift.start.replace("2026-08-", "2026-09-"),
+        end: shift.end.replace("2026-08-", "2026-09-"),
+      })),
+      sales: (base.sales ?? []).map((sale) => ({
+        ...sale,
+        id: `forecast-${sale.id}`,
+        date: sale.date.replace("2026-08-", "2026-09-"),
+      })),
+      timeEntries: [],
+      source: "demo",
+      salesMode: "forecast",
+    };
+
+    const projected = scheduleHistoryState(base, future);
+    expect(future.salesMode).toBe("forecast");
+    expect(projected.shifts.every((shift) => shift.id.startsWith("forecast-"))).toBe(true);
+    expect(projected.timeEntries).toHaveLength(0);
+    expect(base.shifts.map((shift) => shift.id)).toEqual(originalShiftIds);
+    expect(base.preview).toBeNull();
+    expect(base.storePlan).toBeNull();
+  });
 });
