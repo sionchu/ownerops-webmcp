@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { createDemoState } from "@/domain/fixtures";
+import type { MarketId } from "@/domain/model";
 import { analyzeSalesEvidence } from "@/domain/sales-evidence";
 
+const MARKETS: MarketId[] = ["kr-seoul", "us-nyc", "jp-tokyo", "es-madrid", "cn-shanghai"];
+
 describe("sales evidence", () => {
-  it("keeps the weekly sales headline traceable to daily and menu evidence", () => {
-    const state = createDemoState("coffee", "kr-seoul");
+  it.each(MARKETS)("keeps %s sales traceable without presenting demo evidence as live", (market) => {
+    const state = createDemoState("coffee", market);
     const evidence = analyzeSalesEvidence(state);
 
     expect(evidence.daily).toHaveLength(7);
