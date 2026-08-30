@@ -195,6 +195,13 @@ describe("shared UI and WebMCP StoreState path", () => {
     expect(registrations.find(({ tool }) => tool.name === "get_store_state")?.tool.description).toMatch(/PRIMARY READ PATH/);
     expect(registrations.find(({ tool }) => tool.name === "plan_store_actions")?.tool.description).toMatch(/PRIMARY PLANNING PATH/);
     expect(registrations.find(({ tool }) => tool.name === "restore_store_snapshot")?.tool.description).toMatch(/BACKUP\/RESTORE ONLY/);
+    for (const name of ["get_store_state", "plan_store_actions", "apply_store_plan"]) {
+      const description = registrations.find(({ tool }) => tool.name === name)?.tool.description ?? "";
+      expect(description).toMatch(/not implemented in the current OwnerOps version/);
+      expect(description).toMatch(/future expansion area without a release date/);
+      expect(description).toMatch(/closest supported analysis, draft, or preview/);
+      expect(description).toMatch(/never claim an external filing, payment, message, order, or price change was submitted/);
+    }
     expect(registrations.every(({ tool }) => typeof tool.inputSchema === "object")).toBe(true);
 
     registration.dispose();

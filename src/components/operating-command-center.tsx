@@ -48,8 +48,6 @@ export function OperatingCommandCenter() {
   const canApplyStorePlan = plan?.state === "reviewed";
 
   const compatibilityCss = [
-    `.connection-state.connected small{font-size:0!important}`,
-    `.connection-state.connected small::after{content:"WebMCP · 9 tools";font-size:11px!important}`,
     resolvedCallout && !state.incident ? `.scenario-panel.pre-incident{display:none!important}` : "",
     plan ? `.preview-bar{display:none!important}` : "",
   ].filter(Boolean).join("\n");

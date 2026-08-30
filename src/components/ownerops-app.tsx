@@ -5,7 +5,7 @@ import { AssistantAvatar } from "@/components/assistant-avatar";
 import { DEMO_WEEK } from "@/domain/fixtures";
 import { applyChanges } from "@/domain/impact";
 import type { AppState, PlanImpact, Shift } from "@/domain/model";
-import { scheduleCostSummary, scheduleDayRange, scheduledWageForShift } from "@/domain/schedule-cost";
+import { scheduleActualWageVariance, scheduleCostSummary, scheduleDayRange, scheduledWageForShift } from "@/domain/schedule-cost";
 import { INTL_LOCALE, getLocalizedIndustryProfile, getUiCopy, type UiLocale } from "@/i18n";
 import { capacityGapCopy, disruptionBody, getOutreachCopy, liveOperatingSummary, markUnavailableLabel, marketScheduleContext, minimumWageLabel, outreachDraft, suggestedIncidentPrompt, unavailableLabel, weekRebuildCopy, weekRebuildTimelineCopy } from "@/i18n/dynamic";
 import { getIndustryProfile } from "@/industry/profiles";
@@ -137,7 +137,7 @@ function AssistantRail({ supported }: { supported: boolean | null }) {
       <div className="assistant-heading"><div><span className="eyebrow">{ui.rail.ownerOpsAgent}</span><h2>{ui.rail.sharedStateActivity}</h2></div><span className={`status-dot ${state.activity.state}`} /></div>
       <div className={`connection-state ${supported === null ? "checking" : supported ? "connected" : "disconnected"}`}>
         <span className="connection-dot" aria-hidden="true" />
-        <div><strong>{supported === null ? ui.rail.checkingSharedState : supported ? ui.rail.liveSharedState : ui.rail.agentNotConnected}</strong><small>{supported === null ? ui.rail.checkingBrowser : supported ? "WebMCP · 8 tools" : ui.rail.manualStillWorks}</small></div>
+        <div><strong>{supported === null ? ui.rail.checkingSharedState : supported ? ui.rail.liveSharedState : ui.rail.agentNotConnected}</strong><small>{supported === null ? ui.rail.checkingBrowser : supported ? "WebMCP · 9 tools" : ui.rail.manualStillWorks}</small></div>
       </div>
       <div className={`assistant-avatar-stage ${showAvatarCallout ? "has-callout" : ""}`}>
         {showAvatarCallout && <div className={`activity-copy avatar-callout activity-${state.activity.state}`} aria-live="polite"><span className="activity-kicker">{activity.kicker}</span><strong>{activity.message}</strong>{activityDetail && <p>{activityDetail}</p>}</div>}
@@ -214,7 +214,7 @@ function ScheduleCostSummaryStrip({ state, locale, view, selectedDate, weekDays 
   const labels = ui.schedule.costSummary;
   const hasActual = summary.actualHours > 0;
   const hoursLabel = view === "day" ? labels.totalHours : labels.weeklyHours;
-  const actualDelta = summary.actualWage - summary.scheduledWage;
+  const actualVariance = scheduleActualWageVariance(summary);
 
   return (
     <section className="schedule-cost-summary" data-testid="schedule-cost-summary" data-view={view} aria-label={labels.scheduledWage}>
@@ -231,11 +231,16 @@ function ScheduleCostSummaryStrip({ state, locale, view, selectedDate, weekDays 
         <strong>{formatMoney(state, locale, summary.scheduledWage)}</strong>
       </div>
       <div className="schedule-cost-item">
-        <span>{view === "day" ? labels.laborRatio : labels.currentActualWage}</span>
-        <strong>{view === "day" ? (summary.salesBasis > 0 ? formatPercent(locale, summary.laborRatio) : "—") : (hasActual ? formatMoney(state, locale, summary.actualWage) : "—")}</strong>
-        {view === "day" && hasActual && <small>{labels.actualWage} {formatMoney(state, locale, summary.actualWage)} · {labels.expectedVsActual} {signedMoney(state, locale, actualDelta)}</small>}
-        {view === "week" && <small>{labels.laborRatio} {summary.salesBasis > 0 ? formatPercent(locale, summary.laborRatio) : "—"}{hasActual ? ` · ${labels.expectedVsActual} ${signedMoney(state, locale, actualDelta)}` : ""}</small>}
-        {view === "day" && summary.salesBasis <= 0 && <small>{labels.laborRatio}</small>}
+        {view === "day" && !hasActual ? <>
+          <span>{labels.laborRatio}</span>
+          <strong>{summary.salesBasis > 0 ? formatPercent(locale, summary.laborRatio) : "—"}</strong>
+        </> : <>
+          <span>{view === "week" ? labels.currentActualWageCumulative : summary.actualComplete ? labels.actualWage : labels.actualWageCumulative}</span>
+          <strong>{hasActual ? formatMoney(state, locale, summary.actualWage) : "—"}</strong>
+          {view === "day" && actualVariance !== null && <small>{labels.expectedVsActual} {signedMoney(state, locale, actualVariance)} · {labels.laborRatio} {summary.salesBasis > 0 ? formatPercent(locale, summary.laborRatio) : "—"}</small>}
+          {view === "day" && actualVariance === null && <small>{labels.scheduledToday} {formatMoney(state, locale, summary.scheduledWage)} · {labels.laborRatio} {summary.salesBasis > 0 ? formatPercent(locale, summary.laborRatio) : "—"}</small>}
+          {view === "week" && <small>{labels.laborRatio} {summary.salesBasis > 0 ? formatPercent(locale, summary.laborRatio) : "—"}{actualVariance !== null ? ` · ${labels.expectedVsActual} ${signedMoney(state, locale, actualVariance)}` : ""}</small>}
+        </>}
       </div>
       <div className={`schedule-cost-item ${summary.warningCount > 0 ? "warning" : ""}`}>
         <span>{labels.reviewNeeded}</span>

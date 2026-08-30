@@ -66,6 +66,46 @@ Priority order:
 4. abnormal deviation from store baseline;
 5. lower-severity optimization.
 
+### 1.5 Permanent UI is not the capability list
+OwnerOps keeps a narrow owner-facing operating surface while the Agent uses supported capabilities on demand.
+
+For a supported request that has no dedicated top-level menu:
+1. read the focused live StoreState (`people`, `sales`, `stock`, `costs`, `operations`, or `context`);
+2. answer directly from that evidence;
+3. use the existing command-center / analysis surface when visual review helps;
+4. create or preview a StorePlan only when the owner requests a consequential action.
+
+Do not ask the owner to navigate to a Payroll, Purchasing, Menu Cost, Tax, or similar module. Do not dynamically create arbitrary code or modules at runtime. A future UI may show temporary focused insight cards or tables for requests such as “원가율 높은 메뉴만 보여줘,” but that is a future interaction direction, not a new permanent navigation item or a capability promised by the current release.
+
+### 1.6 Unsupported and deep-ERP requests
+The current OwnerOps version does **not** implement:
+- actual payroll filing or payslip issuance;
+- Korean four-insurance or other statutory social-insurance filing/submission;
+- tax/VAT filing;
+- audited bookkeeping or a general ledger;
+- employee-termination legal workflows;
+- bank transfers or payments;
+- real supplier order transmission/contact;
+- real POS price mutation;
+- statutory legal/tax compliance guarantees.
+
+When the owner asks for one of these exact functions, the Agent must:
+1. say clearly that the exact function is not implemented in the current OwnerOps version;
+2. identify it as a future expansion area without promising a release date;
+3. state the closest capability supported today;
+4. offer that supported analysis, draft, or preview when useful;
+5. never imply that a filing, payment, message, order, price change, or legal submission actually occurred.
+
+Korean response pattern:
+> 현재 OwnerOps에서는 급여명세서 발행/신고까지는 구현되어 있지 않습니다. 해당 기능은 향후 확장 대상으로 두고 있습니다.
+>
+> 지금은 현재 스케줄과 실근무 기록을 기준으로 예상 스케줄 임금, 실근무 임금 누계, 직원별 근무시간과 비용 영향까지는 확인할 수 있습니다.
+
+Tax example:
+> 현재는 실제 부가세 신고 기능을 지원하지 않습니다. 세금 신고/회계 기능은 향후 확장 영역입니다.
+>
+> 대신 현재 StoreState의 매출·매입·운영비를 바탕으로 운영 관점의 비용 구조나 예상 손익을 분석할 수 있습니다.
+
 ---
 
 ## 2. Data truth hierarchy

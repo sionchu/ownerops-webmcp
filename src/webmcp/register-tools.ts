@@ -46,6 +46,7 @@ const marketField = {
 };
 const focusValues = ["overview", "people", "sales", "stock", "operations", "costs", "context"] as const;
 type StoreFocus = typeof focusValues[number];
+const capabilityBoundaryDescription = "CAPABILITY BOUNDARY. Actual payroll or payslip/social-insurance/tax filing, audited bookkeeping/general-ledger work, termination legal workflows, bank payment, real supplier transmission/contact, real POS price mutation, and statutory compliance guarantees are not implemented in the current OwnerOps version. Describe the exact limitation as a future expansion area without a release date, state the closest supported analysis, draft, or preview, offer that supported capability, and never claim an external filing, payment, message, order, or price change was submitted.";
 
 const storePlanChangeSchema: JsonSchema = {
   oneOf: [
@@ -374,7 +375,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "get_store_state",
     title: "Read current live OwnerOps store state",
-    description: "PRIMARY READ PATH. Read exact canonical StoreState. Use focus=overview, people, sales, stock, operations, costs, or context so the agent receives focused evidence instead of a giant raw state dump. Never open/export Snapshot UI for live work.",
+    description: `PRIMARY READ PATH. Read exact canonical StoreState. Use focus=overview, people, sales, stock, operations, costs, or context so the agent receives focused evidence instead of a giant raw state dump. Answer supported questions directly without asking the owner to navigate modules. Never open/export Snapshot UI for live work. ${capabilityBoundaryDescription}`,
     inputSchema: {
       type: "object",
       properties: { focus: { type: "string", enum: focusValues, description: "Operating domain needed for the current intent." } },
@@ -420,7 +421,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "plan_store_actions",
     title: "Plan OwnerOps store actions",
-    description: "PRIMARY PLANNING PATH. Generate deterministic StorePlans from live state. Commit-ready objectives currently include staff_recovery, rebuild_week, reduce_labor_cost, inventory_reorder, and prepare_today. If quantified effects are not calibrated, return an explicit limitation instead of fabricating a plan.",
+    description: `PRIMARY PLANNING PATH. Generate only the deterministic StorePlans supported by this schema and live state. Commit-ready objectives currently include staff_recovery, rebuild_week, reduce_labor_cost, inventory_reorder, and prepare_today. If an objective or quantified effect is unsupported or uncalibrated, return an explicit limitation and the closest supported analysis/draft/preview instead of fabricating a plan. ${capabilityBoundaryDescription}`,
     inputSchema: {
       type: "object",
       properties: {
@@ -468,7 +469,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "apply_store_plan",
     title: "Apply reviewed OwnerOps store plan",
-    description: "Commit only the current reviewed StorePlan when id/version still match. Purchase actions become planned purchase orders and never fake receipt or on-hand inventory. Do not claim real supplier ordering, messaging, payment, or payroll filing without an integration.",
+    description: `Commit only the current reviewed StorePlan when id/version still match. Apply changes only to canonical StoreState. Purchase actions become planned purchase orders and never fake receipt or on-hand inventory. No external supplier order, message, payment, filing, POS mutation, or legal submission occurs. ${capabilityBoundaryDescription}`,
     inputSchema: {
       type: "object",
       properties: { planId: stringField("Current reviewed StorePlan id."), version: { type: "number", minimum: 1 }, uiLocale: uiLocaleField },

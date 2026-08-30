@@ -15,6 +15,13 @@ Tool descriptions are part of product behavior. They must route the agent toward
 - Consequential multi-domain changes should become a visible preview rather than silently commit.
 - Tool outputs may help the external agent reason; deterministic domain functions remain the calculation truth.
 
+## Capability boundary
+The nine tools expose the current OwnerOps operating capabilities; they are not a generic ERP execution surface.
+
+If the owner requests payroll/payslip/social-insurance/tax filing, audited bookkeeping/general-ledger work, termination legal workflow, bank payment, real supplier transmission/contact, real POS price mutation, or a statutory compliance guarantee, the Agent must not fabricate an action or route it through an unrelated tool. It must say the exact function is not implemented in the current version, identify it as a future expansion area without a roadmap date, explain the closest supported analysis/draft/preview, and offer that supported capability. Tool output and Agent language must never imply that an external filing, payment, message, order, or price mutation occurred when only StoreState or a preview changed.
+
+Supported capabilities remain available on demand without requiring permanent navigation. The Agent reads a focused StoreState and answers directly; when visual review is useful it uses the existing command-center / analysis surface, and when consequential action is requested it creates/previews a StorePlan.
+
 ## Tool surface
 Target **nine user-intent tools** for the RE0. This is a replacement target for the previous staffing-only eight-tool contract; migrate coherently instead of keeping duplicate old/new tool families.
 

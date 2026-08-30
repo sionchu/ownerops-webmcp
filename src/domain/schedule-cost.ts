@@ -12,6 +12,7 @@ export type ScheduleCostSummary = {
   scheduledWage: number;
   actualHours: number;
   actualWage: number;
+  actualComplete: boolean;
   workerCount: number;
   salesBasis: number;
   laborRatio: number;
@@ -118,12 +119,17 @@ function warningCount(state: AppState, range: Bounds, shifts: Shift[], relevantS
  */
 export function scheduleCostSummary(state: AppState, range: ScheduleCostRange): ScheduleCostSummary {
   const resolved = bounds(range);
-  if (!resolved) return { scheduledHours: 0, scheduledWage: 0, actualHours: 0, actualWage: 0, workerCount: 0, salesBasis: 0, laborRatio: 0, warningCount: 0 };
+  if (!resolved) return { scheduledHours: 0, scheduledWage: 0, actualHours: 0, actualWage: 0, actualComplete: false, workerCount: 0, salesBasis: 0, laborRatio: 0, warningCount: 0 };
 
   const rates = new Map(state.workers.map((worker) => [worker.id, worker.hourlyRate]));
   const shifts = effectiveShifts(state);
   const scheduled = scheduledSummary(state, resolved, shifts, rates);
   const actual = actualSummary(state, resolved, rates);
+  const closedActualShiftIds = new Set((state.timeEntries ?? [])
+    .filter((entry) => Boolean(entry.shiftId && entry.clockOut))
+    .map((entry) => entry.shiftId!));
+  const actualComplete = scheduled.relevant.length > 0
+    && scheduled.relevant.every((shift) => closedActualShiftIds.has(shift.id));
   const sales = salesBasis(state, resolved);
   const relevantShiftIds = new Set(scheduled.relevant.map((shift) => shift.id));
   const relevantWorkerIds = new Set(scheduled.relevant.flatMap((shift) => shift.workerId ? [shift.workerId] : []));
@@ -133,11 +139,17 @@ export function scheduleCostSummary(state: AppState, range: ScheduleCostRange): 
     scheduledWage: scheduled.scheduledWage,
     actualHours: actual.actualHours,
     actualWage: actual.actualWage,
+    actualComplete,
     workerCount: relevantWorkerIds.size,
     salesBasis: sales,
     laborRatio: sales > 0 ? scheduled.scheduledWage / sales : 0,
     warningCount: warningCount(state, resolved, shifts, relevantShiftIds, relevantWorkerIds),
   };
+}
+
+/** Signed actual-vs-scheduled evidence is meaningful only for a closed comparison set. */
+export function scheduleActualWageVariance(summary: ScheduleCostSummary): number | null {
+  return summary.actualComplete ? summary.actualWage - summary.scheduledWage : null;
 }
 
 /** Resolve one shift's scheduled wage through the same summary selector. */
