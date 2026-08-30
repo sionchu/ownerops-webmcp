@@ -102,6 +102,20 @@ describe("unit-safe costing", () => {
     }
   });
 
+  it("keeps coffee menu prices and cost ratios valid across all five markets", () => {
+    for (const market of ["kr-seoul", "us-nyc", "jp-tokyo", "es-madrid", "cn-shanghai"] as const) {
+      const state = createDemoState("coffee", market);
+      const analyses = analyzeMenuCosts(state);
+      expect(state.menu?.every((item) => Number.isFinite(item.price) && item.price > 0)).toBe(true);
+      for (const analysis of analyses) {
+        expect(analysis.sellingPrice).toBeGreaterThan(0);
+        expect(analysis.status).toBe("complete");
+        expect(analysis.foodCostRatio === null || Number.isFinite(analysis.foodCostRatio)).toBe(true);
+        expect(analysis.foodCostRatio === null || analysis.foodCostRatio < 1).toBe(true);
+      }
+    }
+  });
+
   it("keeps seeded store-level food cost ratios finite and free of unit-scale explosions", () => {
     for (const industry of ["coffee", "pizza", "salon", "sushi", "curry", "diner"] as const) {
       const metrics = storeCostMetrics(createDemoState(industry, "kr-seoul"));
