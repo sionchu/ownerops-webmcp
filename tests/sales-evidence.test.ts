@@ -15,5 +15,7 @@ describe("sales evidence", () => {
     expect(evidence.totals.netSales).toBeCloseTo(Object.values(state.business.expectedSalesByDay).reduce((sum, value) => sum + value, 0));
     expect(Number.isFinite(evidence.totals.theoreticalFoodCost)).toBe(true);
     expect(Number.isFinite(evidence.totals.wasteCost)).toBe(true);
+    expect(Math.abs(evidence.totals.unallocatedSales) / evidence.totals.netSales).toBeLessThan(0.03);
+    expect(evidence.menu.find((item) => item.menuItemId === "croissant-menu")?.foodCost).toBeGreaterThan(0);
   });
 });

@@ -108,7 +108,7 @@ async function main() {
       assert(overview.business.currency === market.currency, `Currency mismatch for ${market.id}.`, overview.business);
       assert(overview.business.dataProvenance?.disclosure?.includes("not a live provider quote"), `Missing non-live reference disclosure for ${market.id}.`, overview.business.dataProvenance);
       assert((await storeStatus.getAttribute("title"))?.includes("DB"), `DB status icon missing for ${market.id}.`);
-      assert((await referenceStatus.getAttribute("title"))?.includes("Benchmark"), `Benchmark status icon missing for ${market.id}.`);
+      assert((await referenceStatus.getAttribute("aria-label")) === "Reference benchmark", `Benchmark status icon missing for ${market.id}.`);
       assert(finite(overview.metrics?.foodCostRatio) && overview.metrics.foodCostRatio >= 0 && overview.metrics.foodCostRatio < 1, `Food-cost ratio is invalid for ${market.id}.`, overview.metrics);
 
       const sales = await invoke("get_store_state", { focus: "sales" });

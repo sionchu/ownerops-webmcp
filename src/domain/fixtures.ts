@@ -113,7 +113,10 @@ function createMenu(industry: IndustryId, market: MarketId): MenuItem[] {
 }
 
 function createPurchases(inventory: InventoryItem[]): PurchaseRecord[] {
-  return inventory.slice(0, Math.min(5, inventory.length)).map((item, index) => ({
+  const first = inventory.slice(0, Math.min(5, inventory.length));
+  const croissant = inventory.find((item) => item.id === "croissant");
+  const purchased = croissant && !first.some((item) => item.id === croissant.id) ? [...first, croissant] : first;
+  return purchased.map((item, index) => ({
     id: `purchase-${item.id}`,
     supplierId: item.supplierId ?? "supplier-food",
     inventoryItemId: item.id,
@@ -142,7 +145,7 @@ function createSales(expectedSalesByDay: Record<string, number>, menu: MenuItem[
     const estimatedOrders = Math.max(1, Math.round(netSales / Math.max(averagePrice * 1.35, 1)));
     const itemSales = menu.map((item, index) => {
       const share = index === 0 ? 0.55 : 0.45 / Math.max(menu.length - 1, 1);
-      const quantity = Math.max(1, Math.round(estimatedOrders * share));
+      const quantity = Math.max(1, Math.round(netSales * share / Math.max(item.price, 1)));
       return { menuItemId: item.id, quantity, netSales: quantity * item.price };
     });
     return {
