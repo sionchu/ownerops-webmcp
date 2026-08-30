@@ -250,8 +250,8 @@ function SchedulePlanCost({ state, locale, weekDays }: { state: AppState; locale
   if (!hasStaffingPlan && !state.preview) return null;
 
   const range = weekRange(weekDays);
-  const baseline = scheduleCostSummary({ ...state, preview: null }, range).scheduledWage;
-  const current = scheduleCostSummary(state, range).scheduledWage;
+  const baseline = scheduleCostSummary(state, range).scheduledWage;
+  const current = scheduleCostSummary(state, range, { scheduleBasis: "candidate" }).scheduledWage;
   const before = hasStaffingPlan && plan ? plan.impact.before.laborCost : baseline;
   const after = hasStaffingPlan && plan ? plan.impact.after.laborCost : current;
   const delta = after - before;
@@ -309,7 +309,7 @@ function ScheduleGrid() {
         <div className={`schedule-grid ${view === "day" ? "day-view" : "week-view"}`} style={{ gridTemplateColumns: `176px repeat(${visibleDays.length}, minmax(104px, 1fr))` }}>
           <div className="grid-corner">{ui.schedule.teamMember}</div>
           {visibleDays.map((day) => {
-            const daySummary = scheduleCostSummary(state, scheduleDayRange(day));
+            const daySummary = scheduleCostSummary(state, scheduleDayRange(day), { scheduleBasis: "candidate" });
             return <div key={day} className={`day-head ${day === focusDay ? "focus-day" : ""}`}><strong>{formatDay(locale, day, { weekday: "short" })}</strong><span>{day.slice(5).replace("-", "/")}</span><small className="day-cost-summary">{formatHours(locale, daySummary.scheduledHours)}{ui.schedule.costSummary.hoursSuffix} · {formatMoney(state, locale, daySummary.scheduledWage)}</small>{day === focusDay && state.incident && <em>{profile.copy.incidentLabel}</em>}</div>;
           })}
           {state.workers.map((worker) => (

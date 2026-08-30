@@ -7,7 +7,15 @@ export type ScheduleCostRange = {
   end: string;
 };
 
+export type ScheduleBasis = "committed" | "candidate";
+
+export type ScheduleCostOptions = {
+  /** Committed is the historical baseline; candidate is projection-only. */
+  scheduleBasis?: ScheduleBasis;
+};
+
 export type ScheduleCostSummary = {
+  scheduleBasis: ScheduleBasis;
   scheduledHours: number;
   scheduledWage: number;
   actualHours: number;
@@ -76,7 +84,7 @@ function salesBasis(state: AppState, range: Bounds): number {
   }, 0);
 }
 
-function effectiveShifts(state: AppState): Shift[] {
+function candidateShifts(state: AppState): Shift[] {
   const previewChanges = state.preview?.changes ?? [];
   return previewChanges.length > 0 ? applyChanges(state.shifts, previewChanges) : state.shifts;
 }
@@ -115,26 +123,31 @@ function warningCount(state: AppState, range: Bounds, shifts: Shift[], relevantS
  * Derive scheduled/actual wage evidence for one day or an inclusive set of
  * business days. The range end is exclusive. This selector never mutates the
  * supplied StoreState and uses the existing worker rates, shifts, time entries,
- * sales basis, and warning rules.
+ * sales basis, and warning rules. Committed is the safe default. Candidate
+ * projection must be explicit; actual completeness always follows committed
+ * shifts and signed variance is unavailable for a candidate-basis summary.
  */
-export function scheduleCostSummary(state: AppState, range: ScheduleCostRange): ScheduleCostSummary {
+export function scheduleCostSummary(state: AppState, range: ScheduleCostRange, options: ScheduleCostOptions = {}): ScheduleCostSummary {
+  const scheduleBasis = options.scheduleBasis ?? "committed";
   const resolved = bounds(range);
-  if (!resolved) return { scheduledHours: 0, scheduledWage: 0, actualHours: 0, actualWage: 0, actualComplete: false, workerCount: 0, salesBasis: 0, laborRatio: 0, warningCount: 0 };
+  if (!resolved) return { scheduleBasis, scheduledHours: 0, scheduledWage: 0, actualHours: 0, actualWage: 0, actualComplete: false, workerCount: 0, salesBasis: 0, laborRatio: 0, warningCount: 0 };
 
   const rates = new Map(state.workers.map((worker) => [worker.id, worker.hourlyRate]));
-  const shifts = effectiveShifts(state);
+  const shifts = scheduleBasis === "candidate" ? candidateShifts(state) : state.shifts;
   const scheduled = scheduledSummary(state, resolved, shifts, rates);
+  const committed = scheduleBasis === "committed" ? scheduled : scheduledSummary(state, resolved, state.shifts, rates);
   const actual = actualSummary(state, resolved, rates);
   const closedActualShiftIds = new Set((state.timeEntries ?? [])
     .filter((entry) => Boolean(entry.shiftId && entry.clockOut))
     .map((entry) => entry.shiftId!));
-  const actualComplete = scheduled.relevant.length > 0
-    && scheduled.relevant.every((shift) => closedActualShiftIds.has(shift.id));
+  const actualComplete = committed.relevant.length > 0
+    && committed.relevant.every((shift) => closedActualShiftIds.has(shift.id));
   const sales = salesBasis(state, resolved);
   const relevantShiftIds = new Set(scheduled.relevant.map((shift) => shift.id));
   const relevantWorkerIds = new Set(scheduled.relevant.flatMap((shift) => shift.workerId ? [shift.workerId] : []));
 
   return {
+    scheduleBasis,
     scheduledHours: scheduled.scheduledHours,
     scheduledWage: scheduled.scheduledWage,
     actualHours: actual.actualHours,
@@ -149,7 +162,9 @@ export function scheduleCostSummary(state: AppState, range: ScheduleCostRange): 
 
 /** Signed actual-vs-scheduled evidence is meaningful only for a closed comparison set. */
 export function scheduleActualWageVariance(summary: ScheduleCostSummary): number | null {
-  return summary.actualComplete ? summary.actualWage - summary.scheduledWage : null;
+  return summary.scheduleBasis === "committed" && summary.actualComplete
+    ? summary.actualWage - summary.scheduledWage
+    : null;
 }
 
 /** Resolve one shift's scheduled wage through the same summary selector. */

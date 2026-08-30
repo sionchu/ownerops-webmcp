@@ -117,10 +117,33 @@ describe("schedule cost summary", () => {
     let state = dispatchApplicationAction(original, { type: "mark_unavailable", workerId: "minsoo", shiftId: "fri-minsoo-18" });
     const option = getResponseOptions(state).find((candidate) => candidate.changes[0]?.workerId === "hana")!;
     state = dispatchApplicationAction(state, { type: "preview_scenario", scenarioId: option.id });
-    const candidate = scheduleCostSummary(state, weekRange);
+    const candidate = scheduleCostSummary(state, weekRange, { scheduleBasis: "candidate" });
 
     expect(candidate.scheduledWage - before.scheduledWage).toBe(-2_000);
     expect(candidate.scheduledHours).toBe(before.scheduledHours);
+    expect(JSON.stringify(original)).toBe(beforeJson);
+  });
+
+  it("keeps historical actual variance on the committed schedule while preview cost changes", () => {
+    const original = createDemoState();
+    const beforeJson = JSON.stringify(original);
+    const range = scheduleDayRange("2026-08-24");
+    const committedBefore = scheduleCostSummary(original, range);
+    const state = dispatchApplicationAction(original, {
+      type: "preview_changes",
+      title: "Reassign completed shift",
+      changes: [{ shiftId: "mon-minsoo-open", workerId: "hana" }],
+    });
+    const committedWithPreview = scheduleCostSummary(state, range);
+    const candidate = scheduleCostSummary(state, range, { scheduleBasis: "candidate" });
+
+    expect(committedBefore.actualComplete).toBe(true);
+    expect(scheduleActualWageVariance(committedBefore)).toBe(9_900);
+    expect(committedWithPreview).toEqual(committedBefore);
+    expect(candidate.scheduleBasis).toBe("candidate");
+    expect(candidate.scheduledWage).toBe(committedBefore.scheduledWage - 3_000);
+    expect(candidate.actualComplete).toBe(true);
+    expect(scheduleActualWageVariance(candidate)).toBeNull();
     expect(JSON.stringify(original)).toBe(beforeJson);
   });
 
