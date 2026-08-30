@@ -1,0 +1,55 @@
+name: OwnerOps profitability workforce fix once
+on:
+  push:
+    branches: [re0/ai-store-manager]
+    paths: [.github/workflows/ownerops-profitability-workforce-fix-once.yml]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: re0/ai-store-manager
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Reapply staged patch and fix delta contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+          workflow = Path('.github/workflows/ownerops-profitability-workforce-once.yml').read_text()
+          marker = "          python - <<'PY'\n"
+          start = workflow.index(marker) + len(marker)
+          end = workflow.index("\n          PY", start)
+          script = textwrap.dedent(workflow[start:end])
+          exec(compile(script, '<staged-profitability-patch>', 'exec'))
+
+          p = Path('src/domain/store-plan.ts')
+          text = p.read_text()
+          old = '''    fixedOperatingCost: after.fixedOperatingCost - before.fixedOperatingCost,\n    purchaseCashOutlay: after.purchaseCashOutlay - before.purchaseCashOutlay,'''
+          new = '''    fixedOperatingCost: after.fixedOperatingCost - before.fixedOperatingCost,\n    estimatedOperatingProfit: after.estimatedOperatingProfit - before.estimatedOperatingProfit,\n    operatingMargin: after.operatingMargin - before.operatingMargin,\n    flCostRatio: after.flCostRatio - before.flCostRatio,\n    purchaseCashOutlay: after.purchaseCashOutlay - before.purchaseCashOutlay,'''
+          if text.count(old) != 1:
+              raise SystemExit('metricDelta insertion point not found')
+          p.write_text(text.replace(old, new, 1))
+          PY
+      - name: Verify
+        run: |
+          npm ci
+          npm test
+          npm run lint
+          npm run typecheck
+          npm run build
+      - name: Commit verified patch
+        run: |
+          git config user.name "OwnerOps CI"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/ownerops-profitability-workforce-once.yml .github/workflows/ownerops-profitability-workforce-fix-once.yml
+          git add src scripts tests
+          git commit -m "feat: prioritize profitability in workforce planning"
+          git push origin HEAD:re0/ai-store-manager
