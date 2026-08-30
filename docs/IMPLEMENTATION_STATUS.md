@@ -14,7 +14,7 @@ The current product connects one live working store projection across:
 - multi-domain StorePlan Before → After → Delta;
 - nine intent-level WebMCP tools.
 
-PostgreSQL/Supabase is the durable persistence/reference-cache target. The public hackathon browser remains safe without DB configuration through deterministic seed fallback.
+PostgreSQL/Supabase is the durable persistence/reference-cache target. Deterministic seed remains the DB/provider failure fallback.
 
 ## Implemented
 ### StoreState / Agent
@@ -40,9 +40,8 @@ PostgreSQL/Supabase is the durable persistence/reference-cache target. The publi
 - one `src/cost-data/` provider/normalization SSOT;
 - provider registry for KAMIS, e-Stat, USDA MMN, Eurostat, Mercamadrid, Shanghai public monitoring, Open Prices and future Square merchant truth;
 - `scripts/fnb-data-sync.mjs` raw fetch pipeline;
-- KAMIS first end-to-end normalized connector;
-- optional raw/normalized Supabase cache persistence;
-- runtime `/api/references` cache hydration with seed fallback.
+- KAMIS normalized connector path implemented but live credentials are not yet available;
+- runtime `/api/references` DB-cache hydration with seed fallback.
 
 ### Database / persistence
 - `001_ownerops_store_ssot.sql`: normalized store truth + reference cache;
@@ -55,10 +54,26 @@ PostgreSQL/Supabase is the durable persistence/reference-cache target. The publi
 
 Public unauthenticated browser writes are intentionally **not** persisted with the service-role key. Owner-level write persistence waits for authenticated identity/RLS.
 
-### Supplied global F&B master integration
-The supplied master workbook is treated as benchmark/template data, not merchant truth.
+## Live Supabase / Preview evidence
+Live P0 DB setup was completed on 2026-08-30:
 
-Current extracted source scope:
+- Supabase organization/project: `OwnerOps / ownerops`;
+- region: Seoul (`ap-northeast-2`);
+- migrations 001 → 002 → 003 applied to the real Supabase project;
+- Seoul canonical benchmark/template imported successfully, including 44 ingredient benchmark rows and the remaining catalog groups;
+- `demo-kr-seoul-coffee` working StoreProjection seeded and round-tripped successfully;
+- Preview deployment reached Ready;
+- `/api/store-state?storeId=demo-kr-seoul-coffee` returned HTTP 200 with `source: database`;
+- `/api/references?market=kr-seoul` returned HTTP 200 with `source: database-cache`;
+- Supabase URL and service-role secret are configured only for the Vercel Preview environment; Production has no OwnerOps Supabase secret;
+- PR #15 remains Draft and `master` remains unchanged.
+
+The route currently accepts `storeId`; `/api/store-state?industry=coffee&market=kr-seoul` is not the current contract and returns 400. Do not claim otherwise unless the route contract is intentionally changed.
+
+## F&B master integration
+The supplied master workbook is benchmark/template data, not merchant truth.
+
+Canonical extracted scope:
 - 5 markets;
 - 196 ingredient benchmark rows;
 - 19 yield benchmarks;
@@ -69,7 +84,7 @@ Current extracted source scope:
 - 80 labor-template rows;
 - 31 supplementary reference menus with arithmetic QA.
 
-`npm run data:import-master` imports one canonical market JSON into template tables only. CI runs a DB-free `--dry-run` fixture.
+`npm run data:import-master` imports one canonical market JSON into template tables only.
 
 ## WebMCP registered tools
 1. `configure_demo_store`
@@ -87,55 +102,30 @@ Primary route:
 
 Snapshot is backup/restore only.
 
-## Latest verified baseline
-Verified source head:
+## Latest repository baseline
+Current branch head before this status update:
 
-`5f9e2d973529f1bbaba43742f8e8183a7c7e927e`
+`44ca03f4bd3e62c7b1f5aa4ecc63fede17de5248`
 
-GitHub Actions run: `33275558531`
+Compared with the live-DB-verified runtime source `1cbb885c106b9612a30ef0bf5917681beb4e9656`, the only change is 14 added lines in `AGENTS.md` authorizing ordinary task-enabling setup/account actions. There is **no runtime code difference**.
 
-### Application job — PASS
-- `npm run data:sources` — PASS
-- Master template importer `--dry-run` — PASS
-- `npm test` — PASS: **57/57 tests, 7 files**
-- `npm run lint` — PASS with 6 warnings / 0 errors
-- `npm run typecheck` — PASS
-- `npm run build` — PASS
+Verification for `44ca03f`:
+- GitHub Actions `OwnerOps CI` run `33289021609` — PASS;
+- Vercel status — SUCCESS.
 
-### Database job — PASS
-PostgreSQL 16 service was started in CI and the real migration SQL was executed in order:
-1. `001_ownerops_store_ssot.sql`
-2. `002_working_store_projection_rpc.sql`
-3. `003_fnb_template_catalog.sql`
+Previously verified application/database baseline includes:
+- data source registry — PASS;
+- Master template importer dry-run — PASS;
+- 57/57 tests across 7 files — PASS;
+- lint — 0 errors;
+- typecheck — PASS;
+- production build — PASS;
+- PostgreSQL 16 migrations 001 → 002 → 003 — PASS;
+- working StoreProjection replace/get round-trip — PASS.
 
-Verification also confirmed:
-- `oo_get_working_store_projection` exists and returns null for a missing store;
-- the external price-source registry seed was created.
-
-This proves the migrations are valid against PostgreSQL 16. It does **not** replace the remaining requirement to apply and exercise them on a real Supabase project.
-
-Build routes include:
-- `/`
-- `/api/references`
-- `/api/store-state`
-
-Lint warnings are non-blocking: one data-sync unused parameter and five legacy i18n unused `_ratio` parameters.
-
-## Not yet live-verified
-Do **not** claim these are complete yet:
-1. migrations applied to a real connected Supabase project;
-2. all five master-market JSON templates imported into a live DB;
-3. persisted store projection + cached references exercised against live Supabase/PostgREST;
-4. KAMIS sync run with real `KAMIS_CERT_KEY` / `KAMIS_CERT_ID` and DB persistence;
-5. normalized e-Stat / USDA item mapping beyond their current raw-fetch foundation;
-6. current RE0 deployed to the production Vercel URL;
-7. current nine-tool WebMCP natural-language flow tested end-to-end in a capable browser;
-8. authenticated per-owner RLS/write persistence.
-
-## Current release blockers
+## Remaining live gates
 ### P0
-- Live Supabase migration/seed/cache verification.
-- Fresh WebMCP browser E2E for the new nine-tool contract.
+- Fresh nine-tool WebMCP natural-language E2E in a capable browser against the DB-backed Preview.
 
 ### P1
 - Real KAMIS credential sync and normalized reference verification.
@@ -151,8 +141,9 @@ Do **not** claim these are complete yet:
 - RE0 branch: `re0/ai-store-manager`
 - Draft PR: #15 `RE0: expand OwnerOps into AI store manager`
 - Base branch: `master`
-- PR stays Draft until live DB + WebMCP gates are verified.
+- Preview only; Production/Master are unchanged.
+- PR stays Draft until the WebMCP E2E gate is verified.
 - Final integration should squash the RE0 working history before merging to master.
 
 ## Next best action
-**Apply the three Supabase migrations to a real project, import one Seoul benchmark template, and verify `/api/store-state` + `/api/references` against that live DB before adding more product features.**
+**Run the nine-tool WebMCP end-to-end flow against the DB-backed Preview, including a human edit → `evaluate_current_plan` re-read → reviewed apply.**
