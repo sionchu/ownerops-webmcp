@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createDemoState } from "@/domain/fixtures";
 import type { MenuItem, PrepItem } from "@/domain/model";
-import { analyzeMenuCosts, analyzeTheoreticalInventoryUsage, inventoryDaysOfCover, menuUnitFoodCost, theoreticalInventoryUsage } from "@/domain/store-ops";
+import { analyzeMenuCosts, analyzeTheoreticalInventoryUsage, inventoryDaysOfCover, menuUnitFoodCost, storeCostMetrics, theoreticalInventoryUsage } from "@/domain/store-ops";
 import { convertInventoryQuantity } from "@/domain/units";
 
 function menu(id: string, recipe: MenuItem["recipe"], price = 10_000): MenuItem {
@@ -99,6 +99,19 @@ describe("unit-safe costing", () => {
         expect(analysis.status).toBe("complete");
         expect(analysis.foodCostRatio === null || analysis.foodCostRatio < 1).toBe(true);
       }
+    }
+  });
+
+  it("keeps seeded store-level food cost ratios finite and free of unit-scale explosions", () => {
+    for (const industry of ["coffee", "pizza", "salon", "sushi", "curry", "diner"] as const) {
+      const metrics = storeCostMetrics(createDemoState(industry, "kr-seoul"));
+      expect(Number.isFinite(metrics.foodCost)).toBe(true);
+      expect(Number.isFinite(metrics.foodCostRatio)).toBe(true);
+      expect(metrics.foodCost).toBeGreaterThanOrEqual(0);
+      // This is a deterministic demo-fixture integrity guard, not a universal business rule.
+      // It specifically prevents a reintroduction of 1,000x g/kg or ml/l aggregation errors.
+      expect(metrics.foodCostRatio).toBeGreaterThanOrEqual(0);
+      expect(metrics.foodCostRatio).toBeLessThan(1);
     }
   });
 });
