@@ -1,0 +1,56 @@
+name: OwnerOps schedule history push once
+on:
+  push:
+    branches: [re0/ai-store-manager]
+    paths: [.github/workflows/ownerops-schedule-history-push-once.yml]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: re0/ai-store-manager
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Reapply verified source patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+          workflow = Path('.github/workflows/ownerops-schedule-history-once.yml').read_text()
+          marker = "          python - <<'PY'\n"
+          start = workflow.index(marker) + len(marker)
+          end = workflow.index("\n          PY", start)
+          exec(compile(textwrap.dedent(workflow[start:end]), '<schedule-history-patch>', 'exec'))
+          p = Path('src/components/ownerops-app.tsx')
+          text = p.read_text()
+          text = text.replace('  const historyWeek = historyWeeks.find((week) => week.weekStart === selectedWeekStart);', '  const historyStoreId = storeIdForState(state);\n  const historyWeek = historyWeeks.find((week) => week.storeId === historyStoreId && week.weekStart === selectedWeekStart);', 1)
+          old = '''  useEffect(() => {\n    const controller = new AbortController();\n    const storeId = storeIdForState(state);\n    setHistoryWeeks([]);\n    void fetch(`/api/schedule-history?storeId=${encodeURIComponent(storeId)}&from=2026-06-29&to=2026-10-05`, { signal: controller.signal, cache: "no-store" })'''
+          new = '''  useEffect(() => {\n    const controller = new AbortController();\n    void fetch(`/api/schedule-history?storeId=${encodeURIComponent(historyStoreId)}&from=2026-06-29&to=2026-10-05`, { signal: controller.signal, cache: "no-store" })'''
+          if text.count(old) != 1: raise SystemExit('history effect block mismatch')
+          text = text.replace(old, new, 1)
+          text = text.replace('  }, [state.business.market, state.business.industry]);', '  }, [historyStoreId]);', 1)
+          p.write_text(text)
+          PY
+          git checkout HEAD -- .github/workflows/ci.yml
+      - name: Verify
+        run: |
+          npm ci
+          npm test
+          npm run lint
+          npm run typecheck
+          npm run build
+      - name: Commit source only
+        run: |
+          git config user.name "OwnerOps CI"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/ownerops-schedule-history-once.yml .github/workflows/ownerops-schedule-history-fix-once.yml .github/workflows/ownerops-schedule-history-push-once.yml
+          git add src tests
+          git commit -m "feat: add read-only three-month schedule history"
+          git push origin HEAD:re0/ai-store-manager
