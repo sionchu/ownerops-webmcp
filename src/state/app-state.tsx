@@ -8,6 +8,16 @@ import type { AppState, PlanImpact, ReferenceObservation, StaffingScenario } fro
 import { normalizeUiLocale, type UiLocale } from "@/i18n";
 import { mergePersistenceProjection, storeIdForState, type StorePersistenceProjection } from "@/persistence/store-projection";
 
+type StoreTruthSource = "database" | "deterministic-seed";
+type ReferenceEvidenceSource = "database-provider-cache" | "database-benchmark-cache" | "deterministic-seed";
+export type StoreDataProvenance = {
+  storeTruth: StoreTruthSource;
+  referenceEvidence: ReferenceEvidenceSource;
+  disclosure: string;
+};
+
+type RuntimeBusiness = AppState["business"] & { dataProvenance?: StoreDataProvenance };
+
 type AppStateContextValue = {
   state: AppState;
   impact: PlanImpact;
@@ -34,8 +44,48 @@ function mergeCachedReferences(state: AppState, incoming: ReferenceObservation[]
   return { ...state, references: [...retained, ...incoming] };
 }
 
+function provenanceDisclosure(storeTruth: StoreTruthSource, referenceEvidence: ReferenceEvidenceSource): string {
+  const store = storeTruth === "database"
+    ? "Store operational truth is DB-backed."
+    : "Store operational truth is the deterministic demo fallback, not a DB-backed store record.";
+  const reference = referenceEvidence === "database-provider-cache"
+    ? "Market reference evidence comes from cached provider observations stored in DB; check provider and freshness before consequential purchasing."
+    : referenceEvidence === "database-benchmark-cache"
+      ? "Market reference evidence is a benchmark/template cached in DB, not a live provider quote; actual supplier receipts remain the store-truth cost basis."
+      : "Market reference evidence is deterministic fallback data, not a live provider quote.";
+  return `${store} ${reference}`;
+}
+
+function withDataProvenance(state: AppState, storeTruth: StoreTruthSource, referenceEvidence: ReferenceEvidenceSource): AppState {
+  return {
+    ...state,
+    business: {
+      ...state.business,
+      dataProvenance: {
+        storeTruth,
+        referenceEvidence,
+        disclosure: provenanceDisclosure(storeTruth, referenceEvidence),
+      },
+    } as AppState["business"],
+  };
+}
+
+function dataProvenance(state: AppState): StoreDataProvenance {
+  return (state.business as RuntimeBusiness).dataProvenance ?? {
+    storeTruth: "deterministic-seed",
+    referenceEvidence: "deterministic-seed",
+    disclosure: provenanceDisclosure("deterministic-seed", "deterministic-seed"),
+  };
+}
+
+function referenceEvidenceFromApi(source: unknown): ReferenceEvidenceSource {
+  if (source === "database-provider-cache") return "database-provider-cache";
+  if (source === "database-benchmark-cache") return "database-benchmark-cache";
+  return "deterministic-seed";
+}
+
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AppState>(() => createDemoState("coffee", "kr-seoul"));
+  const [state, setState] = useState<AppState>(() => withDataProvenance(createDemoState("coffee", "kr-seoul"), "deterministic-seed", "deterministic-seed"));
   const [locale, setLocaleState] = useState<UiLocale>("en");
   const [hydrated, setHydrated] = useState(false);
   const stateRef = useRef(state);
@@ -65,16 +115,24 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     void fetch(`/api/store-state?storeId=${encodeURIComponent(storeId)}`, { signal: controller.signal, cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) return null;
-        return response.json() as Promise<{ projection?: StorePersistenceProjection | null }>;
+        return response.json() as Promise<{ source?: string; projection?: StorePersistenceProjection | null }>;
       })
       .then((payload) => {
-        if (!payload?.projection || controller.signal.aborted) return;
-        const next = mergePersistenceProjection(stateRef.current, payload.projection);
+        if (controller.signal.aborted) return;
+        const current = stateRef.current;
+        const refs = dataProvenance(current).referenceEvidence;
+        const next = payload?.projection
+          ? withDataProvenance(mergePersistenceProjection(current, payload.projection), "database", refs)
+          : withDataProvenance(current, "deterministic-seed", refs);
         stateRef.current = next;
         setState(next);
       })
       .catch((error) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
+        const current = stateRef.current;
+        const next = withDataProvenance(current, "deterministic-seed", dataProvenance(current).referenceEvidence);
+        stateRef.current = next;
+        setState(next);
         console.warn("OwnerOps persisted store unavailable; deterministic seed retained.", error);
       });
     return () => controller.abort();
@@ -87,23 +145,38 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     void fetch(`/api/references?market=${encodeURIComponent(market)}`, { signal: controller.signal, cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) return null;
-        return response.json() as Promise<{ references?: ReferenceObservation[] }>;
+        return response.json() as Promise<{ source?: string; references?: ReferenceObservation[] }>;
       })
       .then((payload) => {
-        if (!payload?.references?.length || controller.signal.aborted) return;
-        const next = mergeCachedReferences(stateRef.current, payload.references);
+        if (!payload || controller.signal.aborted) return;
+        const current = stateRef.current;
+        const referenceEvidence = referenceEvidenceFromApi(payload.source);
+        const merged = payload.references?.length ? mergeCachedReferences(current, payload.references) : current;
+        const next = withDataProvenance(merged, dataProvenance(current).storeTruth, referenceEvidence);
         stateRef.current = next;
         setState(next);
       })
       .catch((error) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
+        const current = stateRef.current;
+        const next = withDataProvenance(current, dataProvenance(current).storeTruth, "deterministic-seed");
+        stateRef.current = next;
+        setState(next);
         console.warn("OwnerOps reference cache unavailable; deterministic seed retained.", error);
       });
     return () => controller.abort();
   }, [hydrated, state.business.market]);
 
   const runAction = useCallback((action: ApplicationAction) => {
-    const next = dispatchApplicationAction(stateRef.current, action);
+    const previous = stateRef.current;
+    let next = dispatchApplicationAction(previous, action);
+    const configuredStoreChanged = next.business.market !== previous.business.market || next.business.industry !== previous.business.industry;
+    if (configuredStoreChanged || action.type === "reset_demo") {
+      next = withDataProvenance(next, "deterministic-seed", "deterministic-seed");
+    } else {
+      const current = dataProvenance(previous);
+      next = withDataProvenance(next, current.storeTruth, current.referenceEvidence);
+    }
     stateRef.current = next;
     setState(next);
     return next;
