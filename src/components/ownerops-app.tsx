@@ -212,7 +212,6 @@ function ScheduleCostSummaryStrip({ state, locale, view, selectedDate, weekDays 
   const range = view === "day" ? scheduleDayRange(selectedDate) : weekRange(weekDays);
   const summary = scheduleCostSummary(state, range);
   const labels = ui.schedule.costSummary;
-  const hasActual = summary.actualHours > 0;
   const hoursLabel = view === "day" ? labels.totalHours : labels.weeklyHours;
   const actualVariance = scheduleActualWageVariance(summary);
 
@@ -231,16 +230,11 @@ function ScheduleCostSummaryStrip({ state, locale, view, selectedDate, weekDays 
         <strong>{formatMoney(state, locale, summary.scheduledWage)}</strong>
       </div>
       <div className="schedule-cost-item">
-        {view === "day" && !hasActual ? <>
-          <span>{labels.laborRatio}</span>
-          <strong>{summary.salesBasis > 0 ? formatPercent(locale, summary.laborRatio) : "—"}</strong>
-        </> : <>
-          <span>{view === "week" ? labels.currentActualWageCumulative : summary.actualComplete ? labels.actualWage : labels.actualWageCumulative}</span>
-          <strong>{hasActual ? formatMoney(state, locale, summary.actualWage) : "—"}</strong>
-          {view === "day" && actualVariance !== null && <small>{labels.expectedVsActual} {signedMoney(state, locale, actualVariance)} · {labels.laborRatio} {summary.salesBasis > 0 ? formatPercent(locale, summary.laborRatio) : "—"}</small>}
-          {view === "day" && actualVariance === null && <small>{labels.scheduledToday} {formatMoney(state, locale, summary.scheduledWage)} · {labels.laborRatio} {summary.salesBasis > 0 ? formatPercent(locale, summary.laborRatio) : "—"}</small>}
-          {view === "week" && <small>{labels.laborRatio} {summary.salesBasis > 0 ? formatPercent(locale, summary.laborRatio) : "—"}{actualVariance !== null ? ` · ${labels.expectedVsActual} ${signedMoney(state, locale, actualVariance)}` : ""}</small>}
-        </>}
+        <span>{view === "week" ? labels.currentActualWageCumulative : summary.actualComplete ? labels.actualWage : labels.actualWageCumulative}</span>
+        <strong>{formatMoney(state, locale, summary.actualWage)}</strong>
+        {view === "day" && actualVariance !== null && <small>{labels.expectedVsActual} {signedMoney(state, locale, actualVariance)} · {labels.laborRatio} {summary.salesBasis > 0 ? formatPercent(locale, summary.laborRatio) : "—"}</small>}
+        {view === "day" && actualVariance === null && <small>{labels.scheduledToday} {formatMoney(state, locale, summary.scheduledWage)} · {labels.laborRatio} {summary.salesBasis > 0 ? formatPercent(locale, summary.laborRatio) : "—"}</small>}
+        {view === "week" && <small>{labels.laborRatio} {summary.salesBasis > 0 ? formatPercent(locale, summary.laborRatio) : "—"}{actualVariance !== null ? ` · ${labels.expectedVsActual} ${signedMoney(state, locale, actualVariance)}` : ""}</small>}
       </div>
       <div className={`schedule-cost-item ${summary.warningCount > 0 ? "warning" : ""}`}>
         <span>{labels.reviewNeeded}</span>
