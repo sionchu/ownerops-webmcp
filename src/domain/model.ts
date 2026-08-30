@@ -388,6 +388,9 @@ export type StoreMetricSnapshot = {
   variableOperatingCost: number;
   occupancyCost: number;
   fixedOperatingCost: number;
+  estimatedOperatingProfit: number;
+  operatingMargin: number;
+  flCostRatio: number;
   purchaseCashOutlay: number;
   estimatedWasteCost: number;
   uncoveredPeakMinutes: number;
@@ -421,6 +424,9 @@ export type StorePlanDomainImpact = {
     foodCostDelta: number;
     variableOperatingCostDelta: number;
     fixedOperatingCostDelta: number;
+    operatingProfitDelta: number;
+    operatingMarginDelta: number;
+    flCostRatioDelta: number;
     breakEvenSalesDelta: number;
   };
 };

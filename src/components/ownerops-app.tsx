@@ -228,10 +228,20 @@ function MonthScheduleOverview({ state, locale, selectedDate, onSelectWeek }: { 
       return <button type="button" data-testid={`month-week-${weekStart}`} key={weekStart} onClick={() => onSelectWeek(weekStart)} style={{ textAlign: "left", border: "1px solid var(--line)", background: "var(--surface-strong)", borderRadius: 9, padding: 11, cursor: "pointer", color: "inherit" }}>
         <span style={{ display: "block", color: "var(--muted)", fontSize: 10, fontWeight: 750 }}>{copy.weekSummary}</span>
         <strong style={{ display: "block", marginTop: 3 }}>{days[0].slice(5).replace("-", "/")}–{days[6].slice(5).replace("-", "/")}</strong>
-        {summary.scheduledHours > 0 ? <><span style={{ display: "block", marginTop: 7, fontSize: 11 }}>{formatHours(locale, summary.scheduledHours)} h · {formatMoney(state, locale, summary.scheduledWage)}</span><small style={{ display: "block", marginTop: 3, color: "var(--muted)" }}>{formatMoney(state, locale, summary.salesBasis)} · {summary.warningCount} ⚑</small></> : <small style={{ display: "block", marginTop: 8, color: "var(--faint)" }}>{copy.noSchedule}</small>}
+        {summary.scheduledHours > 0 ? <><span style={{ display: "block", marginTop: 7, fontSize: 11 }}>{formatHours(locale, summary.scheduledHours)} h · {formatMoney(state, locale, summary.salesBasis)}</span><small style={{ display: "block", marginTop: 3, color: "var(--muted)" }}>{formatPercent(locale, summary.laborRatio)} · {summary.warningCount} ⚑</small></> : <small style={{ display: "block", marginTop: 8, color: "var(--faint)" }}>{copy.noSchedule}</small>}
       </button>;
     })}
   </div>;
+}
+
+function scheduleBusinessCopy(locale: UiLocale) {
+  return {
+    actualPrimary: locale === "ko" ? "실근무 인건비" : locale === "ja" ? "実勤務人件費" : locale === "es" ? "Mano de obra real" : locale === "zh-CN" ? "实际人工成本" : "Actual labor",
+    closedSalesRatio: locale === "ko" ? "마감 일자 매출 대비" : locale === "ja" ? "締め済み日売上比" : locale === "es" ? "sobre ventas cerradas" : locale === "zh-CN" ? "占已结日销售额" : "of closed-day sales",
+    plannedSecondary: locale === "ko" ? "계획 인건비" : locale === "ja" ? "計画人件費" : locale === "es" ? "Mano de obra planificada" : locale === "zh-CN" ? "计划人工成本" : "Planned labor",
+    plannedRatio: locale === "ko" ? "계획 매출 대비" : locale === "ja" ? "計画売上比" : locale === "es" ? "sobre ventas planificadas" : locale === "zh-CN" ? "占计划销售额" : "of planned sales",
+    noClosedSales: locale === "ko" ? "마감된 근무일 매출 기준 없음" : locale === "ja" ? "締め済み勤務日の売上基準なし" : locale === "es" ? "Sin ventas cerradas comparables" : locale === "zh-CN" ? "暂无可比已结销售额" : "No comparable closed-day sales",
+  };
 }
 
 function ScheduleCostSummaryStrip({ state, locale, view, selectedDate, weekDays }: { state: AppState; locale: UiLocale; view: ScheduleView; selectedDate: string; weekDays: string[] }) {
@@ -239,11 +249,12 @@ function ScheduleCostSummaryStrip({ state, locale, view, selectedDate, weekDays 
   const range = view === "day" ? scheduleDayRange(selectedDate) : weekRange(weekDays);
   const summary = scheduleCostSummary(state, range);
   const labels = ui.schedule.costSummary;
+  const business = scheduleBusinessCopy(locale);
   const hoursLabel = view === "day" ? labels.totalHours : labels.weeklyHours;
   const actualVariance = scheduleActualWageVariance(summary);
 
   return (
-    <section className="schedule-cost-summary" data-testid="schedule-cost-summary" data-view={view} aria-label={labels.scheduledWage}>
+    <section className="schedule-cost-summary" data-testid="schedule-cost-summary" data-view={view} aria-label={business.actualPrimary}>
       <div className="schedule-cost-item">
         <span>{labels.workerCount}</span>
         <strong>{summary.workerCount}{labels.peopleSuffix}</strong>
@@ -253,15 +264,14 @@ function ScheduleCostSummaryStrip({ state, locale, view, selectedDate, weekDays 
         <strong>{formatHours(locale, summary.scheduledHours)}{labels.hoursSuffix}</strong>
       </div>
       <div className="schedule-cost-item schedule-cost-primary">
-        <span>{labels.scheduledWage}</span>
-        <strong>{formatMoney(state, locale, summary.scheduledWage)}</strong>
+        <span>{business.actualPrimary}</span>
+        <strong>{summary.actualWage > 0 ? formatMoney(state, locale, summary.actualWage) : "—"}</strong>
+        <small>{summary.actualSalesBasis > 0 ? `${business.closedSalesRatio} ${formatPercent(locale, summary.actualLaborRatio)}` : business.noClosedSales}</small>
       </div>
       <div className="schedule-cost-item">
-        <span>{view === "week" ? labels.currentActualWageCumulative : summary.actualComplete ? labels.actualWage : labels.actualWageCumulative}</span>
-        <strong>{formatMoney(state, locale, summary.actualWage)}</strong>
-        {view === "day" && actualVariance !== null && <small>{labels.expectedVsActual} {signedMoney(state, locale, actualVariance)} · {labels.laborRatio} {summary.salesBasis > 0 ? formatPercent(locale, summary.laborRatio) : "—"}</small>}
-        {view === "day" && actualVariance === null && <small>{labels.scheduledToday} {formatMoney(state, locale, summary.scheduledWage)} · {labels.laborRatio} {summary.salesBasis > 0 ? formatPercent(locale, summary.laborRatio) : "—"}</small>}
-        {view === "week" && <small>{labels.laborRatio} {summary.salesBasis > 0 ? formatPercent(locale, summary.laborRatio) : "—"}{actualVariance !== null ? ` · ${labels.expectedVsActual} ${signedMoney(state, locale, actualVariance)}` : ""}</small>}
+        <span>{business.plannedSecondary}</span>
+        <strong>{formatMoney(state, locale, summary.scheduledWage)}</strong>
+        <small>{business.plannedRatio} {summary.salesBasis > 0 ? formatPercent(locale, summary.laborRatio) : "—"}{actualVariance !== null ? ` · ${labels.expectedVsActual} ${signedMoney(state, locale, actualVariance)}` : ""}</small>
       </div>
       <div className={`schedule-cost-item ${summary.warningCount > 0 ? "warning" : ""}`}>
         <span>{labels.reviewNeeded}</span>
@@ -336,7 +346,7 @@ function ScheduleGrid() {
           <div className="grid-corner">{ui.schedule.teamMember}</div>
           {visibleDays.map((day) => {
             const daySummary = scheduleCostSummary(state, scheduleDayRange(day), { scheduleBasis: "candidate" });
-            return <button type="button" key={day} onClick={() => { setSelectedDate(day); setView("day"); }} className={`day-head ${day === focusDay ? "focus-day" : ""}`} style={{ border: 0, font: "inherit", cursor: "pointer", color: "inherit" }}><strong>{formatDay(locale, day, { weekday: "short" })}</strong><span>{day.slice(5).replace("-", "/")}</span><small className="day-cost-summary">{formatHours(locale, daySummary.scheduledHours)}{ui.schedule.costSummary.hoursSuffix} · {formatMoney(state, locale, daySummary.scheduledWage)}</small>{day === focusDay && state.incident && <em>{profile.copy.incidentLabel}</em>}</button>;
+            return <button type="button" key={day} onClick={() => { setSelectedDate(day); setView("day"); }} className={`day-head ${day === focusDay ? "focus-day" : ""}`} style={{ border: 0, font: "inherit", cursor: "pointer", color: "inherit" }}><strong>{formatDay(locale, day, { weekday: "short" })}</strong><span>{day.slice(5).replace("-", "/")}</span><small className="day-cost-summary">{formatHours(locale, daySummary.scheduledHours)}{ui.schedule.costSummary.hoursSuffix} · {daySummary.workerCount}{ui.schedule.costSummary.peopleSuffix}</small>{day === focusDay && state.incident && <em>{profile.copy.incidentLabel}</em>}</button>;
           })}
           {state.workers.map((worker) => (
             <div className="worker-row-fragment" key={worker.id}>

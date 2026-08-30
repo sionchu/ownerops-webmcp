@@ -192,6 +192,18 @@ async function main() {
     const baselinePurchaseOrders = stock.purchaseOrders?.length ?? 0;
     assert(finite(baselineMilkOnHand), "Milk on-hand truth is missing.", baselineMilk);
 
+    step("verify profitability-first weekly workforce plan before the incident");
+    const profitability = await invoke("plan_store_actions", { objective: "reduce_labor_cost", maxWeeklyHours: 40, prioritize: "cost" });
+    const profitPlan = profitability?.plans?.[0];
+    assert(profitPlan?.changes?.some((change) => change.type === "staffing"), "Profitability plan did not produce staffing changes.", profitability);
+    assert(profitPlan.impact.after.estimatedOperatingProfit > profitPlan.impact.before.estimatedOperatingProfit, "Profitability plan did not improve estimated operating profit.", profitPlan.impact);
+    assert(profitPlan.impact.after.operatingMargin >= profitPlan.impact.before.operatingMargin, "Profitability plan did not improve operating margin.", profitPlan.impact);
+    assert(profitPlan.impact.after.flCostRatio <= profitPlan.impact.before.flCostRatio, "Profitability plan did not improve FL cost.", profitPlan.impact);
+    assert(profitPlan.impact.after.uncoveredPeakMinutes === 0, "Profitability plan introduced a peak coverage gap.", profitPlan.impact);
+    await invoke("preview_store_plan", { planId: profitPlan.id, title: profitPlan.title, changes: profitPlan.changes, uiLocale: "ko" });
+    const profitCard = await page.getByText("운영 추정 손익", { exact: true }).count();
+    assert(profitCard > 0, "Profitability-first StorePlan card is missing from the rendered UI.");
+
     step("record Minsoo Friday call-out");
     const people = await invoke("get_store_state", { focus: "people" });
     const calloutShift = people?.shifts?.find((shift) => shift.id === "fri-minsoo-18" && shift.workerId === "minsoo")

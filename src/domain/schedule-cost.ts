@@ -21,6 +21,9 @@ export type ScheduleCostSummary = {
   scheduledWage: number;
   actualHours: number;
   actualWage: number;
+  actualComparableWage: number;
+  actualSalesBasis: number;
+  actualLaborRatio: number;
   actualComplete: boolean;
   workerCount: number;
   salesBasis: number;
@@ -129,7 +132,7 @@ function warningCount(state: AppState, range: Bounds, shifts: Shift[], relevantS
 export function scheduleCostSummary(state: AppState, range: ScheduleCostRange, options: ScheduleCostOptions = {}): ScheduleCostSummary {
   const scheduleBasis = options.scheduleBasis ?? "committed";
   const resolved = bounds(range);
-  if (!resolved) return { scheduleBasis, scheduledHours: 0, scheduledWage: 0, actualHours: 0, actualWage: 0, actualComplete: false, workerCount: 0, salesBasis: 0, laborRatio: 0, warningCount: 0 };
+  if (!resolved) return { scheduleBasis, scheduledHours: 0, scheduledWage: 0, actualHours: 0, actualWage: 0, actualComparableWage: 0, actualSalesBasis: 0, actualLaborRatio: 0, actualComplete: false, workerCount: 0, salesBasis: 0, laborRatio: 0, warningCount: 0 };
 
   const rates = new Map(state.workers.map((worker) => [worker.id, worker.hourlyRate]));
   const shifts = scheduleBasis === "candidate" ? candidateShifts(state) : state.shifts;
@@ -141,6 +144,19 @@ export function scheduleCostSummary(state: AppState, range: ScheduleCostRange, o
     .map((entry) => entry.shiftId!));
   const actualComplete = committed.relevant.length > 0
     && committed.relevant.every((shift) => closedActualShiftIds.has(shift.id));
+  const committedByDate = new Map<string, Shift[]>();
+  for (const shift of committed.relevant) committedByDate.set(businessDate(shift.start), [...(committedByDate.get(businessDate(shift.start)) ?? []), shift]);
+  const completedDates = new Set([...committedByDate.entries()]
+    .filter(([, shiftsForDate]) => shiftsForDate.length > 0 && shiftsForDate.every((shift) => closedActualShiftIds.has(shift.id)))
+    .map(([date]) => date));
+  const actualComparableWage = (state.timeEntries ?? []).reduce((total, entry) => {
+    if (!entry.clockOut || !entry.shiftId) return total;
+    const shift = state.shifts.find((candidate) => candidate.id === entry.shiftId);
+    if (!shift || !completedDates.has(businessDate(shift.start))) return total;
+    return total + overlap(entry.clockIn, entry.clockOut, resolved) * (rates.get(entry.workerId) ?? 0);
+  }, 0);
+  const actualSalesBasis = (state.sales ?? []).reduce((total, snapshot) => completedDates.has(snapshot.date) ? total + snapshot.netSales : total, 0);
+  const actualLaborRatio = actualSalesBasis > 0 ? actualComparableWage / actualSalesBasis : 0;
   const sales = salesBasis(state, resolved);
   const relevantShiftIds = new Set(scheduled.relevant.map((shift) => shift.id));
   const relevantWorkerIds = new Set(scheduled.relevant.flatMap((shift) => shift.workerId ? [shift.workerId] : []));
@@ -151,6 +167,9 @@ export function scheduleCostSummary(state: AppState, range: ScheduleCostRange, o
     scheduledWage: scheduled.scheduledWage,
     actualHours: actual.actualHours,
     actualWage: actual.actualWage,
+    actualComparableWage,
+    actualSalesBasis,
+    actualLaborRatio,
     actualComplete,
     workerCount: relevantWorkerIds.size,
     salesBasis: sales,

@@ -14,12 +14,13 @@ function metricRows(
   labels: ReturnType<typeof getOperatingBriefCopy>["plan"]["metrics"],
 ) {
   return [
-    [labels.labor, before.laborCost, after.laborCost],
-    [labels.foodCost, before.foodCost, after.foodCost],
-    [labels.purchaseCash, before.purchaseCashOutlay, after.purchaseCashOutlay],
-    [labels.wasteExposure, before.estimatedWasteCost, after.estimatedWasteCost],
-    [labels.breakEvenSales, before.breakEvenSales, after.breakEvenSales],
-  ] as const;
+    { label: labels.operatingProfit, before: before.estimatedOperatingProfit, after: after.estimatedOperatingProfit, kind: "money" as const, better: "higher" as const },
+    { label: labels.operatingMargin, before: before.operatingMargin, after: after.operatingMargin, kind: "percent" as const, better: "higher" as const },
+    { label: labels.flCost, before: before.flCostRatio, after: after.flCostRatio, kind: "percent" as const, better: "lower" as const },
+    { label: labels.labor, before: before.laborCost, after: after.laborCost, kind: "money" as const, better: "lower" as const },
+    { label: labels.breakEvenSales, before: before.breakEvenSales, after: after.breakEvenSales, kind: "money" as const, better: "lower" as const },
+    { label: labels.purchaseCash, before: before.purchaseCashOutlay, after: after.purchaseCashOutlay, kind: "money" as const, better: "lower" as const },
+  ];
 }
 
 function quantity(value: number | null | undefined, unit: string, locale: string): string {
@@ -113,16 +114,19 @@ export function OperatingCommandCenter() {
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 8 }}>
-              {metricRows(plan.impact.before, plan.impact.after, ui.plan.metrics).map(([label, before, after]) => {
-                const delta = after - before;
-                return <div key={label} style={{ padding: "8px 10px", border: "1px solid #e8ded3", borderRadius: 9, background: "#fff" }}>
-                  <div style={{ fontSize: 10, color: "#746e65", textTransform: "uppercase", fontWeight: 750 }}>{label}</div>
+              {metricRows(plan.impact.before, plan.impact.after, ui.plan.metrics).map((metric) => {
+                const delta = metric.after - metric.before;
+                const improved = metric.better === "higher" ? delta > 0 : delta < 0;
+                const format = (value: number) => metric.kind === "percent" ? percentage(value, locale) : operatingBriefMoney(locale, currency, value);
+                const deltaLabel = metric.kind === "percent" ? `${delta >= 0 ? "+" : "−"}${percentage(Math.abs(delta), locale)}` : `${delta >= 0 ? "+" : "−"}${operatingBriefMoney(locale, currency, Math.abs(delta))}`;
+                return <div key={metric.label} style={{ padding: "8px 10px", border: "1px solid #e8ded3", borderRadius: 9, background: "#fff" }}>
+                  <div style={{ fontSize: 10, color: "#746e65", textTransform: "uppercase", fontWeight: 750 }}>{metric.label}</div>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 3, fontVariantNumeric: "tabular-nums" }}>
-                    <span style={{ fontSize: 12, color: "#746e65" }}>{operatingBriefMoney(locale, currency, before)}</span>
+                    <span style={{ fontSize: 12, color: "#746e65" }}>{format(metric.before)}</span>
                     <span style={{ color: "#aaa" }}>→</span>
-                    <strong style={{ fontSize: 13, color: "#2c2925" }}>{operatingBriefMoney(locale, currency, after)}</strong>
+                    <strong style={{ fontSize: 13, color: "#2c2925" }}>{format(metric.after)}</strong>
                   </div>
-                  <div style={{ fontSize: 11, marginTop: 2, color: delta === 0 ? "#746e65" : delta > 0 ? "#a84f3d" : "#315847" }}>Δ {delta >= 0 ? "+" : "−"}{operatingBriefMoney(locale, currency, Math.abs(delta))}</div>
+                  <div style={{ fontSize: 11, marginTop: 2, color: delta === 0 ? "#746e65" : improved ? "#315847" : "#a84f3d" }}>Δ {deltaLabel}</div>
                 </div>;
               })}
             </div>
