@@ -22,6 +22,7 @@ type LatestReferenceRow = {
 const CURRENCIES = new Set<CurrencyCode>(["KRW", "USD", "JPY", "EUR", "CNY"]);
 
 function freshnessFor(row: LatestReferenceRow, now = Date.now()): ReferenceFreshness {
+  if (row.metadata?.referenceOrigin === "benchmark-template") return "seed";
   const observed = new Date(row.observed_at).getTime();
   if (!Number.isFinite(observed)) return "stale";
   const ageHours = Math.max(0, now - observed) / 3_600_000;
