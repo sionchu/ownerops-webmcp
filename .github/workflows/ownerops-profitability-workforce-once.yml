@@ -1,0 +1,143 @@
+name: OwnerOps profitability workforce once
+on:
+  push:
+    branches: [re0/ai-store-manager]
+    paths: [.github/workflows/ownerops-profitability-workforce-once.yml]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: re0/ai-store-manager
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Apply profitability-first workforce patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def one(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one match, got {count}: {old[:90]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          # StorePlan metric contract: owner value first, cost components second.
+          one('src/domain/model.ts',
+              '  fixedOperatingCost: number;\n  purchaseCashOutlay: number;',
+              '  fixedOperatingCost: number;\n  estimatedOperatingProfit: number;\n  operatingMargin: number;\n  flCostRatio: number;\n  purchaseCashOutlay: number;')
+          one('src/domain/model.ts',
+              '    fixedOperatingCostDelta: number;\n    breakEvenSalesDelta: number;',
+              '    fixedOperatingCostDelta: number;\n    operatingProfitDelta: number;\n    operatingMarginDelta: number;\n    flCostRatioDelta: number;\n    breakEvenSalesDelta: number;')
+
+          one('src/domain/store-plan.ts',
+              '    fixedOperatingCost: costs.fixedOperatingWeekly,\n    purchaseCashOutlay: cashOutlay,',
+              '    fixedOperatingCost: costs.fixedOperatingWeekly,\n    estimatedOperatingProfit: costs.estimatedOperatingProfit,\n    operatingMargin: costs.operatingMargin,\n    flCostRatio: costs.flCostRatio,\n    purchaseCashOutlay: cashOutlay,')
+          one('src/domain/store-plan.ts',
+              '        fixedOperatingCostDelta: delta.fixedOperatingCost,\n        breakEvenSalesDelta: delta.breakEvenSales,',
+              '        fixedOperatingCostDelta: delta.fixedOperatingCost,\n        operatingProfitDelta: delta.estimatedOperatingProfit,\n        operatingMarginDelta: delta.operatingMargin,\n        flCostRatioDelta: delta.flCostRatio,\n        breakEvenSalesDelta: delta.breakEvenSales,')
+
+          # Plan metric labels in five locales.
+          one('src/i18n/operating-brief.ts',
+              '      breakEvenSales: string;\n',
+              '      breakEvenSales: string;\n      operatingProfit: string;\n      operatingMargin: string;\n      flCost: string;\n')
+          replacements = {
+            'metrics: { labor: "Scheduled wage estimate", foodCost: "Food cost", purchaseCash: "Purchase cash", wasteExposure: "Waste exposure", breakEvenSales: "Break-even sales" }':
+              'metrics: { labor: "Planned labor", foodCost: "Food cost", purchaseCash: "Purchase cash", wasteExposure: "Waste exposure", breakEvenSales: "Break-even sales", operatingProfit: "Estimated operating profit", operatingMargin: "Operating margin", flCost: "FL cost" }',
+            'metrics: { labor: "예상 스케줄 임금", foodCost: "식재료비", purchaseCash: "구매 현금지출", wasteExposure: "폐기 손실", breakEvenSales: "손익분기 매출" }':
+              'metrics: { labor: "계획 인건비", foodCost: "식재료비", purchaseCash: "구매 현금지출", wasteExposure: "폐기 손실", breakEvenSales: "손익분기 매출", operatingProfit: "운영 추정 손익", operatingMargin: "운영이익률", flCost: "FL Cost" }',
+            'metrics: { labor: "予定スケジュール賃金", foodCost: "食材費", purchaseCash: "仕入現金支出", wasteExposure: "廃棄損失", breakEvenSales: "損益分岐売上" }':
+              'metrics: { labor: "計画人件費", foodCost: "食材費", purchaseCash: "仕入現金支出", wasteExposure: "廃棄損失", breakEvenSales: "損益分岐売上", operatingProfit: "推定営業損益", operatingMargin: "営業利益率", flCost: "FLコスト" }',
+            'metrics: { labor: "Estimación salarial programada", foodCost: "Coste de alimentos", purchaseCash: "Caja de compras", wasteExposure: "Exposición a merma", breakEvenSales: "Ventas de equilibrio" }':
+              'metrics: { labor: "Mano de obra planificada", foodCost: "Coste de alimentos", purchaseCash: "Caja de compras", wasteExposure: "Exposición a merma", breakEvenSales: "Ventas de equilibrio", operatingProfit: "Resultado operativo estimado", operatingMargin: "Margen operativo", flCost: "Coste FL" }',
+            'metrics: { labor: "预计排班工资", foodCost: "食材成本", purchaseCash: "采购现金支出", wasteExposure: "报废损失", breakEvenSales: "盈亏平衡销售额" }':
+              'metrics: { labor: "计划人工成本", foodCost: "食材成本", purchaseCash: "采购现金支出", wasteExposure: "报废损失", breakEvenSales: "盈亏平衡销售额", operatingProfit: "预计运营损益", operatingMargin: "运营利润率", flCost: "FL成本" }',
+          }
+          for old, new in replacements.items():
+              one('src/i18n/operating-brief.ts', old, new)
+
+          # Profitability-first plan cards with correct good/bad delta direction.
+          p = Path('src/components/operating-command-center.tsx')
+          text = p.read_text()
+          old = '''function metricRows(\n  before: StoreMetricSnapshot,\n  after: StoreMetricSnapshot,\n  labels: ReturnType<typeof getOperatingBriefCopy>["plan"]["metrics"],\n) {\n  return [\n    [labels.labor, before.laborCost, after.laborCost],\n    [labels.foodCost, before.foodCost, after.foodCost],\n    [labels.purchaseCash, before.purchaseCashOutlay, after.purchaseCashOutlay],\n    [labels.wasteExposure, before.estimatedWasteCost, after.estimatedWasteCost],\n    [labels.breakEvenSales, before.breakEvenSales, after.breakEvenSales],\n  ] as const;\n}\n'''
+          new = '''function metricRows(\n  before: StoreMetricSnapshot,\n  after: StoreMetricSnapshot,\n  labels: ReturnType<typeof getOperatingBriefCopy>["plan"]["metrics"],\n) {\n  return [\n    { label: labels.operatingProfit, before: before.estimatedOperatingProfit, after: after.estimatedOperatingProfit, kind: "money" as const, better: "higher" as const },\n    { label: labels.operatingMargin, before: before.operatingMargin, after: after.operatingMargin, kind: "percent" as const, better: "higher" as const },\n    { label: labels.flCost, before: before.flCostRatio, after: after.flCostRatio, kind: "percent" as const, better: "lower" as const },\n    { label: labels.labor, before: before.laborCost, after: after.laborCost, kind: "money" as const, better: "lower" as const },\n    { label: labels.breakEvenSales, before: before.breakEvenSales, after: after.breakEvenSales, kind: "money" as const, better: "lower" as const },\n    { label: labels.purchaseCash, before: before.purchaseCashOutlay, after: after.purchaseCashOutlay, kind: "money" as const, better: "lower" as const },\n  ];\n}\n'''
+          if old not in text:
+              raise SystemExit('operating-command-center metricRows block not found')
+          text = text.replace(old, new, 1)
+          old_map = '''              {metricRows(plan.impact.before, plan.impact.after, ui.plan.metrics).map(([label, before, after]) => {\n                const delta = after - before;\n                return <div key={label} style={{ padding: "8px 10px", border: "1px solid #e8ded3", borderRadius: 9, background: "#fff" }}>\n                  <div style={{ fontSize: 10, color: "#746e65", textTransform: "uppercase", fontWeight: 750 }}>{label}</div>\n                  <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 3, fontVariantNumeric: "tabular-nums" }}>\n                    <span style={{ fontSize: 12, color: "#746e65" }}>{operatingBriefMoney(locale, currency, before)}</span>\n                    <span style={{ color: "#aaa" }}>→</span>\n                    <strong style={{ fontSize: 13, color: "#2c2925" }}>{operatingBriefMoney(locale, currency, after)}</strong>\n                  </div>\n                  <div style={{ fontSize: 11, marginTop: 2, color: delta === 0 ? "#746e65" : delta > 0 ? "#a84f3d" : "#315847" }}>Δ {delta >= 0 ? "+" : "−"}{operatingBriefMoney(locale, currency, Math.abs(delta))}</div>\n                </div>;\n              })}\n'''
+          new_map = '''              {metricRows(plan.impact.before, plan.impact.after, ui.plan.metrics).map((metric) => {\n                const delta = metric.after - metric.before;\n                const improved = metric.better === "higher" ? delta > 0 : delta < 0;\n                const format = (value: number) => metric.kind === "percent" ? percentage(value, locale) : operatingBriefMoney(locale, currency, value);\n                const deltaLabel = metric.kind === "percent" ? `${delta >= 0 ? "+" : "−"}${percentage(Math.abs(delta), locale)}` : `${delta >= 0 ? "+" : "−"}${operatingBriefMoney(locale, currency, Math.abs(delta))}`;\n                return <div key={metric.label} style={{ padding: "8px 10px", border: "1px solid #e8ded3", borderRadius: 9, background: "#fff" }}>\n                  <div style={{ fontSize: 10, color: "#746e65", textTransform: "uppercase", fontWeight: 750 }}>{metric.label}</div>\n                  <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 3, fontVariantNumeric: "tabular-nums" }}>\n                    <span style={{ fontSize: 12, color: "#746e65" }}>{format(metric.before)}</span>\n                    <span style={{ color: "#aaa" }}>→</span>\n                    <strong style={{ fontSize: 13, color: "#2c2925" }}>{format(metric.after)}</strong>\n                  </div>\n                  <div style={{ fontSize: 11, marginTop: 2, color: delta === 0 ? "#746e65" : improved ? "#315847" : "#a84f3d" }}>Δ {deltaLabel}</div>\n                </div>;\n              })}\n'''
+          if old_map not in text:
+              raise SystemExit('operating-command-center plan map block not found')
+          p.write_text(text.replace(old_map, new_map, 1))
+
+          # Comparable actual labor ratio: only closed business dates are paired with sales.
+          one('src/domain/schedule-cost.ts',
+              '  actualWage: number;\n  actualComplete: boolean;',
+              '  actualWage: number;\n  actualComparableWage: number;\n  actualSalesBasis: number;\n  actualLaborRatio: number;\n  actualComplete: boolean;')
+          one('src/domain/schedule-cost.ts',
+              '  if (!resolved) return { scheduleBasis, scheduledHours: 0, scheduledWage: 0, actualHours: 0, actualWage: 0, actualComplete: false, workerCount: 0, salesBasis: 0, laborRatio: 0, warningCount: 0 };',
+              '  if (!resolved) return { scheduleBasis, scheduledHours: 0, scheduledWage: 0, actualHours: 0, actualWage: 0, actualComparableWage: 0, actualSalesBasis: 0, actualLaborRatio: 0, actualComplete: false, workerCount: 0, salesBasis: 0, laborRatio: 0, warningCount: 0 };')
+          one('src/domain/schedule-cost.ts',
+              '''  const actualComplete = committed.relevant.length > 0\n    && committed.relevant.every((shift) => closedActualShiftIds.has(shift.id));\n  const sales = salesBasis(state, resolved);''',
+              '''  const actualComplete = committed.relevant.length > 0\n    && committed.relevant.every((shift) => closedActualShiftIds.has(shift.id));\n  const committedByDate = new Map<string, Shift[]>();\n  for (const shift of committed.relevant) committedByDate.set(businessDate(shift.start), [...(committedByDate.get(businessDate(shift.start)) ?? []), shift]);\n  const completedDates = new Set([...committedByDate.entries()]\n    .filter(([, shiftsForDate]) => shiftsForDate.length > 0 && shiftsForDate.every((shift) => closedActualShiftIds.has(shift.id)))\n    .map(([date]) => date));\n  const actualComparableWage = (state.timeEntries ?? []).reduce((total, entry) => {\n    if (!entry.clockOut || !entry.shiftId) return total;\n    const shift = state.shifts.find((candidate) => candidate.id === entry.shiftId);\n    if (!shift || !completedDates.has(businessDate(shift.start))) return total;\n    return total + overlap(entry.clockIn, entry.clockOut, resolved) * (rates.get(entry.workerId) ?? 0);\n  }, 0);\n  const actualSalesBasis = (state.sales ?? []).reduce((total, snapshot) => completedDates.has(snapshot.date) ? total + snapshot.netSales : total, 0);\n  const actualLaborRatio = actualSalesBasis > 0 ? actualComparableWage / actualSalesBasis : 0;\n  const sales = salesBasis(state, resolved);''')
+          one('src/domain/schedule-cost.ts',
+              '    actualWage: actual.actualWage,\n    actualComplete,',
+              '    actualWage: actual.actualWage,\n    actualComparableWage,\n    actualSalesBasis,\n    actualLaborRatio,\n    actualComplete,')
+
+          # Schedule UI: actual/business result first; planned wage is secondary context.
+          p = Path('src/components/ownerops-app.tsx')
+          text = p.read_text()
+          pattern = re.compile(r'function ScheduleCostSummaryStrip\(.*?\n}\n\nfunction SchedulePlanCost', re.S)
+          match = pattern.search(text)
+          if not match:
+              raise SystemExit('ScheduleCostSummaryStrip block not found')
+          replacement = '''function scheduleBusinessCopy(locale: UiLocale) {\n  return {\n    actualPrimary: locale === "ko" ? "실근무 인건비" : locale === "ja" ? "実勤務人件費" : locale === "es" ? "Mano de obra real" : locale === "zh-CN" ? "实际人工成本" : "Actual labor",\n    closedSalesRatio: locale === "ko" ? "마감 일자 매출 대비" : locale === "ja" ? "締め済み日売上比" : locale === "es" ? "sobre ventas cerradas" : locale === "zh-CN" ? "占已结日销售额" : "of closed-day sales",\n    plannedSecondary: locale === "ko" ? "계획 인건비" : locale === "ja" ? "計画人件費" : locale === "es" ? "Mano de obra planificada" : locale === "zh-CN" ? "计划人工成本" : "Planned labor",\n    plannedRatio: locale === "ko" ? "계획 매출 대비" : locale === "ja" ? "計画売上比" : locale === "es" ? "sobre ventas planificadas" : locale === "zh-CN" ? "占计划销售额" : "of planned sales",\n    noClosedSales: locale === "ko" ? "마감된 근무일 매출 기준 없음" : locale === "ja" ? "締め済み勤務日の売上基準なし" : locale === "es" ? "Sin ventas cerradas comparables" : locale === "zh-CN" ? "暂无可比已结销售额" : "No comparable closed-day sales",\n  };\n}\n\nfunction ScheduleCostSummaryStrip({ state, locale, view, selectedDate, weekDays }: { state: AppState; locale: UiLocale; view: ScheduleView; selectedDate: string; weekDays: string[] }) {\n  const ui = getUiCopy(locale);\n  const range = view === "day" ? scheduleDayRange(selectedDate) : weekRange(weekDays);\n  const summary = scheduleCostSummary(state, range);\n  const labels = ui.schedule.costSummary;\n  const business = scheduleBusinessCopy(locale);\n  const hoursLabel = view === "day" ? labels.totalHours : labels.weeklyHours;\n  const actualVariance = scheduleActualWageVariance(summary);\n\n  return (\n    <section className="schedule-cost-summary" data-testid="schedule-cost-summary" data-view={view} aria-label={business.actualPrimary}>\n      <div className="schedule-cost-item">\n        <span>{labels.workerCount}</span>\n        <strong>{summary.workerCount}{labels.peopleSuffix}</strong>\n      </div>\n      <div className="schedule-cost-item">\n        <span>{hoursLabel}</span>\n        <strong>{formatHours(locale, summary.scheduledHours)}{labels.hoursSuffix}</strong>\n      </div>\n      <div className="schedule-cost-item schedule-cost-primary">\n        <span>{business.actualPrimary}</span>\n        <strong>{summary.actualWage > 0 ? formatMoney(state, locale, summary.actualWage) : "—"}</strong>\n        <small>{summary.actualSalesBasis > 0 ? `${business.closedSalesRatio} ${formatPercent(locale, summary.actualLaborRatio)}` : business.noClosedSales}</small>\n      </div>\n      <div className="schedule-cost-item">\n        <span>{business.plannedSecondary}</span>\n        <strong>{formatMoney(state, locale, summary.scheduledWage)}</strong>\n        <small>{business.plannedRatio} {summary.salesBasis > 0 ? formatPercent(locale, summary.laborRatio) : "—"}{actualVariance !== null ? ` · ${labels.expectedVsActual} ${signedMoney(state, locale, actualVariance)}` : ""}</small>\n      </div>\n      <div className={`schedule-cost-item ${summary.warningCount > 0 ? "warning" : ""}`}>\n        <span>{labels.reviewNeeded}</span>\n        <strong>{summary.warningCount}</strong>\n      </div>\n    </section>\n  );\n}\n\nfunction SchedulePlanCost'''
+          text = text[:match.start()] + replacement + text[match.end():]
+          old_month = '''{summary.scheduledHours > 0 ? <><span style={{ display: "block", marginTop: 7, fontSize: 11 }}>{formatHours(locale, summary.scheduledHours)} h · {formatMoney(state, locale, summary.scheduledWage)}</span><small style={{ display: "block", marginTop: 3, color: "var(--muted)" }}>{formatMoney(state, locale, summary.salesBasis)} · {summary.warningCount} ⚑</small></> : <small style={{ display: "block", marginTop: 8, color: "var(--faint)" }}>{copy.noSchedule}</small>}'''
+          new_month = '''{summary.scheduledHours > 0 ? <><span style={{ display: "block", marginTop: 7, fontSize: 11 }}>{formatHours(locale, summary.scheduledHours)} h · {formatMoney(state, locale, summary.salesBasis)}</span><small style={{ display: "block", marginTop: 3, color: "var(--muted)" }}>{formatPercent(locale, summary.laborRatio)} · {summary.warningCount} ⚑</small></> : <small style={{ display: "block", marginTop: 8, color: "var(--faint)" }}>{copy.noSchedule}</small>}'''
+          if old_month not in text:
+              raise SystemExit('month summary block not found')
+          text = text.replace(old_month, new_month, 1)
+          old_day = '''<small className="day-cost-summary">{formatHours(locale, daySummary.scheduledHours)}{ui.schedule.costSummary.hoursSuffix} · {formatMoney(state, locale, daySummary.scheduledWage)}</small>'''
+          new_day = '''<small className="day-cost-summary">{formatHours(locale, daySummary.scheduledHours)}{ui.schedule.costSummary.hoursSuffix} · {daySummary.workerCount}{ui.schedule.costSummary.peopleSuffix}</small>'''
+          if old_day not in text:
+              raise SystemExit('day cost summary block not found')
+          p.write_text(text.replace(old_day, new_day, 1))
+
+          # Browser acceptance: profitability-first weekly plan is a real semantic WebMCP scenario.
+          p = Path('scripts/webmcp-browser-e2e.mjs')
+          text = p.read_text()
+          anchor = '''    step("record Minsoo Friday call-out");\n'''
+          addition = '''    step("verify profitability-first weekly workforce plan before the incident");\n    const profitability = await invoke("plan_store_actions", { objective: "reduce_labor_cost", maxWeeklyHours: 40, prioritize: "cost" });\n    const profitPlan = profitability?.plans?.[0];\n    assert(profitPlan?.changes?.some((change) => change.type === "staffing"), "Profitability plan did not produce staffing changes.", profitability);\n    assert(profitPlan.impact.after.estimatedOperatingProfit > profitPlan.impact.before.estimatedOperatingProfit, "Profitability plan did not improve estimated operating profit.", profitPlan.impact);\n    assert(profitPlan.impact.after.operatingMargin >= profitPlan.impact.before.operatingMargin, "Profitability plan did not improve operating margin.", profitPlan.impact);\n    assert(profitPlan.impact.after.flCostRatio <= profitPlan.impact.before.flCostRatio, "Profitability plan did not improve FL cost.", profitPlan.impact);\n    assert(profitPlan.impact.after.uncoveredPeakMinutes === 0, "Profitability plan introduced a peak coverage gap.", profitPlan.impact);\n    await invoke("preview_store_plan", { planId: profitPlan.id, title: profitPlan.title, changes: profitPlan.changes, uiLocale: "ko" });\n    const profitCard = await page.getByText("운영 추정 손익", { exact: true }).count();\n    assert(profitCard > 0, "Profitability-first StorePlan card is missing from the rendered UI.");\n\n    step("record Minsoo Friday call-out");\n'''
+          if anchor not in text:
+              raise SystemExit('E2E callout anchor not found')
+          p.write_text(text.replace(anchor, addition, 1))
+
+          # Focused regression tests.
+          Path('tests/profitability-workforce.test.ts').write_text('''import { describe, expect, it } from "vitest";\nimport { createDemoState } from "@/domain/fixtures";\nimport { planStoreActions } from "@/domain/store-planning";\nimport { scheduleCostSummary } from "@/domain/schedule-cost";\n\ndescribe("profitability-first workforce semantics", () => {\n  it("expresses a cost-first week rebuild in owner-value metrics without creating coverage gaps", () => {\n    const state = createDemoState("coffee", "kr-seoul");\n    const result = planStoreActions(state, { objective: "reduce_labor_cost", maxWeeklyHours: 40, prioritize: "cost" });\n    const plan = result.plans[0];\n    expect(plan).toBeTruthy();\n    expect(plan.changes.some((change) => change.type === "staffing")).toBe(true);\n    expect(plan.impact.after.estimatedOperatingProfit).toBeGreaterThan(plan.impact.before.estimatedOperatingProfit);\n    expect(plan.impact.after.operatingMargin).toBeGreaterThanOrEqual(plan.impact.before.operatingMargin);\n    expect(plan.impact.after.flCostRatio).toBeLessThanOrEqual(plan.impact.before.flCostRatio);\n    expect(plan.impact.after.uncoveredPeakMinutes).toBe(0);\n    expect(plan.impact.delta.estimatedOperatingProfit).toBeCloseTo(-plan.impact.delta.laborCost);\n  });\n\n  it("never labels a partial-week actual wage ratio against the whole week's sales", () => {\n    const state = createDemoState("coffee", "kr-seoul");\n    const summary = scheduleCostSummary(state, { start: "2026-08-24T00:00:00", end: "2026-08-31T00:00:00" });\n    expect(summary.actualWage).toBeGreaterThan(0);\n    expect(summary.actualComparableWage).toBeGreaterThan(0);\n    expect(summary.actualSalesBasis).toBe(state.sales?.find((sale) => sale.date === "2026-08-24")?.netSales);\n    expect(summary.actualLaborRatio).toBeCloseTo(summary.actualComparableWage / summary.actualSalesBasis);\n    expect(summary.actualLaborRatio).not.toBeCloseTo(summary.actualWage / summary.salesBasis);\n  });\n});\n''')
+          PY
+      - name: Verify
+        run: |
+          npm ci
+          npm test
+          npm run lint
+          npm run typecheck
+          npm run build
+      - name: Commit verified patch
+        run: |
+          git config user.name "OwnerOps CI"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/ownerops-profitability-workforce-once.yml
+          git add src scripts tests
+          git commit -m "feat: prioritize profitability in workforce planning"
+          git push origin HEAD:re0/ai-store-manager
