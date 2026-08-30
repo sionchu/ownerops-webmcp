@@ -83,7 +83,7 @@ const COPY: Record<UiLocale, BriefCopy> = {
       reviewTitle: "Ask the agent to evaluate the current plan first",
       purchaseNote: "purchases become planned POs until receipt",
       states: { draft: "DRAFT", reviewed: "REVIEWED", applied: "APPLIED", rejected: "REJECTED" },
-      metrics: { labor: "Labor", foodCost: "Food cost", purchaseCash: "Purchase cash", wasteExposure: "Waste exposure", breakEvenSales: "Break-even sales" },
+      metrics: { labor: "Scheduled wage estimate", foodCost: "Food cost", purchaseCash: "Purchase cash", wasteExposure: "Waste exposure", breakEvenSales: "Break-even sales" },
     },
     analysis: {
       title: "STOCK · COST ANALYSIS",
@@ -129,7 +129,7 @@ const COPY: Record<UiLocale, BriefCopy> = {
       reviewTitle: "먼저 에이전트에게 현재 계획을 검토하도록 요청하세요",
       purchaseNote: "구매안은 실제 입고 전까지 계획 발주로만 기록됩니다",
       states: { draft: "제안", reviewed: "검토 완료", applied: "적용됨", rejected: "거절됨" },
-      metrics: { labor: "인건비", foodCost: "식재료비", purchaseCash: "구매 현금지출", wasteExposure: "폐기 손실", breakEvenSales: "손익분기 매출" },
+      metrics: { labor: "예상 스케줄 임금", foodCost: "식재료비", purchaseCash: "구매 현금지출", wasteExposure: "폐기 손실", breakEvenSales: "손익분기 매출" },
     },
     analysis: {
       title: "재고 · 원가 분석",
@@ -175,7 +175,7 @@ const COPY: Record<UiLocale, BriefCopy> = {
       reviewTitle: "まずエージェントに現在のプランを確認させてください",
       purchaseNote: "購入は入荷するまで計画発注として扱われます",
       states: { draft: "提案", reviewed: "確認済み", applied: "適用済み", rejected: "却下済み" },
-      metrics: { labor: "人件費", foodCost: "食材費", purchaseCash: "仕入現金支出", wasteExposure: "廃棄損失", breakEvenSales: "損益分岐売上" },
+      metrics: { labor: "予定スケジュール賃金", foodCost: "食材費", purchaseCash: "仕入現金支出", wasteExposure: "廃棄損失", breakEvenSales: "損益分岐売上" },
     },
     analysis: {
       title: "在庫 · 原価分析",
@@ -221,7 +221,7 @@ const COPY: Record<UiLocale, BriefCopy> = {
       reviewTitle: "Pide primero al agente que evalúe el plan actual",
       purchaseNote: "las compras siguen como pedidos planificados hasta su recepción",
       states: { draft: "PROPUESTA", reviewed: "REVISADO", applied: "APLICADO", rejected: "RECHAZADO" },
-      metrics: { labor: "Mano de obra", foodCost: "Coste de alimentos", purchaseCash: "Caja de compras", wasteExposure: "Exposición a merma", breakEvenSales: "Ventas de equilibrio" },
+      metrics: { labor: "Estimación salarial programada", foodCost: "Coste de alimentos", purchaseCash: "Caja de compras", wasteExposure: "Exposición a merma", breakEvenSales: "Ventas de equilibrio" },
     },
     analysis: {
       title: "INVENTARIO · ANÁLISIS DE COSTES",
@@ -267,7 +267,7 @@ const COPY: Record<UiLocale, BriefCopy> = {
       reviewTitle: "请先让智能体评估当前方案",
       purchaseNote: "采购在实际收货前仅作为计划订单记录",
       states: { draft: "提案", reviewed: "已复核", applied: "已应用", rejected: "已拒绝" },
-      metrics: { labor: "人工成本", foodCost: "食材成本", purchaseCash: "采购现金支出", wasteExposure: "报废损失", breakEvenSales: "盈亏平衡销售额" },
+      metrics: { labor: "预计排班工资", foodCost: "食材成本", purchaseCash: "采购现金支出", wasteExposure: "报废损失", breakEvenSales: "盈亏平衡销售额" },
     },
     analysis: {
       title: "库存 · 成本分析",
