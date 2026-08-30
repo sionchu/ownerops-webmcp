@@ -36,7 +36,7 @@ function step(message) {
 async function main() {
   const browser = await chromium.launch({ headless: true });
   try {
-    const context = await browser.newContext({ locale: "ko-KR" });
+    const context = await browser.newContext({ locale: "ko-KR", timezoneId: "Asia/Seoul" });
     const page = await context.newPage();
     const consoleErrors = [];
     const pageErrors = [];
@@ -189,6 +189,8 @@ async function main() {
       reason: "Browser E2E call-out",
       uiLocale: "ko",
     });
+    const calloutOverview = await invoke("get_store_state", { focus: "overview" });
+    assert(calloutOverview.metrics.uncoveredPeakMinutes === 120, "Expected only the Friday two-hour peak gap.", calloutOverview.metrics);
 
     step("plan and preview combined prepare_today StorePlan");
     const planResult = await invoke("plan_store_actions", { objective: "prepare_today" });
@@ -205,6 +207,8 @@ async function main() {
     const stockPreview = await invoke("get_store_state", { focus: "stock" });
     assert((stockPreview.purchaseOrders?.length ?? 0) === baselinePurchaseOrders, "Preview created a purchase order.", stockPreview.purchaseOrders);
     assert(stockPreview.inventory.find((item) => item.id === "whole-milk")?.onHand === baselineMilkOnHand, "Preview changed physical stock.");
+    const coveredOverview = await invoke("get_store_state", { focus: "overview" });
+    assert(coveredOverview.metrics.uncoveredPeakMinutes === 0, "Replacement preview must clear the peak gap.", coveredOverview.metrics);
 
     step("human edits preview shift in rendered schedule UI");
     const proposedWorker = staffingChange.workerId;

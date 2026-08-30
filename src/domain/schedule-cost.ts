@@ -1,4 +1,5 @@
 import { applyChanges, collectWarnings } from "./impact";
+import { addBusinessDays, businessTimestamp } from "./local-time";
 import type { AppState, Shift, TimeEntry } from "./model";
 
 export type ScheduleCostRange = {
@@ -30,9 +31,7 @@ export type ScheduleCostSummary = {
 type Bounds = { start: number; end: number };
 
 function timestamp(value: string): number {
-  // Date-only values are interpreted as the local business day, matching the
-  // timestamp convention used by the fixture and persisted StoreState.
-  return Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value);
+  return businessTimestamp(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value);
 }
 
 function bounds(range: ScheduleCostRange): Bounds | null {
@@ -180,10 +179,6 @@ export function scheduledWageForShift(state: AppState, shift: Shift, workerId = 
 
 /** Convenience range for a single local business date. */
 export function scheduleDayRange(date: string): ScheduleCostRange {
-  const start = new Date(`${businessDate(date)}T12:00:00`);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-  const localIso = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}T${String(value.getHours()).padStart(2, "0")}:${String(value.getMinutes()).padStart(2, "0")}:${String(value.getSeconds()).padStart(2, "0")}`;
-  return { start: localIso(start), end: localIso(end) };
+  const day = businessDate(date);
+  return { start: `${day}T00:00:00`, end: `${addBusinessDays(day, 1)}T00:00:00` };
 }

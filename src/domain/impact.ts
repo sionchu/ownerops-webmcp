@@ -1,8 +1,9 @@
 import { workerAvailableForInterval } from "./availability";
+import { businessHoursBetween, businessTimestamp } from "./local-time";
 import type { AppState, PlanImpact, RuleWarning, Shift, StaffingChange, Worker } from "./model";
 
 export function hoursBetween(start: string, end: string): number {
-  return (new Date(end).getTime() - new Date(start).getTime()) / 3_600_000;
+  return businessHoursBetween(start, end);
 }
 
 export function weeklyHours(workers: Worker[], shifts: Shift[]): Record<string, number> {
@@ -17,8 +18,8 @@ export function estimatedPayroll(workers: Worker[], shifts: Shift[]): number {
 }
 
 function nightOverlap(shift: Shift): boolean {
-  const startHour = new Date(shift.start).getHours();
-  const endHour = new Date(shift.end).getHours();
+  const startHour = Number(shift.start.slice(11, 13));
+  const endHour = Number(shift.end.slice(11, 13));
   return startHour < 6 || endHour > 22 || (endHour === 0 && hoursBetween(shift.start, shift.end) > 0);
 }
 
@@ -64,12 +65,12 @@ export function collectWarnings(state: AppState, shifts = state.shifts): { warni
 
   let uncoveredPeakMinutes = 0;
   for (const peak of state.business.peakWindows) {
-    const peakStart = new Date(`${peak.day}T${peak.start}:00`).getTime();
-    const peakEnd = new Date(`${peak.day}T${peak.end}:00`).getTime();
+    const peakStart = businessTimestamp(`${peak.day}T${peak.start}:00`);
+    const peakEnd = businessTimestamp(`${peak.day}T${peak.end}:00`);
     let shortfall = 0;
     for (let time = peakStart; time < peakEnd; time += 30 * 60_000) {
       const segmentEnd = time + 30 * 60_000;
-      const coverage = shifts.filter((item) => item.workerId && item.status === "scheduled" && new Date(item.start).getTime() < segmentEnd && new Date(item.end).getTime() > time).length;
+      const coverage = shifts.filter((item) => item.workerId && item.status === "scheduled" && businessTimestamp(item.start) < segmentEnd && businessTimestamp(item.end) > time).length;
       if (coverage < peak.minCoverage) shortfall += 30;
     }
     if (shortfall > 0) {
