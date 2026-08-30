@@ -3,6 +3,7 @@
 import { analyzeInventoryCosts, analyzeMenuCosts, getDailyBrief, storeCostMetrics } from "@/domain/store-ops";
 import type { StoreMetricSnapshot } from "@/domain/model";
 import { getOperatingBriefCopy, localizeDailyBriefItem, operatingBriefMoney } from "@/i18n/operating-brief";
+import { getStoreSurfaceCopy } from "@/i18n/store-surface";
 import { useAppState } from "@/state/app-state";
 
 function metricRows(
@@ -38,6 +39,7 @@ function statusColor(status: string): string {
 export function OperatingCommandCenter() {
   const { state, runAction, locale } = useAppState();
   const ui = getOperatingBriefCopy(locale);
+  const storeUi = getStoreSurfaceCopy(locale);
   const brief = getDailyBrief(state, 3);
   const costs = storeCostMetrics(state);
   const menuAnalysis = analyzeMenuCosts(state);
@@ -55,7 +57,7 @@ export function OperatingCommandCenter() {
   return (
     <>
       <style>{compatibilityCss}</style>
-      <section aria-label={ui.ariaLabel} style={{ borderBottom: "1px solid #e5ded1", background: "#fffdf9", padding: "14px 22px", display: "grid", gap: 12 }}>
+      <section id="today" aria-label={ui.ariaLabel} style={{ borderBottom: "1px solid #e5ded1", background: "#fffdf9", padding: "14px 22px", display: "grid", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
           <div>
             <div style={{ fontSize: 11, letterSpacing: ".09em", fontWeight: 800, color: "#746e65" }}>{ui.eyebrow}</div>
@@ -129,6 +131,22 @@ export function OperatingCommandCenter() {
             })}
           </div>
         )}
+
+        <details id="analysis" data-testid="operating-pnl" style={{ borderTop: "1px solid #eee6dc", paddingTop: 8 }}>
+          <summary style={{ cursor: "pointer", color: "#315847", fontSize: 12, fontWeight: 800 }}>{storeUi.pnl}</summary>
+          <div className="operating-pnl-grid">
+            <div><span>{storeUi.sales}</span><strong>{operatingBriefMoney(locale, currency, costs.weeklySales)}</strong></div>
+            <div><span>{storeUi.food}</span><strong>−{operatingBriefMoney(locale, currency, costs.foodCost)}</strong></div>
+            <div><span>{storeUi.labor}</span><strong>−{operatingBriefMoney(locale, currency, costs.laborCost)}</strong></div>
+            <div><span>{storeUi.variable}</span><strong>−{operatingBriefMoney(locale, currency, costs.variableOperatingCost)}</strong></div>
+            <div><span>{storeUi.occupancy}</span><strong>−{operatingBriefMoney(locale, currency, costs.occupancyWeekly)}</strong></div>
+            <div><span>{storeUi.fixed}</span><strong>−{operatingBriefMoney(locale, currency, costs.fixedOperatingWeekly)}</strong></div>
+            <div className="operating-pnl-primary"><span>{storeUi.profit}</span><strong>{operatingBriefMoney(locale, currency, costs.estimatedOperatingProfit)}</strong></div>
+            <div><span>{storeUi.margin}</span><strong>{percentage(costs.operatingMargin, locale)}</strong></div>
+            <div><span>{storeUi.bep}</span><strong>{operatingBriefMoney(locale, currency, costs.weeklyBreakEvenSales)}</strong></div>
+            <div><span>{storeUi.fl}</span><strong>{percentage(costs.flCostRatio, locale)}</strong></div>
+          </div>
+        </details>
 
         <details data-testid="cost-analysis" style={{ borderTop: "1px solid #eee6dc", paddingTop: 8 }}>
           <summary style={{ cursor: "pointer", color: "#315847", fontSize: 12, fontWeight: 800 }}>{ui.analysis.title}</summary>

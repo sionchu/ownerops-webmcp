@@ -62,12 +62,16 @@ jobs:
         uses: actions/checkout@v4
       - name: Apply database migrations
         run: |
+          psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -c "create role anon nologin; create role authenticated nologin; create schema auth; create function auth.uid() returns uuid language sql stable as \$\$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid \$\$;"
           psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -f supabase/migrations/001_ownerops_store_ssot.sql
           psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -f supabase/migrations/002_working_store_projection_rpc.sql
           psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -f supabase/migrations/003_fnb_template_catalog.sql
+          psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -f supabase/migrations/004_owner_store_master_rls.sql
       - name: Verify database objects
         run: |
           psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -c "select public.oo_get_working_store_projection('missing-store') is null as missing_store_is_null;"
           psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -c "select count(*) >= 8 as source_registry_seeded from public.oo_price_sources;"
       - name: Round-trip working StoreState projection
         run: psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -f tests/sql/working_store_projection.sql
+      - name: Verify Store Master ownership and RLS
+        run: psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -f tests/sql/store_master_rls.sql

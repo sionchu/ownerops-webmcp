@@ -433,6 +433,15 @@ export function storeCostMetrics(state: AppState) {
   const foodCostRatio = weeklySales > 0 ? foodCost / weeklySales : 0;
   const laborCostRatio = weeklySales > 0 ? laborCost / weeklySales : 0;
   const flCostRatio = foodCostRatio + laborCostRatio;
+  const occupancyWeekly = occupancyMonthly / 4.345;
+  const fixedOperatingWeekly = fixedOperatingMonthly / 4.345;
+  const contributionMargin = weeklySales - foodCost - variableOperatingCost;
+  const contributionMarginRatio = weeklySales > 0 ? contributionMargin / weeklySales : 0;
+  const totalOperatingCost = foodCost + variableOperatingCost + laborCost + occupancyWeekly + fixedOperatingWeekly;
+  const estimatedOperatingProfit = weeklySales - totalOperatingCost;
+  const operatingMargin = weeklySales > 0 ? estimatedOperatingProfit / weeklySales : 0;
+  const monthlyOperatingCost = totalOperatingCost * 4.345;
+  const estimatedMonthlyOperatingProfit = monthlySales - monthlyOperatingCost;
 
   return {
     weeklySales,
@@ -444,9 +453,16 @@ export function storeCostMetrics(state: AppState) {
     flCostRatio,
     variableOperatingCost,
     occupancyMonthly,
-    occupancyWeekly: occupancyMonthly / 4.345,
+    occupancyWeekly,
     fixedOperatingMonthly,
-    fixedOperatingWeekly: fixedOperatingMonthly / 4.345,
+    fixedOperatingWeekly,
+    contributionMargin,
+    contributionMarginRatio,
+    totalOperatingCost,
+    estimatedOperatingProfit,
+    operatingMargin,
+    monthlyOperatingCost,
+    estimatedMonthlyOperatingProfit,
     monthlyBreakEvenSales,
     weeklyBreakEvenSales: monthlyBreakEvenSales / 4.345,
   };
