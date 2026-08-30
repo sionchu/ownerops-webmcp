@@ -75,3 +75,28 @@ jobs:
         run: psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -f tests/sql/working_store_projection.sql
       - name: Verify Store Master ownership and RLS
         run: psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -f tests/sql/store_master_rls.sql
+
+  webmcp-browser-e2e:
+    needs:
+      - verify
+      - database
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OWNEROPS_E2E_URL: https://ownerops-webmcp-git-re0-ai-store-manager-sionchu1-4343.vercel.app/
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install app dependencies
+        run: npm ci
+      - name: Install Playwright browser harness
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Run DB-backed Preview WebMCP browser E2E
+        run: node scripts/webmcp-browser-e2e.mjs
