@@ -35,7 +35,7 @@ function mergeCachedReferences(state: AppState, incoming: ReferenceObservation[]
 }
 
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AppState>(() => createDemoState());
+  const [state, setState] = useState<AppState>(() => createDemoState("coffee", "kr-seoul"));
   const [locale, setLocaleState] = useState<UiLocale>("en");
   const [hydrated, setHydrated] = useState(false);
   const stateRef = useRef(state);
