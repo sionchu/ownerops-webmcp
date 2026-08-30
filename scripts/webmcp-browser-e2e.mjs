@@ -167,6 +167,9 @@ async function main() {
     step("verify sales evidence and split data/operation semantics");
     const salesTool = await invoke("get_store_state", { focus: "sales" });
     assert(salesTool.salesEvidence?.daily?.length === 7 && salesTool.salesEvidence?.menu?.length >= 4, "Sales evidence missing from semantic tool surface.", salesTool.salesEvidence);
+    assert(salesTool.salesEvidence.daily.every((item) => item.source === "demo"), "Demo sales evidence must not be presented as live.", salesTool.salesEvidence.daily);
+    assert(Math.abs(salesTool.salesEvidence.totals.unallocatedSales) / salesTool.salesEvidence.totals.netSales < 0.03, "Live DB menu evidence does not reconcile closely enough to headline sales.", salesTool.salesEvidence.totals);
+    assert(salesTool.salesEvidence.menu.find((item) => item.menuItemId === "croissant-menu")?.foodCost > 0, "Croissant food-cost evidence is missing from live DB state.", salesTool.salesEvidence.menu);
     assert(await page.getByTestId("sales-evidence").count() === 1, "Sales evidence UI missing.");
     const analysisText = await page.getByTestId("cost-analysis").textContent();
     assert(!String(analysisText).includes("데이터 확인 필요"), "Data quality is still mixed into operational status.", analysisText);
@@ -269,7 +272,7 @@ async function main() {
     assert((resetStock.purchaseOrders?.length ?? 0) === baselinePurchaseOrders, "Demo reset retained local planned purchase orders.", resetStock.purchaseOrders);
     assert(resetOverview.business.dataProvenance?.storeTruth === "database", "Demo reset did not return to DB-backed truth.", resetOverview.business.dataProvenance);
     assert((await storeStatus.getAttribute("title"))?.includes("DB"), "Store status icon did not return to DB state.");
-    assert((await referenceStatus.getAttribute("title"))?.includes("Benchmark"), "Reference status icon did not return to benchmark state.");
+    assert((await referenceStatus.getAttribute("aria-label")) === "Reference benchmark", "Reference status icon did not return to benchmark state.");
 
     const finalNames = await page.evaluate(() => Object.keys(window.__owneropsWebMcpTools ?? {}).sort());
     assert(JSON.stringify(finalNames) === JSON.stringify(EXPECTED_TOOLS), "Tool surface drifted during E2E.", finalNames);
