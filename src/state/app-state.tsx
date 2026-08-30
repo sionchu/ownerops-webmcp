@@ -88,6 +88,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(() => withDataProvenance(createDemoState("coffee", "kr-seoul"), "deterministic-seed", "deterministic-seed"));
   const [locale, setLocaleState] = useState<UiLocale>("en");
   const [hydrated, setHydrated] = useState(false);
+  const [reloadVersion, setReloadVersion] = useState(0);
   const stateRef = useRef(state);
   const localeRef = useRef<UiLocale>(locale);
 
@@ -136,7 +137,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         console.warn("OwnerOps persisted store unavailable; deterministic seed retained.", error);
       });
     return () => controller.abort();
-  }, [hydrated, state.business.market, state.business.industry]);
+  }, [hydrated, state.business.market, state.business.industry, reloadVersion]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -165,11 +166,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         console.warn("OwnerOps reference cache unavailable; deterministic seed retained.", error);
       });
     return () => controller.abort();
-  }, [hydrated, state.business.market]);
+  }, [hydrated, state.business.market, reloadVersion]);
 
   const runAction = useCallback((action: ApplicationAction) => {
     const previous = stateRef.current;
-    let next = dispatchApplicationAction(previous, action);
+    let next = action.type === "reset_demo"
+      ? createDemoState(previous.business.industry, previous.business.market)
+      : dispatchApplicationAction(previous, action);
     const configuredStoreChanged = next.business.market !== previous.business.market || next.business.industry !== previous.business.industry;
     if (configuredStoreChanged || action.type === "reset_demo") {
       next = withDataProvenance(next, "deterministic-seed", "deterministic-seed");
@@ -179,6 +182,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }
     stateRef.current = next;
     setState(next);
+    if (action.type === "reset_demo") setReloadVersion((version) => version + 1);
     return next;
   }, []);
   const getState = useCallback(() => stateRef.current, []);
