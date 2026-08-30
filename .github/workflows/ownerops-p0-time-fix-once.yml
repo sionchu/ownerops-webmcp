@@ -1,0 +1,168 @@
+name: OwnerOps P0 time fix once
+
+on:
+  push:
+    branches: [re0/ai-store-manager]
+    paths: [.github/workflows/ownerops-p0-time-fix-once.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: re0/ai-store-manager
+          fetch-depth: 0
+      - name: Patch business-local time semantics
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def one(path, old, new):
+              p = Path(path); text = p.read_text(); n = text.count(old)
+              if n != 1: raise SystemExit(f"{path}: expected 1 match, got {n}: {old[:80]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          Path('src/domain/local-time.ts').write_text('''/** Business-wall-clock helpers. DB timestamptz offsets are transport metadata here. */
+          const PARTS = /^(\\d{4})-(\\d{2})-(\\d{2})(?:T(\\d{2})(?::(\\d{2})(?::(\\d{2})(?:\\.(\\d{1,3}))?)?)?)?)?/;
+
+          function parse(value: string) {
+            const match = PARTS.exec(value);
+            if (!match) return null;
+            const [, year, month, day, hour = "0", minute = "0", second = "0", millis = "0"] = match;
+            return { year: Number(year), month: Number(month), day: Number(day), hour: Number(hour), minute: Number(minute), second: Number(second), millis: Number(millis.padEnd(3, "0")) };
+          }
+
+          export function businessTimestamp(value: string): number {
+            const p = parse(value);
+            return p ? Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second, p.millis) : Number.NaN;
+          }
+
+          export function businessHoursBetween(start: string, end: string): number {
+            return (businessTimestamp(end) - businessTimestamp(start)) / 3_600_000;
+          }
+
+          export function businessOverlaps(startA: string, endA: string, startB: string, endB: string): boolean {
+            return businessTimestamp(startA) < businessTimestamp(endB) && businessTimestamp(endA) > businessTimestamp(startB);
+          }
+
+          export function businessWeekday(value: string): 0 | 1 | 2 | 3 | 4 | 5 | 6 {
+            const p = parse(value);
+            return (p ? new Date(Date.UTC(p.year, p.month - 1, p.day, 12)).getUTCDay() : 0) as 0 | 1 | 2 | 3 | 4 | 5 | 6;
+          }
+
+          export function addBusinessDays(date: string, days: number): string {
+            const p = parse(date);
+            if (!p) return date.slice(0, 10);
+            const value = new Date(Date.UTC(p.year, p.month - 1, p.day + days, 12));
+            return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}-${String(value.getUTCDate()).padStart(2, "0")}`;
+          }
+          ''')
+
+          one('src/domain/impact.ts', 'import { workerAvailableForInterval } from "./availability";\n', 'import { workerAvailableForInterval } from "./availability";\nimport { businessHoursBetween, businessTimestamp } from "./local-time";\n')
+          one('src/domain/impact.ts', '  return (new Date(end).getTime() - new Date(start).getTime()) / 3_600_000;', '  return businessHoursBetween(start, end);')
+          one('src/domain/impact.ts', '  const startHour = new Date(shift.start).getHours();\n  const endHour = new Date(shift.end).getHours();', '  const startHour = Number(shift.start.slice(11, 13));\n  const endHour = Number(shift.end.slice(11, 13));')
+          one('src/domain/impact.ts', '    const peakStart = new Date(`${peak.day}T${peak.start}:00`).getTime();\n    const peakEnd = new Date(`${peak.day}T${peak.end}:00`).getTime();', '    const peakStart = businessTimestamp(`${peak.day}T${peak.start}:00`);\n    const peakEnd = businessTimestamp(`${peak.day}T${peak.end}:00`);')
+          one('src/domain/impact.ts', '      const coverage = shifts.filter((item) => item.workerId && item.status === "scheduled" && new Date(item.start).getTime() < segmentEnd && new Date(item.end).getTime() > time).length;', '      const coverage = shifts.filter((item) => item.workerId && item.status === "scheduled" && businessTimestamp(item.start) < segmentEnd && businessTimestamp(item.end) > time).length;')
+
+          Path('src/domain/availability.ts').write_text('''import type { Shift, Worker } from "./model";
+          import { businessOverlaps, businessWeekday } from "./local-time";
+
+          function minutes(value: string): number {
+            const [hour, minute] = value.split(":").map(Number);
+            return hour * 60 + minute;
+          }
+
+          export function workerAvailableForInterval(worker: Worker, start: string, end: string): boolean {
+            const exceptionUnavailable = worker.availabilityExceptions?.some((item) => !item.available && businessOverlaps(start, end, item.start, item.end));
+            if (exceptionUnavailable) return false;
+            const legacyUnavailable = worker.availability?.some((item) => !item.available && businessOverlaps(start, end, item.start, item.end));
+            if (legacyUnavailable) return false;
+            const rules = worker.regularAvailability;
+            if (!rules || rules.length === 0) return true;
+            if (start.slice(0, 10) !== end.slice(0, 10)) return false;
+            const weekday = businessWeekday(start);
+            const shiftStart = minutes(start.slice(11, 16));
+            const shiftEnd = minutes(end.slice(11, 16));
+            const sameDayRules = rules.filter((rule) => rule.weekday === weekday);
+            if (sameDayRules.some((rule) => !rule.available && shiftStart < minutes(rule.end) && shiftEnd > minutes(rule.start))) return false;
+            return sameDayRules.some((rule) => rule.available && shiftStart >= minutes(rule.start) && shiftEnd <= minutes(rule.end));
+          }
+
+          export function workerEligibleForShift(worker: Worker, shift: Shift): boolean {
+            const roleEligible = worker.role === shift.role || (worker.role === "manager" && shift.role === "barista");
+            if (!roleEligible || !workerAvailableForInterval(worker, shift.start, shift.end)) return false;
+            const requiredSkills = shift.requiredSkills ?? [];
+            return requiredSkills.length === 0 || requiredSkills.every((skill) => worker.skills?.includes(skill));
+          }
+          ''')
+
+          one('src/domain/schedule-cost.ts', 'import { applyChanges, collectWarnings } from "./impact";\n', 'import { applyChanges, collectWarnings } from "./impact";\nimport { addBusinessDays, businessTimestamp } from "./local-time";\n')
+          start = Path('src/domain/schedule-cost.ts').read_text()
+          a = start.index('function timestamp(value: string): number {')
+          b = start.index('\n}\n\nfunction bounds', a) + 2
+          start = start[:a] + 'function timestamp(value: string): number {\n  return businessTimestamp(/^\\d{4}-\\d{2}-\\d{2}$/.test(value) ? `${value}T00:00:00` : value);\n}' + start[b:]
+          a = start.index('export function scheduleDayRange(date: string): ScheduleCostRange {')
+          b = len(start)
+          old = start[a:b]
+          start = start[:a] + 'export function scheduleDayRange(date: string): ScheduleCostRange {\n  const day = businessDate(date);\n  return { start: `${day}T00:00:00`, end: `${addBusinessDays(day, 1)}T00:00:00` };\n}\n'
+          Path('src/domain/schedule-cost.ts').write_text(start)
+
+          Path('tests/business-local-time.test.ts').write_text('''import { describe, expect, it } from "vitest";
+          import { dispatchApplicationAction, getResponseOptions } from "@/domain/actions";
+          import { createDemoState } from "@/domain/fixtures";
+          import { collectWarnings } from "@/domain/impact";
+          import { businessTimestamp } from "@/domain/local-time";
+          import { scheduleCostSummary } from "@/domain/schedule-cost";
+          import { storeCostMetrics } from "@/domain/store-ops";
+
+          function withTransportOffsets(state: ReturnType<typeof createDemoState>) {
+            return {
+              ...state,
+              shifts: state.shifts.map((shift) => ({ ...shift, start: `${shift.start}+00:00`, end: `${shift.end}+00:00` })),
+              timeEntries: (state.timeEntries ?? []).map((entry) => ({ ...entry, clockIn: `${entry.clockIn}+00:00`, clockOut: entry.clockOut ? `${entry.clockOut}+00:00` : undefined })),
+            };
+          }
+
+          describe("business-local time", () => {
+            it("ignores DB transport offsets for the store wall clock", () => {
+              const expected = businessTimestamp("2026-08-28T18:00:00");
+              expect(businessTimestamp("2026-08-28T18:00:00+00:00")).toBe(expected);
+              expect(businessTimestamp("2026-08-28T18:00:00+09:00")).toBe(expected);
+              expect(businessTimestamp("2026-08-28T18:00:00-04:00")).toBe(expected);
+            });
+
+            it("reports 120 minutes for the Friday call-out and zero after replacement", () => {
+              const state = withTransportOffsets(createDemoState("coffee", "kr-seoul"));
+              expect(collectWarnings(state).uncoveredPeakMinutes).toBe(0);
+              const callout = dispatchApplicationAction(state, { type: "mark_unavailable", workerId: "minsoo", shiftId: "fri-minsoo-18", reason: "test" });
+              expect(collectWarnings(callout).uncoveredPeakMinutes).toBe(120);
+              expect(getResponseOptions(callout)[0].impact.uncoveredPeakMinutes).toBe(0);
+            });
+
+            it("reconciles NYC weekly schedule wage with the operating P&L", () => {
+              const state = withTransportOffsets(createDemoState("coffee", "us-nyc"));
+              const summary = scheduleCostSummary(state, { start: "2026-08-24T00:00:00", end: "2026-08-31T00:00:00" });
+              expect(summary.scheduledHours).toBe(154);
+              expect(summary.scheduledWage).toBeCloseTo(3344.5);
+              expect(storeCostMetrics(state).laborCost).toBeCloseTo(summary.scheduledWage);
+            });
+          });
+          ''')
+
+          one('scripts/webmcp-browser-e2e.mjs', '    const context = await browser.newContext({ locale: "ko-KR" });', '    const context = await browser.newContext({ locale: "ko-KR", timezoneId: "Asia/Seoul" });')
+          one('scripts/webmcp-browser-e2e.mjs', '    await invoke("record_operating_event", {\n      eventType: "worker_unavailable",\n      workerId: "minsoo",\n      shiftId: calloutShift.id,\n      reason: "Browser E2E call-out",\n      uiLocale: "ko",\n    });', '    await invoke("record_operating_event", {\n      eventType: "worker_unavailable",\n      workerId: "minsoo",\n      shiftId: calloutShift.id,\n      reason: "Browser E2E call-out",\n      uiLocale: "ko",\n    });\n    const calloutOverview = await invoke("get_store_state", { focus: "overview" });\n    assert(calloutOverview.metrics.uncoveredPeakMinutes === 120, "Expected only the Friday two-hour peak gap.", calloutOverview.metrics);')
+          one('scripts/webmcp-browser-e2e.mjs', '    assert(stockPreview.inventory.find((item) => item.id === "whole-milk")?.onHand === baselineMilkOnHand, "Preview changed physical stock.");', '    assert(stockPreview.inventory.find((item) => item.id === "whole-milk")?.onHand === baselineMilkOnHand, "Preview changed physical stock.");\n    const coveredOverview = await invoke("get_store_state", { focus: "overview" });\n    assert(coveredOverview.metrics.uncoveredPeakMinutes === 0, "Replacement preview must clear the peak gap.", coveredOverview.metrics);')
+          PY
+      - name: Commit P0 fix
+        run: |
+          git config user.name "OwnerOps CI"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/ownerops-p0-time-fix-once.yml
+          git add src tests scripts
+          git commit -m "fix: use business-local time for schedule decisions"
+          git push origin HEAD:re0/ai-store-manager
