@@ -1,0 +1,45 @@
+name: OwnerOps demo evidence fix once
+on:
+  push:
+    branches: [re0/ai-store-manager]
+    paths: [.github/workflows/ownerops-demo-evidence-fix-once.yml]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: re0/ai-store-manager
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Patch fixture evidence and browser assertion
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          def one(path, old, new):
+              p=Path(path); text=p.read_text(); n=text.count(old)
+              if n != 1: raise SystemExit(f"{path}: expected 1 match, got {n}")
+              p.write_text(text.replace(old,new,1))
+          one('src/domain/fixtures.ts', '    const itemSales = menu.map((item, index) => {\n      const share = index === 0 ? 0.55 : 0.45 / Math.max(menu.length - 1, 1);\n      const quantity = Math.max(1, Math.round(estimatedOrders * share));\n      return { menuItemId: item.id, quantity, netSales: quantity * item.price };\n    });', '    const itemSales = menu.map((item, index) => {\n      const share = index === 0 ? 0.55 : 0.45 / Math.max(menu.length - 1, 1);\n      const quantity = Math.max(1, Math.round(netSales * share / Math.max(item.price, 1)));\n      return { menuItemId: item.id, quantity, netSales: quantity * item.price };\n    });')
+          one('src/domain/fixtures.ts', 'function createPurchases(inventory: InventoryItem[]): PurchaseRecord[] {\n  return inventory.slice(0, Math.min(5, inventory.length)).map((item, index) => ({', 'function createPurchases(inventory: InventoryItem[]): PurchaseRecord[] {\n  const first = inventory.slice(0, Math.min(5, inventory.length));\n  const croissant = inventory.find((item) => item.id === "croissant");\n  const purchased = croissant && !first.some((item) => item.id === croissant.id) ? [...first, croissant] : first;\n  return purchased.map((item, index) => ({')
+          one('scripts/webmcp-browser-e2e.mjs', '      assert((await referenceStatus.getAttribute("title"))?.includes("Benchmark"), `Benchmark status icon missing for ${market.id}.`);', '      assert((await referenceStatus.getAttribute("aria-label")) === "Reference benchmark", `Benchmark status icon missing for ${market.id}.`);')
+          one('tests/sales-evidence.test.ts', '    expect(Number.isFinite(evidence.totals.wasteCost)).toBe(true);', '    expect(Number.isFinite(evidence.totals.wasteCost)).toBe(true);\n    expect(Math.abs(evidence.totals.unallocatedSales) / evidence.totals.netSales).toBeLessThan(0.03);\n    expect(evidence.menu.find((item) => item.menuItemId === "croissant-menu")?.foodCost).toBeGreaterThan(0);')
+          PY
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Commit verified fix
+        run: |
+          git config user.name "OwnerOps CI"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/ownerops-demo-evidence-fix-once.yml
+          git add src scripts tests
+          git commit -m "fix: reconcile demo sales evidence"
+          git push origin HEAD:re0/ai-store-manager
