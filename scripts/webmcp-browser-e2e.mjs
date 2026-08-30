@@ -204,6 +204,11 @@ async function main() {
     const profitCard = await page.getByText("운영 추정 손익", { exact: true }).count();
     assert(profitCard > 0, "Profitability-first StorePlan card is missing from the rendered UI.");
 
+    step("reset between profitability and workforce incident video cuts");
+    await resetButton.click();
+    const resetAfterProfitability = await waitForDbMarket("kr-seoul");
+    assert(resetAfterProfitability.activeStorePlan == null, "Profitability preview survived the demo-cut reset.", resetAfterProfitability.activeStorePlan);
+
     step("record Minsoo Friday call-out");
     const people = await invoke("get_store_state", { focus: "people" });
     const calloutShift = people?.shifts?.find((shift) => shift.id === "fri-minsoo-18" && shift.workerId === "minsoo")
