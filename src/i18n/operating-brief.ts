@@ -135,7 +135,7 @@ const COPY: Record<UiLocale, BriefCopy> = {
       title: "재고 · 원가 분석",
       menu: "메뉴 원가",
       inventory: "재고 · 매입",
-      item: "메뉴",
+      item: "항목",
       status: "상태",
       sellingPrice: "판매가",
       foodCost: "식재료 원가",

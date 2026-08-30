@@ -135,6 +135,12 @@ export function OperatingCommandCenter() {
         <details data-testid="cost-analysis" style={{ borderTop: "1px solid #eee6dc", paddingTop: 8 }}>
           <summary style={{ cursor: "pointer", color: "#315847", fontSize: 12, fontWeight: 800 }}>{ui.analysis.title}</summary>
           <div style={{ display: "grid", gap: 12, marginTop: 10 }}>
+            <div aria-label={ui.analysis.status} style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 10, color: "#746e65" }}>
+              <span style={{ color: "#315847", fontWeight: 700 }}>{ui.analysis.complete}</span>
+              <span style={{ color: "#a36b16", fontWeight: 700 }}>{ui.analysis.aboveTarget}</span>
+              <span style={{ color: "#a84f3d", fontWeight: 700 }}>{ui.analysis.unitIssue}</span>
+              <span style={{ color: "#a84f3d", fontWeight: 700 }}>{ui.analysis.dataIssue}</span>
+            </div>
             <section aria-label={ui.analysis.menu} data-testid="menu-cost-table" style={{ display: "grid", gap: 6 }}>
               <h3 style={{ margin: 0, fontSize: 12, color: "#2c2925" }}>{ui.analysis.menu}</h3>
               <div style={{ overflowX: "auto" }}>
