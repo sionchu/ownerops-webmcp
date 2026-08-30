@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const token = (await cookies()).get(OWNEROPS_ACCESS_COOKIE)?.value;
-  if (!token) return NextResponse.json({ user: null }, { status: 401 });
+  if (!token) return NextResponse.json({ user: null });
   try {
     return NextResponse.json({ user: await getOwnerUser(token) });
   } catch (error) {
