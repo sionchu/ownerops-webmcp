@@ -82,7 +82,7 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
       note: "General NYC minimum wage; tipped and certain industry-specific rates can differ.",
     },
     wageRounding: 0.25,
-    salesRounding: 50,
+    salesRounding: 0.5,
     defaultOccupancy: { baseRentMonthly: 7500, recurringFeesMonthly: 850, deposit: 15000, leaseStart: "2026-04-01", leaseEnd: "2027-03-31", nextEscalationDate: "2027-01-01", nextEscalationRate: 0.04 },
     referenceProviders: {
       commodity: "USDA AMS MyMarketNews",
@@ -108,7 +108,7 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
       sourceUrl: "https://saiteichingin.mhlw.go.jp/table/page_list_nationallist.html",
     },
     wageRounding: 10,
-    salesRounding: 10000,
+    salesRounding: 100,
     defaultOccupancy: { baseRentMonthly: 620000, recurringFeesMonthly: 75000, deposit: 2500000, leaseStart: "2026-04-01", leaseEnd: "2027-03-31", nextEscalationDate: "2027-01-01", nextEscalationRate: 0.04 },
     referenceProviders: {
       commodity: "Japan MAFF wholesale market statistics",
@@ -135,7 +135,7 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
       note: "OwnerOps derives a planning hourly reference from the general annual SMI; it is not a universal statutory hourly quote.",
     },
     wageRounding: 0.1,
-    salesRounding: 50,
+    salesRounding: 0.5,
     defaultOccupancy: { baseRentMonthly: 3200, recurringFeesMonthly: 360, deposit: 6400, leaseStart: "2026-04-01", leaseEnd: "2027-03-31", nextEscalationDate: "2027-01-01", nextEscalationRate: 0.04 },
     referenceProviders: {
       commodity: "MAPA Observatorio de la Cadena Alimentaria",
@@ -162,7 +162,7 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
       note: "The hourly statutory reference applies to non-full-time employment; the full-time minimum is monthly.",
     },
     wageRounding: 0.5,
-    salesRounding: 100,
+    salesRounding: 1,
     defaultOccupancy: { baseRentMonthly: 28000, recurringFeesMonthly: 3200, deposit: 56000, leaseStart: "2026-04-01", leaseEnd: "2027-03-31", nextEscalationDate: "2027-01-01", nextEscalationRate: 0.05 },
     referenceProviders: {
       commodity: "China Ministry of Agriculture and Rural Affairs wholesale data",
