@@ -14,6 +14,9 @@ export type StoreDataProvenance = {
   storeTruth: StoreTruthSource;
   referenceEvidence: ReferenceEvidenceSource;
   disclosure: string;
+  storeUpdatedAt?: string;
+  referenceObservedAt?: string;
+  referenceFetchedAt?: string;
 };
 
 type RuntimeBusiness = AppState["business"] & { dataProvenance?: StoreDataProvenance };
@@ -56,7 +59,8 @@ function provenanceDisclosure(storeTruth: StoreTruthSource, referenceEvidence: R
   return `${store} ${reference}`;
 }
 
-function withDataProvenance(state: AppState, storeTruth: StoreTruthSource, referenceEvidence: ReferenceEvidenceSource): AppState {
+function withDataProvenance(state: AppState, storeTruth: StoreTruthSource, referenceEvidence: ReferenceEvidenceSource, timestamps: Partial<Pick<StoreDataProvenance, "storeUpdatedAt" | "referenceObservedAt" | "referenceFetchedAt">> = {}): AppState {
+  const previous = (state.business as RuntimeBusiness).dataProvenance;
   return {
     ...state,
     business: {
@@ -65,6 +69,9 @@ function withDataProvenance(state: AppState, storeTruth: StoreTruthSource, refer
         storeTruth,
         referenceEvidence,
         disclosure: provenanceDisclosure(storeTruth, referenceEvidence),
+        storeUpdatedAt: timestamps.storeUpdatedAt ?? previous?.storeUpdatedAt,
+        referenceObservedAt: timestamps.referenceObservedAt ?? previous?.referenceObservedAt,
+        referenceFetchedAt: timestamps.referenceFetchedAt ?? previous?.referenceFetchedAt,
       },
     } as AppState["business"],
   };
@@ -123,7 +130,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         const current = stateRef.current;
         const refs = dataProvenance(current).referenceEvidence;
         const next = payload?.projection
-          ? withDataProvenance(mergePersistenceProjection(current, payload.projection), "database", refs)
+          ? withDataProvenance(mergePersistenceProjection(current, payload.projection), "database", refs, { storeUpdatedAt: payload.projection.persistedAt })
           : withDataProvenance(current, "deterministic-seed", refs);
         stateRef.current = next;
         setState(next);
@@ -153,7 +160,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         const current = stateRef.current;
         const referenceEvidence = referenceEvidenceFromApi(payload.source);
         const merged = payload.references?.length ? mergeCachedReferences(current, payload.references) : current;
-        const next = withDataProvenance(merged, dataProvenance(current).storeTruth, referenceEvidence);
+        const latest = (payload.references ?? []).reduce((acc, reference) => ({ observed: !acc.observed || reference.observedAt > acc.observed ? reference.observedAt : acc.observed, fetched: !acc.fetched || reference.fetchedAt > acc.fetched ? reference.fetchedAt : acc.fetched }), { observed: "", fetched: "" });
+        const next = withDataProvenance(merged, dataProvenance(current).storeTruth, referenceEvidence, { referenceObservedAt: latest.observed || undefined, referenceFetchedAt: latest.fetched || undefined });
         stateRef.current = next;
         setState(next);
       })

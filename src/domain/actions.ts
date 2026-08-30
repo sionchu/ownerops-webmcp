@@ -1,5 +1,5 @@
 import { createDemoState } from "./fixtures";
-import { applyChanges, calculateImpact } from "./impact";
+import { applyChanges, calculateImpact, hoursBetween } from "./impact";
 import { workerEligibleForShift } from "./availability";
 import { getWeekRebuildOptions, type WeekRebuildPriority } from "./rebuild";
 import { commitStorePlan, evaluateStorePlan } from "./store-plan";
@@ -13,7 +13,7 @@ export type ApplicationAction =
   | { type: "preview_changes"; title: string; changes: StaffingChange[]; planKind?: PlanKind; capacityGap?: CapacityGap | null }
   | { type: "apply_preview"; previewId: string; version: number }
   | { type: "reject_preview" }
-  | { type: "reassign_shift"; shiftId: string; workerId: string; targetDay?: string }
+  | { type: "reassign_shift"; shiftId: string; workerId: string; targetDay?: string; start?: string; end?: string }
   | { type: "set_store_plan"; plan: StorePlan }
   | { type: "review_store_plan" }
   | { type: "apply_store_plan"; planId: string; version: number }
@@ -266,7 +266,10 @@ export function dispatchApplicationAction(state: AppState, action: ApplicationAc
       const worker = state.workers.find((item) => item.id === action.workerId);
       if (!current || !worker) throw new Error("Shift or worker was not found.");
       const candidateCurrent = state.preview ? applyChanges(state.shifts, state.preview.changes).find((item) => item.id === current.id) ?? current : current;
-      const movedTime = action.targetDay ? shiftToDay(candidateCurrent.start, candidateCurrent.end, action.targetDay) : { start: candidateCurrent.start, end: candidateCurrent.end };
+      const movedDay = action.targetDay ? shiftToDay(candidateCurrent.start, candidateCurrent.end, action.targetDay) : { start: candidateCurrent.start, end: candidateCurrent.end };
+      const movedTime = { start: action.start ?? movedDay.start, end: action.end ?? movedDay.end };
+      const duration = hoursBetween(movedTime.start, movedTime.end);
+      if (movedTime.start.slice(0, 10) !== movedTime.end.slice(0, 10) || !Number.isFinite(duration) || duration <= 0 || duration > 18) throw new Error("Shift start/end must form a valid same-day interval.");
       if (state.preview) {
         const previousWorker = state.workers.find((item) => item.id === candidateCurrent.workerId);
         const nextChange = { shiftId: current.id, workerId: worker.id, ...movedTime };

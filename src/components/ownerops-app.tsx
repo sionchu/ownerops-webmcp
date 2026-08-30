@@ -10,6 +10,7 @@ import { INTL_LOCALE, getLocalizedIndustryProfile, getUiCopy, type UiLocale } fr
 import { capacityGapCopy, disruptionBody, getOutreachCopy, liveOperatingSummary, markUnavailableLabel, marketScheduleContext, minimumWageLabel, outreachDraft, suggestedIncidentPrompt, unavailableLabel, weekRebuildCopy, weekRebuildTimelineCopy } from "@/i18n/dynamic";
 import { getIndustryProfile } from "@/industry/profiles";
 import { getMarketLocation, getMarketProfile } from "@/market/profiles";
+import { getScheduleHierarchyCopy } from "@/i18n/schedule-hierarchy";
 import { parseSnapshot, serializeSnapshot } from "@/snapshot/snapshot";
 import { useAppState } from "@/state/app-state";
 import { useWebMcpRegistration } from "@/webmcp/use-webmcp";
@@ -172,7 +173,7 @@ function AssistantRail({ supported }: { supported: boolean | null }) {
   );
 }
 
-type ScheduleView = "day" | "week";
+type ScheduleView = "month" | "week" | "day";
 
 function dateOnly(value: Date): string {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
@@ -205,6 +206,32 @@ function formatPercent(locale: UiLocale, value: number): string {
 
 function scheduleDayLabel(locale: UiLocale, day: string): string {
   return formatDay(locale, day, { month: "short", day: "numeric", weekday: "short" });
+}
+
+function monthWeekStartsFor(date: string): string[] {
+  const anchor = new Date(`${date.slice(0, 7)}-01T12:00:00`);
+  const month = anchor.getMonth();
+  anchor.setDate(anchor.getDate() - ((anchor.getDay() + 6) % 7));
+  return Array.from({ length: 6 }, (_, index) => {
+    const week = new Date(anchor);
+    week.setDate(anchor.getDate() + index * 7);
+    return dateOnly(week);
+  }).filter((week, index) => index === 0 || new Date(`${week}T12:00:00`).getMonth() === month || new Date(`${week}T12:00:00`).getDate() <= 7);
+}
+
+function MonthScheduleOverview({ state, locale, selectedDate, onSelectWeek }: { state: AppState; locale: UiLocale; selectedDate: string; onSelectWeek: (date: string) => void }) {
+  const copy = getScheduleHierarchyCopy(locale);
+  return <div data-testid="schedule-month-overview" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 8, padding: "12px 14px", borderBottom: "1px solid var(--line)" }}>
+    {monthWeekStartsFor(selectedDate).map((weekStart) => {
+      const days = weekDatesFor(weekStart);
+      const summary = scheduleCostSummary(state, weekRange(days), { scheduleBasis: "candidate" });
+      return <button type="button" data-testid={`month-week-${weekStart}`} key={weekStart} onClick={() => onSelectWeek(weekStart)} style={{ textAlign: "left", border: "1px solid var(--line)", background: "var(--surface-strong)", borderRadius: 9, padding: 11, cursor: "pointer", color: "inherit" }}>
+        <span style={{ display: "block", color: "var(--muted)", fontSize: 10, fontWeight: 750 }}>{copy.weekSummary}</span>
+        <strong style={{ display: "block", marginTop: 3 }}>{days[0].slice(5).replace("-", "/")}–{days[6].slice(5).replace("-", "/")}</strong>
+        {summary.scheduledHours > 0 ? <><span style={{ display: "block", marginTop: 7, fontSize: 11 }}>{formatHours(locale, summary.scheduledHours)} h · {formatMoney(state, locale, summary.scheduledWage)}</span><small style={{ display: "block", marginTop: 3, color: "var(--muted)" }}>{formatMoney(state, locale, summary.salesBasis)} · {summary.warningCount} ⚑</small></> : <small style={{ display: "block", marginTop: 8, color: "var(--faint)" }}>{copy.noSchedule}</small>}
+      </button>;
+    })}
+  </div>;
 }
 
 function ScheduleCostSummaryStrip({ state, locale, view, selectedDate, weekDays }: { state: AppState; locale: UiLocale; view: ScheduleView; selectedDate: string; weekDays: string[] }) {
@@ -270,9 +297,10 @@ function ScheduleGrid() {
   const profile = getLocalizedIndustryProfile(getIndustryProfile(state.business.industry), locale);
   const location = getMarketLocation(state.business.market, locale);
   const businessDate = state.context?.businessDate ?? DEMO_WEEK[4];
-  const weekDays = useMemo(() => weekDatesFor(businessDate), [businessDate]);
   const [view, setView] = useState<ScheduleView>("week");
   const [selectedDate, setSelectedDate] = useState(businessDate);
+  const weekDays = useMemo(() => weekDatesFor(selectedDate), [selectedDate]);
+  const hierarchy = getScheduleHierarchyCopy(locale);
   const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
   const displayShifts = useMemo(() => state.preview ? applyChanges(state.shifts, state.preview.changes) : state.shifts, [state]);
   const previewIds = new Set(state.preview?.changes.map((change) => change.shiftId) ?? []);
@@ -282,7 +310,7 @@ function ScheduleGrid() {
   const activeDate = weekDays.includes(selectedDate) ? selectedDate : weekDays.includes(businessDate) ? businessDate : weekDays[0];
   const visibleDays = view === "day" ? [activeDate] : weekDays;
   const focusDay = state.incident ? shiftDay(state.shifts.find((item) => item.id === state.incident?.shiftId) ?? state.shifts[0]) : businessDate;
-  const heading = view === "day" ? ui.schedule.dayTitle.replace("{date}", scheduleDayLabel(locale, activeDate)) : ui.schedule.weekTitle;
+  const heading = view === "month" ? hierarchy.monthTitle(formatDay(locale, selectedDate, { month: "long", year: "numeric" })) : view === "day" ? ui.schedule.dayTitle.replace("{date}", scheduleDayLabel(locale, activeDate)) : ui.schedule.weekTitle;
 
   const onDrop = (event: React.DragEvent, workerId: string, day: string) => {
     event.preventDefault();
@@ -295,22 +323,20 @@ function ScheduleGrid() {
       <div className="section-heading">
         <div className="schedule-heading-main">
           <div><span className="eyebrow">{marketScheduleContext(locale, profile.copy.scheduleContext, location)}</span><h1>{heading}</h1></div>
-          <div className="schedule-view-toggle" role="group" aria-label={ui.schedule.viewSelector}>
-            <button type="button" aria-pressed={view === "day"} className={view === "day" ? "active" : ""} onClick={() => setView("day")}>{ui.schedule.day}</button>
-            <button type="button" aria-pressed={view === "week"} className={view === "week" ? "active" : ""} onClick={() => setView("week")}>{ui.schedule.week}</button>
-          </div>
+          <div className="schedule-view-toggle" role="group" aria-label={ui.schedule.viewSelector}><button data-testid="schedule-view-month" type="button" aria-pressed={view === "month"} className={view === "month" ? "active" : ""} onClick={() => setView("month")}>{hierarchy.month}</button><button data-testid="schedule-view-week" type="button" aria-pressed={view === "week"} className={view === "week" ? "active" : ""} onClick={() => setView("week")}>{ui.schedule.week}</button><button data-testid="schedule-view-day" type="button" aria-pressed={view === "day"} className={view === "day" ? "active" : ""} onClick={() => setView("day")}>{ui.schedule.day}</button></div>
         </div>
         <div className="schedule-legend"><span><i className="legend-scheduled"/>{ui.schedule.committed}</span><span><i className="legend-preview"/>{ui.schedule.agentProposal}</span><span><i className="legend-human"/>{ui.schedule.humanEdit}</span><span><i className="legend-gap"/>{ui.schedule.uncovered}</span></div>
       </div>
+      {view === "month" && <MonthScheduleOverview state={state} locale={locale} selectedDate={selectedDate} onSelectWeek={(date) => { setSelectedDate(date); setView("week"); }} />}
       {view === "day" && <div className="schedule-day-picker" aria-label={ui.schedule.selectDate}>{weekDays.map((day) => <button type="button" key={day} aria-pressed={day === activeDate} className={day === activeDate ? "active" : ""} onClick={() => setSelectedDate(day)}>{scheduleDayLabel(locale, day)}</button>)}</div>}
-      <ScheduleCostSummaryStrip state={state} locale={locale} view={view} selectedDate={activeDate} weekDays={weekDays}/>
-      <SchedulePlanCost state={state} locale={locale} weekDays={weekDays}/>
-      <div className="schedule-scroll">
+      {view !== "month" && <ScheduleCostSummaryStrip state={state} locale={locale} view={view} selectedDate={activeDate} weekDays={weekDays}/>}
+      {view !== "month" && <SchedulePlanCost state={state} locale={locale} weekDays={weekDays}/>}
+      <div className="schedule-scroll" style={{ display: view === "month" ? "none" : undefined }}>
         <div className={`schedule-grid ${view === "day" ? "day-view" : "week-view"}`} style={{ gridTemplateColumns: `176px repeat(${visibleDays.length}, minmax(104px, 1fr))` }}>
           <div className="grid-corner">{ui.schedule.teamMember}</div>
           {visibleDays.map((day) => {
             const daySummary = scheduleCostSummary(state, scheduleDayRange(day), { scheduleBasis: "candidate" });
-            return <div key={day} className={`day-head ${day === focusDay ? "focus-day" : ""}`}><strong>{formatDay(locale, day, { weekday: "short" })}</strong><span>{day.slice(5).replace("-", "/")}</span><small className="day-cost-summary">{formatHours(locale, daySummary.scheduledHours)}{ui.schedule.costSummary.hoursSuffix} · {formatMoney(state, locale, daySummary.scheduledWage)}</small>{day === focusDay && state.incident && <em>{profile.copy.incidentLabel}</em>}</div>;
+            return <button type="button" key={day} onClick={() => { setSelectedDate(day); setView("day"); }} className={`day-head ${day === focusDay ? "focus-day" : ""}`} style={{ border: 0, font: "inherit", cursor: "pointer", color: "inherit" }}><strong>{formatDay(locale, day, { weekday: "short" })}</strong><span>{day.slice(5).replace("-", "/")}</span><small className="day-cost-summary">{formatHours(locale, daySummary.scheduledHours)}{ui.schedule.costSummary.hoursSuffix} · {formatMoney(state, locale, daySummary.scheduledWage)}</small>{day === focusDay && state.incident && <em>{profile.copy.incidentLabel}</em>}</button>;
           })}
           {state.workers.map((worker) => (
             <div className="worker-row-fragment" key={worker.id}>
@@ -330,19 +356,23 @@ function ScheduleGrid() {
           })}
         </div>
       </div>
-      <p className="drag-help">{ui.schedule.dragHelp}</p>
-      {selectedShift && <ManualShiftEditor key={selectedShift.id} shift={selectedShift} onClose={() => setSelectedShiftId(null)} onSave={(workerId, targetDay) => { runAction({ type: "reassign_shift", shiftId: selectedShift.id, workerId, targetDay }); setSelectedShiftId(null); }} />}
+      {view !== "month" && <p className="drag-help">{ui.schedule.dragHelp}</p>}
+      {view !== "month" && selectedShift && <ManualShiftEditor key={selectedShift.id} shift={selectedShift} onClose={() => setSelectedShiftId(null)} onSave={(workerId, targetDay, startTime, endTime) => { runAction({ type: "reassign_shift", shiftId: selectedShift.id, workerId, targetDay, start: `${targetDay}T${startTime}:00`, end: `${targetDay}T${endTime}:00` }); setSelectedShiftId(null); }} />}
     </section>
   );
 }
 
-function ManualShiftEditor({ shift, onClose, onSave }: { shift: Shift; onClose: () => void; onSave: (workerId: string, targetDay: string) => void }) {
+function ManualShiftEditor({ shift, onClose, onSave }: { shift: Shift; onClose: () => void; onSave: (workerId: string, targetDay: string, startTime: string, endTime: string) => void }) {
   const { state, locale } = useAppState();
   const ui = getUiCopy(locale);
+  const hierarchy = getScheduleHierarchyCopy(locale);
   const profile = getLocalizedIndustryProfile(getIndustryProfile(state.business.industry), locale);
   const [workerId, setWorkerId] = useState(shift.workerId ?? state.workers[0].id);
   const [targetDay, setTargetDay] = useState(shiftDay(shift));
-  return <div className="dialog-backdrop shift-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="shift-editor" role="dialog" aria-modal="true" aria-labelledby="shift-editor-title"><div className="dialog-head"><div><span className="eyebrow">{ui.schedule.manualEdit}</span><h2 id="shift-editor-title">{ui.schedule.reassign} {formatTime(shift.start)}–{formatTime(shift.end)}</h2></div><button className="icon-button" onClick={onClose} aria-label={ui.schedule.close}>×</button></div><label>{ui.schedule.teamMemberField}<select value={workerId} onChange={(event) => setWorkerId(event.target.value)}>{state.workers.map((worker) => <option value={worker.id} key={worker.id}>{worker.name} · {profile.roleLabels[worker.role]}</option>)}</select></label><label>{ui.schedule.workDay}<select value={targetDay} onChange={(event) => setTargetDay(event.target.value)}>{DEMO_WEEK.map((day) => <option value={day} key={day}>{formatDay(locale, day, { weekday: "long", month: "short", day: "numeric" })}</option>)}</select></label><p>{ui.schedule.manualHelp}</p><div className="dialog-actions"><button className="secondary" onClick={onClose}>{ui.schedule.cancel}</button><button className="primary" onClick={() => onSave(workerId, targetDay)}>{ui.schedule.saveAssignment}</button></div></section></div>;
+  const [startTime, setStartTime] = useState(formatTime(shift.start));
+  const [endTime, setEndTime] = useState(formatTime(shift.end));
+  const validTime = endTime > startTime;
+  return <div className="dialog-backdrop shift-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="shift-editor" role="dialog" aria-modal="true" aria-labelledby="shift-editor-title"><div className="dialog-head"><div><span className="eyebrow">{ui.schedule.manualEdit}</span><h2 id="shift-editor-title">{ui.schedule.reassign} {formatTime(shift.start)}–{formatTime(shift.end)}</h2></div><button className="icon-button" onClick={onClose} aria-label={ui.schedule.close}>×</button></div><label>{ui.schedule.teamMemberField}<select value={workerId} onChange={(event) => setWorkerId(event.target.value)}>{state.workers.map((worker) => <option value={worker.id} key={worker.id}>{worker.name} · {profile.roleLabels[worker.role]}</option>)}</select></label><label>{ui.schedule.workDay}<select value={targetDay} onChange={(event) => setTargetDay(event.target.value)}>{DEMO_WEEK.map((day) => <option value={day} key={day}>{formatDay(locale, day, { weekday: "long", month: "short", day: "numeric" })}</option>)}</select></label><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><label>{hierarchy.startTime}<input data-testid="shift-start-time" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} /></label><label>{hierarchy.endTime}<input data-testid="shift-end-time" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} /></label></div>{!validTime && <p style={{ color: "var(--danger)" }}>{hierarchy.invalidTime}</p>}<p>{ui.schedule.manualHelp}</p><div className="dialog-actions"><button className="secondary" onClick={onClose}>{ui.schedule.cancel}</button><button className="primary" disabled={!validTime} onClick={() => validTime && onSave(workerId, targetDay, startTime, endTime)}>{ui.schedule.saveAssignment}</button></div></section></div>;
 }
 
 function ScenarioPanel() {

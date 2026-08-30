@@ -1,6 +1,7 @@
 "use client";
 
 import type { MarketId } from "@/domain/model";
+import { formatEvidenceTime, getEvidenceCopy } from "@/i18n/evidence";
 import { getStoreSurfaceCopy } from "@/i18n/store-surface";
 import { getMarketLocation, MARKET_PROFILES } from "@/market/profiles";
 import { type StoreDataProvenance, useAppState } from "@/state/app-state";
@@ -22,11 +23,14 @@ function Glyph({ type }: { type: "database" | "reference" | "refresh" }) {
 export function OwnerNavigation() {
   const { state, locale, runAction } = useAppState();
   const ui = getStoreSurfaceCopy(locale);
+  const evidenceUi = getEvidenceCopy(locale);
   const provenance = (state.business as typeof state.business & { dataProvenance?: StoreDataProvenance }).dataProvenance;
   const storeLive = provenance?.storeTruth === "database";
   const referenceMode = provenance?.referenceEvidence ?? "deterministic-seed";
   const referenceProvider = referenceMode === "database-provider-cache";
   const referenceBenchmark = referenceMode === "database-benchmark-cache";
+  const storeTitle = storeLive ? `${evidenceUi.states.db} · ${evidenceUi.stored} ${formatEvidenceTime(locale, provenance?.storeUpdatedAt)}` : evidenceUi.states.demo;
+  const referenceTitle = `${referenceProvider ? evidenceUi.states.cached : referenceBenchmark ? evidenceUi.states.benchmark : evidenceUi.states.demo} · ${evidenceUi.observed} ${formatEvidenceTime(locale, provenance?.referenceObservedAt)} · ${evidenceUi.fetched} ${formatEvidenceTime(locale, provenance?.referenceFetchedAt)}`;
 
   const statusStyle = (tone: "live" | "benchmark" | "fallback") => ({
     width: 29,
@@ -56,8 +60,8 @@ export function OwnerNavigation() {
           {(Object.keys(MARKET_PROFILES) as MarketId[]).map((market) => <option key={market} value={market}>{getMarketLocation(market, locale)}</option>)}
         </select>
       </label>
-      <span data-testid="store-truth-status" title={storeLive ? "매장 데이터 · DB" : "매장 데이터 · Demo"} aria-label={storeLive ? "Store data database" : "Store data fallback"} style={statusStyle(storeLive ? "live" : "fallback")}><Glyph type="database"/></span>
-      <span data-testid="reference-status" title={referenceProvider ? "시장 참고 · Provider cache" : referenceBenchmark ? "시장 참고 · Benchmark" : "시장 참고 · Demo"} aria-label={referenceProvider ? "Reference provider cache" : referenceBenchmark ? "Reference benchmark" : "Reference fallback"} style={statusStyle(referenceProvider ? "live" : referenceBenchmark ? "benchmark" : "fallback")}><Glyph type="reference"/></span>
+      <span data-testid="store-truth-status" title={storeTitle} aria-label={storeLive ? "Store data database" : "Store data fallback"} style={statusStyle(storeLive ? "live" : "fallback")}><Glyph type="database"/></span>
+      <span data-testid="reference-status" title={referenceTitle} aria-label={referenceProvider ? "Reference provider cache" : referenceBenchmark ? "Reference benchmark" : "Reference fallback"} style={statusStyle(referenceProvider ? "live" : referenceBenchmark ? "benchmark" : "fallback")}><Glyph type="reference"/></span>
       <button
         data-testid="demo-reset"
         type="button"

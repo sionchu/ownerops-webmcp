@@ -2,6 +2,7 @@ import { getResponseOptions, type ApplicationAction, type ResponseOptionRequest 
 import { applyChanges, calculateImpact } from "@/domain/impact";
 import type { AppState, CapacityGap, IndustryId, MarketId, PlanKind, StaffingChange, StorePlanChange } from "@/domain/model";
 import { analyzeInventoryCosts, analyzeMenuCosts, getDailyBrief, inventoryAtRisk, menuUnitFoodCost, purchaseReferenceComparison, storeCostMetrics } from "@/domain/store-ops";
+import { analyzeSalesEvidence } from "@/domain/sales-evidence";
 import { createStorePlan } from "@/domain/store-plan";
 import { planStoreActions, type StorePlanningRequest } from "@/domain/store-planning";
 import { getIndustryProfile, isIndustryId } from "@/industry/profiles";
@@ -182,6 +183,7 @@ function storeState(state: AppState, locale: UiLocale, focus: StoreFocus = "over
   if (focus === "sales") return {
     ...base,
     sales: state.sales ?? [],
+    salesEvidence: analyzeSalesEvidence(state),
     menuCostAnalysis: analyzeMenuCosts(state),
     menu: (state.menu ?? []).map((item) => {
       const cost = menuUnitFoodCost(state, item);
@@ -266,6 +268,7 @@ export function createToolExecutors(bridge: ToolBridge) {
       summary: "Priority operating brief from current canonical StoreState.",
       businessDate: bridge.getState().context?.businessDate,
       items: getDailyBrief(bridge.getState(), input.limit ?? 5),
+      dataProvenance: (bridge.getState().business as AppState["business"] & { dataProvenance?: unknown }).dataProvenance ?? null,
     }),
     recordOperatingEvent,
     planStoreActions: (input: StorePlanningRequest) => {
@@ -375,7 +378,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "get_store_state",
     title: "Read current live OwnerOps store state",
-    description: `PRIMARY READ PATH. Read exact canonical StoreState. Use focus=overview, people, sales, stock, operations, costs, or context so the agent receives focused evidence instead of a giant raw state dump. Answer supported questions directly without asking the owner to navigate modules. Never open/export Snapshot UI for live work. ${capabilityBoundaryDescription}`,
+    description: `PRIMARY READ PATH. Read exact canonical StoreState directly through this Site Tool. When this tool is available, do not use browser/DOM inspection, computer-use, screenshots, or automatic clicking to read OwnerOps data. Use focus=overview, people, sales, stock, operations, costs, or context so the agent receives focused evidence instead of a giant raw state dump. Answer supported questions directly without asking the owner to navigate modules. Never open/export Snapshot UI for live work. ${capabilityBoundaryDescription}`,
     inputSchema: {
       type: "object",
       properties: { focus: { type: "string", enum: focusValues, description: "Operating domain needed for the current intent." } },
@@ -388,7 +391,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "get_daily_brief",
     title: "Get today's OwnerOps operating brief",
-    description: "Preferred first tool for 'prepare today', 'what do I need to know', or 'what is risky'. Return only the highest-priority evidence across people, stock, costs, operations, and context.",
+    description: "Preferred first tool for 'prepare today', 'what do I need to know', or 'what is risky'. Use this Site Tool directly instead of browser/computer-use when available. Return only the highest-priority evidence across people, stock, costs, operations, and context, with dataProvenance for source/freshness reasoning.",
     inputSchema: { type: "object", properties: { limit: { type: "number", minimum: 1, maximum: 5 } }, additionalProperties: false },
     annotations: { readOnlyHint: true },
     execute: async (input) => tools.getDailyBrief({ limit: typeof input.limit === "number" ? input.limit : undefined }),

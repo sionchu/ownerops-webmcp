@@ -1,6 +1,8 @@
 "use client";
 
 import { analyzeInventoryCosts, analyzeMenuCosts, getDailyBrief, storeCostMetrics } from "@/domain/store-ops";
+import { analyzeSalesEvidence } from "@/domain/sales-evidence";
+import { formatEvidenceTime, getEvidenceCopy, referenceEvidenceState, type EvidenceState } from "@/i18n/evidence";
 import type { StoreMetricSnapshot } from "@/domain/model";
 import { getOperatingBriefCopy, localizeDailyBriefItem, operatingBriefMoney } from "@/i18n/operating-brief";
 import { getStoreSurfaceCopy } from "@/i18n/store-surface";
@@ -30,10 +32,15 @@ function percentage(value: number | null | undefined, locale: string): string {
   return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(value * 100)}%`;
 }
 
-function statusColor(status: string): string {
-  if (status === "unit_issue" || status === "data_issue" || status === "urgent") return "#a84f3d";
-  if (status === "attention") return "#a36b16";
-  return "#315847";
+function evidenceTone(state: EvidenceState) {
+  if (["live", "recent", "db"].includes(state)) return { color: "#315847", background: "#edf6f1", border: "#c8ddd1" };
+  if (["benchmark", "cached", "demo"].includes(state)) return { color: "#94651e", background: "#fff8e8", border: "#ead7a8" };
+  if (state === "stale") return { color: "#a84f3d", background: "#fff4ef", border: "#ebc9be" };
+  return { color: "#817a72", background: "#f5f3ef", border: "#ded8d0" };
+}
+function EvidenceBadge({ state, label, title }: { state: EvidenceState; label: string; title?: string }) {
+  const tone = evidenceTone(state);
+  return <span title={title} style={{ display: "inline-flex", border: `1px solid ${tone.border}`, background: tone.background, color: tone.color, borderRadius: 999, padding: "1px 6px", fontSize: 9, fontWeight: 800, whiteSpace: "nowrap" }}>{label}</span>;
 }
 
 export function OperatingCommandCenter() {
@@ -46,6 +53,8 @@ export function OperatingCommandCenter() {
   const inventoryAnalysis = analyzeInventoryCosts(state);
   const currency = state.business.currency;
   const plan = state.storePlan;
+  const evidenceUi = getEvidenceCopy(locale);
+  const salesEvidence = analyzeSalesEvidence(state);
   const resolvedCallout = [...(state.incidents ?? [])].reverse().find((incident) => incident.type === "worker_unavailable" && incident.status === "resolved");
   const canApplyStorePlan = plan?.state === "reviewed";
 
@@ -148,15 +157,19 @@ export function OperatingCommandCenter() {
           </div>
         </details>
 
+        <details data-testid="sales-evidence" style={{ borderTop: "1px solid #eee6dc", paddingTop: 8 }}>
+          <summary style={{ cursor: "pointer", color: "#315847", fontSize: 12, fontWeight: 800 }}>{evidenceUi.salesEvidence}</summary>
+          <div style={{ display: "grid", gap: 12, marginTop: 10 }}>
+            <section style={{ display: "grid", gap: 6 }}><h3 style={{ margin: 0, fontSize: 12 }}>{evidenceUi.dailySales}</h3><div style={{ overflowX: "auto" }}><table style={{ width: "100%", minWidth: 760, borderCollapse: "collapse", fontSize: 11 }}><thead><tr style={{ textAlign: "left", color: "#746e65", borderBottom: "1px solid #e8ded3" }}><th style={{ padding: 6 }}>{evidenceUi.date}</th><th style={{ padding: 6 }}>{evidenceUi.source}</th><th style={{ padding: 6 }}>{evidenceUi.netSales}</th><th style={{ padding: 6 }}>{evidenceUi.orders}</th><th style={{ padding: 6 }}>{evidenceUi.foodCost}</th><th style={{ padding: 6 }}>{evidenceUi.foodCostRatio}</th><th style={{ padding: 6 }}>{evidenceUi.wasteCost}</th><th style={{ padding: 6 }}>{evidenceUi.lossRate}</th></tr></thead><tbody>{salesEvidence.daily.map((item) => <tr key={item.date} style={{ borderBottom: "1px solid #f0e9df" }}><td style={{ padding: 6 }}>{item.date}</td><td style={{ padding: 6 }}><EvidenceBadge state={item.source === "demo" ? "demo" : "db"} label={item.source === "demo" ? evidenceUi.states.demo : evidenceUi.states.db}/></td><td style={{ padding: 6, fontWeight: 700 }}>{operatingBriefMoney(locale, currency, item.netSales)}</td><td style={{ padding: 6 }}>{item.orderCount}</td><td style={{ padding: 6 }}>{operatingBriefMoney(locale, currency, item.theoreticalFoodCost)}</td><td style={{ padding: 6 }}>{percentage(item.foodCostRatio, locale)}</td><td style={{ padding: 6 }}>{operatingBriefMoney(locale, currency, item.wasteCost)}</td><td style={{ padding: 6 }}>{percentage(item.lossRate, locale)}</td></tr>)}</tbody></table></div></section>
+            <section style={{ display: "grid", gap: 6 }}><h3 style={{ margin: 0, fontSize: 12 }}>{evidenceUi.menuMix}</h3><div style={{ overflowX: "auto" }}><table style={{ width: "100%", minWidth: 600, borderCollapse: "collapse", fontSize: 11 }}><thead><tr style={{ textAlign: "left", color: "#746e65", borderBottom: "1px solid #e8ded3" }}><th style={{ padding: 6 }}>{ui.analysis.item}</th><th style={{ padding: 6 }}>{evidenceUi.soldQty}</th><th style={{ padding: 6 }}>{evidenceUi.netSales}</th><th style={{ padding: 6 }}>{evidenceUi.foodCost}</th><th style={{ padding: 6 }}>{evidenceUi.foodCostRatio}</th></tr></thead><tbody>{salesEvidence.menu.map((item) => <tr key={item.menuItemId} style={{ borderBottom: "1px solid #f0e9df" }}><td style={{ padding: 6, fontWeight: 700 }}>{item.name}</td><td style={{ padding: 6 }}>{item.quantity}</td><td style={{ padding: 6 }}>{operatingBriefMoney(locale, currency, item.netSales)}</td><td style={{ padding: 6 }}>{operatingBriefMoney(locale, currency, item.foodCost)}</td><td style={{ padding: 6 }}>{percentage(item.foodCostRatio, locale)}</td></tr>)}</tbody></table></div></section>
+            {Math.abs(salesEvidence.totals.unallocatedSales) > 1 && <small style={{ color: "#94651e" }}>{evidenceUi.reconciliation}: {operatingBriefMoney(locale, currency, salesEvidence.totals.unallocatedSales)}</small>}
+          </div>
+        </details>
+
         <details data-testid="cost-analysis" style={{ borderTop: "1px solid #eee6dc", paddingTop: 8 }}>
           <summary style={{ cursor: "pointer", color: "#315847", fontSize: 12, fontWeight: 800 }}>{ui.analysis.title}</summary>
           <div style={{ display: "grid", gap: 12, marginTop: 10 }}>
-            <div aria-label={ui.analysis.status} style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 10, color: "#746e65" }}>
-              <span style={{ color: "#315847", fontWeight: 700 }}>{ui.analysis.complete}</span>
-              <span style={{ color: "#a36b16", fontWeight: 700 }}>{ui.analysis.aboveTarget}</span>
-              <span style={{ color: "#a84f3d", fontWeight: 700 }}>{ui.analysis.unitIssue}</span>
-              <span style={{ color: "#a84f3d", fontWeight: 700 }}>{ui.analysis.dataIssue}</span>
-            </div>
+            <div aria-label={ui.analysis.status} style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 10, color: "#746e65", alignItems: "center" }}><span><strong>{evidenceUi.data}</strong> · <EvidenceBadge state="db" label={evidenceUi.states.db}/> <EvidenceBadge state="benchmark" label={evidenceUi.states.benchmark}/> <EvidenceBadge state="missing" label={evidenceUi.states.missing}/></span><span><strong>{evidenceUi.operation}</strong> · <span style={{ color: "#315847", fontWeight: 700 }}>{ui.analysis.complete}</span> · <span style={{ color: "#a36b16", fontWeight: 700 }}>{ui.severities.attention}</span> · <span style={{ color: "#a84f3d", fontWeight: 700 }}>{ui.severities.urgent}</span></span></div>
             <section aria-label={ui.analysis.menu} data-testid="menu-cost-table" style={{ display: "grid", gap: 6 }}>
               <h3 style={{ margin: 0, fontSize: 12, color: "#2c2925" }}>{ui.analysis.menu}</h3>
               <div style={{ overflowX: "auto" }}>
@@ -169,13 +182,15 @@ export function OperatingCommandCenter() {
                       <th style={{ padding: "5px 6px" }}>{ui.analysis.foodCostRatio}</th>
                       <th style={{ padding: "5px 6px" }}>{ui.analysis.target}</th>
                       <th style={{ padding: "5px 6px" }}>{ui.analysis.foodCostOnlyMargin}</th>
-                      <th style={{ padding: "5px 6px" }}>{ui.analysis.status}</th>
+                      <th style={{ padding: "5px 6px" }}>{evidenceUi.data}</th>
+                      <th style={{ padding: "5px 6px" }}>{evidenceUi.operation}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {menuAnalysis.map((analysis) => {
                       const aboveTarget = analysis.varianceVsTarget !== null && analysis.varianceVsTarget > 0;
-                      const status = analysis.status === "unit_issue" ? ui.analysis.unitIssue : analysis.status === "data_issue" ? ui.analysis.dataIssue : aboveTarget ? ui.analysis.aboveTarget : ui.analysis.complete;
+                      const dataState: EvidenceState = analysis.status === "complete" ? "db" : "missing";
+                      const operationStatus = analysis.foodCostRatio === null ? "—" : aboveTarget ? ui.severities.attention : ui.analysis.complete;
                       return <tr key={analysis.item.id} style={{ borderBottom: "1px solid #f0e9df", background: analysis.status === "unit_issue" ? "#fff5f0" : aboveTarget ? "#fffaf0" : "transparent" }}>
                         <td style={{ padding: "6px", fontWeight: 700 }}>{analysis.item.name}</td>
                         <td style={{ padding: "6px", whiteSpace: "nowrap" }}>{operatingBriefMoney(locale, currency, analysis.sellingPrice)}</td>
@@ -183,7 +198,8 @@ export function OperatingCommandCenter() {
                         <td style={{ padding: "6px", fontVariantNumeric: "tabular-nums", color: aboveTarget ? "#a84f3d" : "#2c2925", fontWeight: aboveTarget ? 800 : 500 }}>{percentage(analysis.foodCostRatio, locale)}</td>
                         <td style={{ padding: "6px", fontVariantNumeric: "tabular-nums" }}>{percentage(analysis.targetFoodCostRatio, locale)}</td>
                         <td style={{ padding: "6px", whiteSpace: "nowrap" }}>{analysis.foodCostOnlyMargin === null ? ui.analysis.noData : operatingBriefMoney(locale, currency, analysis.foodCostOnlyMargin)}</td>
-                        <td style={{ padding: "6px", color: statusColor(analysis.status), fontWeight: 750 }}>{status}</td>
+                        <td style={{ padding: "6px" }}><EvidenceBadge state={dataState} label={evidenceUi.states[dataState]}/></td>
+                        <td style={{ padding: "6px", color: aboveTarget ? "#a36b16" : "#315847", fontWeight: 750 }}>{operationStatus}</td>
                       </tr>;
                     })}
                   </tbody>
@@ -204,24 +220,28 @@ export function OperatingCommandCenter() {
                       <th style={{ padding: "5px 6px" }}>{ui.analysis.actualPurchaseUnitCost}</th>
                       <th style={{ padding: "5px 6px" }}>{ui.analysis.marketReference}</th>
                       <th style={{ padding: "5px 6px" }}>{ui.analysis.versusReference}</th>
-                      <th style={{ padding: "5px 6px" }}>{ui.analysis.status}</th>
+                      <th style={{ padding: "5px 6px" }}>{evidenceUi.data}</th>
+                      <th style={{ padding: "5px 6px" }}>{evidenceUi.operation}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {inventoryAnalysis.map((analysis) => {
-                      const ref = analysis.reference && analysis.referenceUnitCost !== null
-                        ? `${operatingBriefMoney(locale, analysis.reference.currency ?? currency, analysis.referenceUnitCost)} / ${analysis.item.unit} · ${analysis.reference.provider} · ${analysis.reference.freshness}`
-                        : ui.analysis.noReference;
-                      const status = analysis.status === "unit_issue" ? ui.analysis.unitIssue : analysis.status === "data_issue" ? ui.analysis.dataIssue : analysis.status === "urgent" ? ui.severities.urgent : analysis.status === "attention" ? ui.severities.attention : ui.analysis.complete;
+                      const refState = referenceEvidenceState(analysis.reference);
+                      const refTitle = analysis.reference ? `${analysis.reference.provider} · ${evidenceUi.observed} ${formatEvidenceTime(locale, analysis.reference.observedAt)} · ${evidenceUi.fetched} ${formatEvidenceTime(locale, analysis.reference.fetchedAt)}` : undefined;
+                      const urgent = analysis.item.onHand <= analysis.item.reorderPoint || (analysis.daysOfCover !== null && analysis.daysOfCover <= analysis.item.leadTimeDays);
+                      const attention = analysis.item.onHand <= analysis.item.parLevel || (analysis.daysOfCover !== null && analysis.daysOfCover <= analysis.item.leadTimeDays + 1);
+                      const operationStatus = urgent ? ui.severities.urgent : attention ? ui.severities.attention : ui.analysis.complete;
+                      const dataState: EvidenceState = analysis.actualPurchaseUnitCost === null ? "missing" : "db";
                       return <tr key={analysis.item.id} style={{ borderBottom: "1px solid #f0e9df", background: analysis.status === "unit_issue" ? "#fff5f0" : analysis.status === "urgent" ? "#fff8f5" : "transparent" }}>
                         <td style={{ padding: "6px", fontWeight: 700 }}>{analysis.item.name}</td>
                         <td style={{ padding: "6px", whiteSpace: "nowrap" }}>{quantity(analysis.item.onHand, analysis.item.unit, locale)} / {quantity(analysis.item.parLevel, analysis.item.unit, locale)}</td>
                         <td style={{ padding: "6px", fontVariantNumeric: "tabular-nums" }}>{analysis.daysOfCover === null ? ui.analysis.noData : `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(analysis.daysOfCover)}d`}</td>
                         <td style={{ padding: "6px", whiteSpace: "nowrap" }}>{quantity(analysis.reorderQuantity, analysis.item.unit, locale)}</td>
                         <td style={{ padding: "6px", whiteSpace: "nowrap", color: "#2c2925", fontWeight: 700 }}>{analysis.actualPurchaseUnitCost === null ? ui.analysis.noData : `${operatingBriefMoney(locale, currency, analysis.actualPurchaseUnitCost)} / ${analysis.item.unit}`}</td>
-                        <td style={{ padding: "6px", minWidth: 210, color: "#746e65" }}>{ref}</td>
+                        <td style={{ padding: "6px", minWidth: 160, color: "#746e65" }}>{analysis.reference && analysis.referenceUnitCost !== null ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EvidenceBadge state={refState} label={evidenceUi.states[refState]} title={refTitle}/><span>{operatingBriefMoney(locale, analysis.reference.currency ?? currency, analysis.referenceUnitCost)} / {analysis.item.unit}</span></span> : <EvidenceBadge state="missing" label={evidenceUi.states.missing}/>}</td>
                         <td style={{ padding: "6px", fontVariantNumeric: "tabular-nums", color: analysis.differenceRate !== null && analysis.differenceRate > 0 ? "#a36b16" : "#315847" }}>{percentage(analysis.differenceRate, locale)}</td>
-                        <td style={{ padding: "6px", color: statusColor(analysis.status), fontWeight: 750 }}>{status}</td>
+                        <td style={{ padding: "6px" }}><EvidenceBadge state={dataState} label={evidenceUi.states[dataState]}/></td>
+                        <td style={{ padding: "6px", color: urgent ? "#a84f3d" : attention ? "#a36b16" : "#315847", fontWeight: 750 }}>{operationStatus}</td>
                       </tr>;
                     })}
                   </tbody>

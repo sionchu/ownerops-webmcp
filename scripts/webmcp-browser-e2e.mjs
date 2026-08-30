@@ -140,6 +140,11 @@ async function main() {
       });
     }
 
+    step("verify month to week schedule hierarchy");
+    await page.getByTestId("schedule-view-month").click();
+    await page.getByTestId("schedule-month-overview").waitFor({ state: "visible", timeout: 10_000 });
+    await page.locator("[data-testid^=month-week-]").filter({ hasText: /h/ }).first().click();
+
     step("continue full reviewed-apply flow on Seoul");
     const apiEvidence = await page.evaluate(async () => {
       const [storeResponse, referenceResponse] = await Promise.all([
@@ -158,6 +163,13 @@ async function main() {
     const overview = await waitForDbMarket("kr-seoul");
     const brief = await invoke("get_daily_brief", { limit: 5 });
     assert(Array.isArray(brief?.items) && brief.items.length >= 3 && brief.items.length <= 5, "Daily Brief is not a short priority list.", brief);
+
+    step("verify sales evidence and split data/operation semantics");
+    const salesTool = await invoke("get_store_state", { focus: "sales" });
+    assert(salesTool.salesEvidence?.daily?.length === 7 && salesTool.salesEvidence?.menu?.length >= 4, "Sales evidence missing from semantic tool surface.", salesTool.salesEvidence);
+    assert(await page.getByTestId("sales-evidence").count() === 1, "Sales evidence UI missing.");
+    const analysisText = await page.getByTestId("cost-analysis").textContent();
+    assert(!String(analysisText).includes("데이터 확인 필요"), "Data quality is still mixed into operational status.", analysisText);
 
     step("read milk stock, cover, actual price and benchmark reference");
     let stock;
@@ -217,13 +229,14 @@ async function main() {
     const editor = page.locator(".shift-editor");
     await editor.waitFor({ state: "visible", timeout: 10_000 });
     await editor.locator("select").first().selectOption(humanWorker);
+    await editor.getByTestId("shift-end-time").fill("21:30");
     await editor.locator("button.primary").click();
     await page.locator(".candidate-card.candidate-human-edit").waitFor({ state: "visible", timeout: 10_000 });
 
     const edited = await invoke("get_store_state", { focus: "people" });
     const editedPlan = edited?.activeStorePlan;
     const editedStaffing = editedPlan?.changes?.find((change) => change.type === "staffing" && change.shiftId === calloutShift.id);
-    assert(editedPlan?.state === "preview" && editedStaffing?.workerId === humanWorker, "Human edit did not update the canonical candidate.", editedPlan);
+    assert(editedPlan?.state === "preview" && editedStaffing?.workerId === humanWorker && String(editedStaffing?.end).includes("21:30"), "Human worker/time edit did not update the canonical candidate.", editedPlan);
     assert(editedPlan.version > preview.storePlan.version, "Human edit did not advance plan version.");
 
     step("evaluate exact human-edited candidate and apply reviewed plan");
@@ -238,7 +251,7 @@ async function main() {
     const peopleAfter = await invoke("get_store_state", { focus: "people" });
     const stockAfter = await invoke("get_store_state", { focus: "stock" });
     const appliedShift = peopleAfter.shifts.find((shift) => shift.id === calloutShift.id);
-    assert(appliedShift?.workerId === humanWorker && appliedShift?.status === "scheduled", "Human-edited staffing was not committed.", appliedShift);
+    assert(appliedShift?.workerId === humanWorker && appliedShift?.status === "scheduled" && String(appliedShift?.end).includes("21:30"), "Human-edited staffing/time was not committed.", appliedShift);
     assert(peopleAfter.activeIncident == null, "Call-out stayed active after reviewed apply.");
     assert(peopleAfter.incidents.some((incident) => incident.type === "worker_unavailable" && incident.shiftId === calloutShift.id && incident.status === "resolved"), "Resolved incident history was lost.", peopleAfter.incidents);
     const appliedOrder = stockAfter.purchaseOrders.find((order) => order.inventoryItemId === purchaseChange.inventoryItemId && order.status === "planned");
