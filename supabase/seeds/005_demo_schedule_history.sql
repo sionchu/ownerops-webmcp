@@ -47,8 +47,8 @@ select
     select jsonb_agg(jsonb_build_object(
       'id', 'hist-' || to_char(tw.week_start, 'YYYYMMDD') || '-' || bs.shift_id,
       'workerId', bs.worker_id,
-      'start', to_char((bs.starts_at at time zone 'UTC') + (tw.week_start - date '2026-08-24'), 'YYYY-MM-DD"T"HH24:MI:SS'),
-      'end', to_char((bs.ends_at at time zone 'UTC') + (tw.week_start - date '2026-08-24'), 'YYYY-MM-DD"T"HH24:MI:SS'),
+      'start', to_char((bs.starts_at at time zone 'UTC') + ((tw.week_start - date '2026-08-24') * interval '1 day'), 'YYYY-MM-DD"T"HH24:MI:SS'),
+      'end', to_char((bs.ends_at at time zone 'UTC') + ((tw.week_start - date '2026-08-24') * interval '1 day'), 'YYYY-MM-DD"T"HH24:MI:SS'),
       'role', bs.role,
       'status', bs.status
     ) order by bs.starts_at, bs.shift_id)
@@ -72,12 +72,12 @@ select
       'workerId', bs.worker_id,
       'shiftId', 'hist-' || to_char(tw.week_start, 'YYYYMMDD') || '-' || bs.shift_id,
       'clockIn', to_char(
-        (bs.starts_at at time zone 'UTC') + (tw.week_start - date '2026-08-24')
+        (bs.starts_at at time zone 'UTC') + ((tw.week_start - date '2026-08-24') * interval '1 day')
           + (((bs.seq % 3)::int - 1) * interval '4 minutes'),
         'YYYY-MM-DD"T"HH24:MI:SS'
       ),
       'clockOut', to_char(
-        (bs.ends_at at time zone 'UTC') + (tw.week_start - date '2026-08-24')
+        (bs.ends_at at time zone 'UTC') + ((tw.week_start - date '2026-08-24') * interval '1 day')
           + (((bs.seq % 5)::int - 2) * interval '3 minutes'),
         'YYYY-MM-DD"T"HH24:MI:SS'
       ),
