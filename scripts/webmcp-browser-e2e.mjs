@@ -12,6 +12,13 @@ const EXPECTED_TOOLS = [
   "record_operating_event",
   "restore_store_snapshot",
 ].sort();
+const MARKETS = [
+  { id: "us-nyc", currency: "USD" },
+  { id: "jp-tokyo", currency: "JPY" },
+  { id: "es-madrid", currency: "EUR" },
+  { id: "cn-shanghai", currency: "CNY" },
+  { id: "kr-seoul", currency: "KRW" },
+];
 
 function assert(condition, message, detail) {
   if (condition) return;
@@ -48,7 +55,7 @@ async function main() {
     step(`open ${BASE_URL}`);
     let opened = false;
     let lastError = null;
-    for (let attempt = 1; attempt <= 3 && !opened; attempt += 1) {
+    for (let attempt = 1; attempt <= 6 && !opened; attempt += 1) {
       try {
         const response = await page.goto(BASE_URL, { waitUntil: "domcontentloaded", timeout: 20_000 });
         opened = Boolean(response?.ok());
@@ -70,11 +77,60 @@ async function main() {
       return tool.execute(input, { signal: new AbortController().signal });
     }, { name, input });
 
+    const waitForDbMarket = async (market) => {
+      let overview = null;
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        overview = await invoke("get_store_state", { focus: "overview" });
+        const provenance = overview?.business?.dataProvenance;
+        if (overview?.business?.market === market && provenance?.storeTruth === "database" && provenance?.referenceEvidence === "database-benchmark-cache") return overview;
+        await page.waitForTimeout(500);
+      }
+      throw new Error(`Market ${market} did not reach DB-backed + benchmark-cache provenance.\n${JSON.stringify(overview?.business, null, 2)}`);
+    };
+
     step("verify nine registered tools");
     const toolNames = await page.evaluate(() => Object.keys(window.__owneropsWebMcpTools ?? {}).sort());
     assert(JSON.stringify(toolNames) === JSON.stringify(EXPECTED_TOOLS), "Expected exactly nine canonical tools.", toolNames);
 
-    step("verify DB-backed Preview APIs");
+    step("verify all five markets hydrate from DB and disclose benchmark provenance");
+    const marketEvidence = [];
+    for (const market of MARKETS) {
+      await invoke("configure_demo_store", { industry: "coffee", market: market.id, uiLocale: "ko" });
+      const overview = await waitForDbMarket(market.id);
+      assert(overview.business.currency === market.currency, `Currency mismatch for ${market.id}.`, overview.business);
+      assert(overview.business.dataProvenance?.disclosure?.includes("not a live provider quote"), `Missing non-live reference disclosure for ${market.id}.`, overview.business.dataProvenance);
+      assert(finite(overview.metrics?.foodCostRatio) && overview.metrics.foodCostRatio >= 0 && overview.metrics.foodCostRatio < 1, `Food-cost ratio is invalid for ${market.id}.`, overview.metrics);
+
+      const sales = await invoke("get_store_state", { focus: "sales" });
+      assert(sales.menu?.length > 0 && sales.menu.every((item) => finite(item.price) && item.price > 0), `Menu price collapsed for ${market.id}.`, sales.menu);
+      assert(sales.menuCostAnalysis?.every((item) => item.foodCostRatio === null || finite(item.foodCostRatio)), `Menu cost analysis is invalid for ${market.id}.`, sales.menuCostAnalysis);
+
+      const api = await page.evaluate(async ({ marketId }) => {
+        const storeId = `demo-${marketId}-coffee`;
+        const [storeResponse, referenceResponse] = await Promise.all([
+          fetch(`/api/store-state?storeId=${encodeURIComponent(storeId)}`, { cache: "no-store" }),
+          fetch(`/api/references?market=${encodeURIComponent(marketId)}`, { cache: "no-store" }),
+        ]);
+        return {
+          store: { status: storeResponse.status, body: await storeResponse.json() },
+          references: { status: referenceResponse.status, body: await referenceResponse.json() },
+        };
+      }, { marketId: market.id });
+      assert(api.store.status === 200 && api.store.body?.source === "database", `Store API is not DB-backed for ${market.id}.`, api.store);
+      assert(api.references.status === 200 && api.references.body?.source === "database-benchmark-cache" && api.references.body?.referenceOrigin === "benchmark-template", `Reference provenance mismatch for ${market.id}.`, api.references);
+      assert(api.references.body.references?.some((reference) => reference.referenceKey === "milk" && reference.provider === "fnb-master-2026" && reference.freshness === "seed"), `DB benchmark milk reference missing for ${market.id}.`, api.references.body.references);
+
+      marketEvidence.push({
+        market: market.id,
+        currency: market.currency,
+        storeSource: api.store.body.source,
+        referenceSource: api.references.body.source,
+        lattePrice: sales.menu.find((item) => item.id === "latte")?.price,
+        foodCostRatio: overview.metrics.foodCostRatio,
+      });
+    }
+
+    step("continue full reviewed-apply flow on Seoul");
     const apiEvidence = await page.evaluate(async () => {
       const [storeResponse, referenceResponse] = await Promise.all([
         fetch("/api/store-state?storeId=demo-kr-seoul-coffee", { cache: "no-store" }),
@@ -85,29 +141,27 @@ async function main() {
         references: { status: referenceResponse.status, body: await referenceResponse.json() },
       };
     });
-    assert(apiEvidence.store.status === 200 && apiEvidence.store.body?.source === "database", "Store API is not DB-backed.", apiEvidence.store);
-    assert(apiEvidence.references.status === 200 && apiEvidence.references.body?.source === "database-cache", "Reference API is not DB-cache-backed.", apiEvidence.references);
+    assert(apiEvidence.store.status === 200 && apiEvidence.store.body?.source === "database", "Seoul Store API is not DB-backed.", apiEvidence.store);
+    assert(apiEvidence.references.status === 200 && apiEvidence.references.body?.source === "database-benchmark-cache", "Seoul reference API is not DB benchmark-backed.", apiEvidence.references);
 
-    step("read Daily Brief and unit-safe overview");
-    const overview = await invoke("get_store_state", { focus: "overview" });
-    assert(overview?.business?.market === "kr-seoul", "Expected Seoul market.", overview?.business);
-    assert(finite(overview?.metrics?.foodCostRatio) && overview.metrics.foodCostRatio >= 0 && overview.metrics.foodCostRatio < 1, "Food-cost ratio is not unit-safe.", overview?.metrics);
+    step("read Daily Brief and unit-safe Seoul overview");
+    const overview = await waitForDbMarket("kr-seoul");
     const brief = await invoke("get_daily_brief", { limit: 5 });
     assert(Array.isArray(brief?.items) && brief.items.length >= 3 && brief.items.length <= 5, "Daily Brief is not a short priority list.", brief);
 
-    step("read milk stock, cover, actual price and market reference");
+    step("read milk stock, cover, actual price and benchmark reference");
     let stock;
     let milk;
     for (let attempt = 0; attempt < 20; attempt += 1) {
       stock = await invoke("get_store_state", { focus: "stock" });
       milk = stock?.inventoryCostAnalysis?.find((entry) => entry?.item?.id === "whole-milk");
-      if (milk?.reference && finite(milk?.differenceRate)) break;
+      if (milk?.reference?.provider === "fnb-master-2026" && finite(milk?.differenceRate)) break;
       await page.waitForTimeout(500);
     }
     assert(milk, "Whole milk stock analysis is missing.", stock?.inventoryCostAnalysis);
     assert(finite(milk.actualPurchaseUnitCost) && milk.actualPurchaseUnitCost > 0, "Actual milk purchase price is missing.", milk);
     assert(finite(milk.daysOfCover) && milk.daysOfCover > 0, "Milk days-of-cover is missing.", milk);
-    assert(milk.reference && finite(milk.referenceUnitCost) && finite(milk.differenceRate), "Milk market comparison is missing.", milk);
+    assert(milk.reference?.provider === "fnb-master-2026" && milk.reference?.freshness === "seed" && finite(milk.referenceUnitCost) && finite(milk.differenceRate), "Milk benchmark comparison provenance is missing.", milk);
     const baselineMilk = stock.inventory.find((item) => item.id === "whole-milk");
     const baselineMilkOnHand = baselineMilk?.onHand;
     const baselinePurchaseOrders = stock.purchaseOrders?.length ?? 0;
@@ -186,15 +240,20 @@ async function main() {
       ok: true,
       url: BASE_URL,
       tools: finalNames,
-      storeSource: apiEvidence.store.body.source,
-      referenceSource: apiEvidence.references.body.source,
-      foodCostRatio: overview.metrics.foodCostRatio,
-      milk: { daysOfCover: milk.daysOfCover, actualPurchaseUnitCost: milk.actualPurchaseUnitCost, referenceUnitCost: milk.referenceUnitCost, differenceRate: milk.differenceRate },
-      calloutShift: calloutShift.id,
-      proposedWorker,
-      humanWorker,
-      reviewedVersion: reviewedPlan.version,
-      plannedPurchaseOrder: appliedOrder.id,
+      markets: marketEvidence,
+      seoul: {
+        storeSource: apiEvidence.store.body.source,
+        referenceSource: apiEvidence.references.body.source,
+        referenceOrigin: apiEvidence.references.body.referenceOrigin,
+        foodCostRatio: overview.metrics.foodCostRatio,
+        provenance: overview.business.dataProvenance,
+        milk: { daysOfCover: milk.daysOfCover, actualPurchaseUnitCost: milk.actualPurchaseUnitCost, referenceUnitCost: milk.referenceUnitCost, differenceRate: milk.differenceRate },
+        calloutShift: calloutShift.id,
+        proposedWorker,
+        humanWorker,
+        reviewedVersion: reviewedPlan.version,
+        plannedPurchaseOrder: appliedOrder.id,
+      },
     }, null, 2));
   } finally {
     await browser.close();
