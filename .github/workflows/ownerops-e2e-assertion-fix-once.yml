@@ -1,0 +1,40 @@
+name: OwnerOps final E2E assertion fix once
+on:
+  push:
+    branches: [re0/ai-store-manager]
+    paths: [.github/workflows/ownerops-e2e-assertion-fix-once.yml]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: re0/ai-store-manager
+          fetch-depth: 0
+      - name: Patch final browser assertions
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/webmcp-browser-e2e.mjs')
+          text = p.read_text()
+          old = '    assert((await referenceStatus.getAttribute("title"))?.includes("Benchmark"), "Reference status icon did not return to benchmark state.");'
+          new = '    assert((await referenceStatus.getAttribute("aria-label")) === "Reference benchmark", "Reference status icon did not return to benchmark state.");'
+          if text.count(old) != 1:
+              raise SystemExit(f'final reference assertion matches: {text.count(old)}')
+          text = text.replace(old, new, 1)
+          needle = '    assert(salesTool.salesEvidence?.daily?.length === 7 && salesTool.salesEvidence?.menu?.length >= 4, "Sales evidence missing from semantic tool surface.", salesTool.salesEvidence);'
+          addition = needle + '\n    assert(salesTool.salesEvidence.daily.every((item) => item.source === "demo"), "Demo sales evidence must not be presented as live.", salesTool.salesEvidence.daily);\n    assert(Math.abs(salesTool.salesEvidence.totals.unallocatedSales) / salesTool.salesEvidence.totals.netSales < 0.03, "Live DB menu evidence does not reconcile closely enough to headline sales.", salesTool.salesEvidence.totals);\n    assert(salesTool.salesEvidence.menu.find((item) => item.menuItemId === "croissant-menu")?.foodCost > 0, "Croissant food-cost evidence is missing from live DB state.", salesTool.salesEvidence.menu);'
+          if text.count(needle) != 1:
+              raise SystemExit(f'sales evidence assertion matches: {text.count(needle)}')
+          p.write_text(text.replace(needle, addition, 1))
+          PY
+      - name: Commit fix
+        run: |
+          git config user.name "OwnerOps CI"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/ownerops-e2e-assertion-fix-once.yml
+          git add scripts/webmcp-browser-e2e.mjs
+          git commit -m "test: verify live demo evidence in browser"
+          git push origin HEAD:re0/ai-store-manager
