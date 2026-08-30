@@ -25,24 +25,33 @@ export function storeIdForState(state: AppState): string {
   return `demo-${state.business.market}-${state.business.industry}`;
 }
 
+function scopedId(storeId: string, id: string): string {
+  const prefix = `${storeId}:`;
+  return id.startsWith(prefix) ? id : `${prefix}${id}`;
+}
+
 export function projectStateForPersistence(state: AppState): StorePersistenceProjection {
+  const storeId = storeIdForState(state);
   return {
-    storeId: storeIdForState(state),
+    storeId,
     business: structuredClone(state.business),
-    workers: structuredClone(state.workers),
+    workers: structuredClone(state.workers).map((worker) => ({
+      ...worker,
+      availabilityExceptions: (worker.availabilityExceptions ?? []).map((exception) => ({ ...exception, id: scopedId(storeId, exception.id) })),
+    })),
     shifts: structuredClone(state.shifts),
-    timeEntries: structuredClone(state.timeEntries ?? []),
-    incidents: structuredClone(state.incidents ?? []),
-    sales: structuredClone(state.sales ?? []),
+    timeEntries: structuredClone(state.timeEntries ?? []).map((entry) => ({ ...entry, id: scopedId(storeId, entry.id) })),
+    incidents: structuredClone(state.incidents ?? []).map((incident) => ({ ...incident, id: scopedId(storeId, incident.id) })),
+    sales: structuredClone(state.sales ?? []).map((sale) => ({ ...sale, id: scopedId(storeId, sale.id) })),
     menu: structuredClone(state.menu ?? []),
     prepItems: structuredClone(state.prepItems ?? []),
     inventory: structuredClone(state.inventory ?? []),
     suppliers: structuredClone(state.suppliers ?? []),
-    purchases: structuredClone(state.purchases ?? []),
-    purchaseOrders: structuredClone(state.purchaseOrders ?? []),
-    waste: structuredClone(state.waste ?? []),
-    tasks: structuredClone(state.tasks ?? []),
-    log: structuredClone(state.log ?? []),
+    purchases: structuredClone(state.purchases ?? []).map((purchase) => ({ ...purchase, id: scopedId(storeId, purchase.id) })),
+    purchaseOrders: structuredClone(state.purchaseOrders ?? []).map((order) => ({ ...order, id: scopedId(storeId, order.id) })),
+    waste: structuredClone(state.waste ?? []).map((record) => ({ ...record, id: scopedId(storeId, record.id) })),
+    tasks: structuredClone(state.tasks ?? []).map((task) => ({ ...task, id: scopedId(storeId, task.id) })),
+    log: structuredClone(state.log ?? []).map((entry) => ({ ...entry, id: scopedId(storeId, entry.id) })),
     currentIncident: state.incident ? structuredClone(state.incident) : null,
   };
 }
