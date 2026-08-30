@@ -1,6 +1,7 @@
 import { hoursBetween, estimatedPayroll } from "./impact";
 import { resolveCommodityReference } from "./reference-resolver";
-import type { AppState, InventoryItem, InventoryRecipeLine, MenuItem, PrepItem, RecipeLine, ReferenceObservation } from "./model";
+import { convertInventoryQuantity, isInventoryUnit } from "./units";
+import type { AppState, InventoryItem, InventoryRecipeLine, InventoryUnit, MenuItem, PrepItem, RecipeLine, ReferenceObservation } from "./model";
 
 export type DailyBriefDomain = "people" | "stock" | "sales" | "operations" | "context" | "costs";
 
@@ -20,41 +21,156 @@ function sum(values: number[]): number {
   return values.reduce((total, value) => total + value, 0);
 }
 
-function safeYield(value: number | undefined): number {
-  return Math.max(0.05, Math.min(1, value ?? 1));
+function safeYield(value: number | undefined): number | null {
+  if (value === undefined) return 1;
+  return Number.isFinite(value) && value > 0 && value <= 1 ? value : null;
 }
 
 function isInventoryRecipeLine(line: RecipeLine): line is InventoryRecipeLine {
   return typeof line.inventoryItemId === "string";
 }
 
-function prepOutputQuantity(prep: PrepItem): number {
-  return Math.max(0.000001, prep.outputQuantity * safeYield(prep.batchYieldRate));
+export type CostingDiagnosticCode = "unit_issue" | "missing_inventory_item" | "missing_purchase_cost" | "missing_prep_item" | "invalid_yield" | "invalid_price";
+
+export type CostingDiagnostic = {
+  code: CostingDiagnosticCode;
+  scope: "menu" | "prep" | "usage" | "inventory";
+  message: string;
+  menuItemId?: string;
+  prepItemId?: string;
+  inventoryItemId?: string;
+  fromUnit?: InventoryUnit;
+  toUnit?: InventoryUnit;
+};
+
+export type MenuCostAnalysis = {
+  item: MenuItem;
+  sellingPrice: number;
+  unitFoodCost: number | null;
+  foodCostRatio: number | null;
+  foodCostOnlyMargin: number | null;
+  targetFoodCostRatio: number | null;
+  varianceVsTarget: number | null;
+  status: "complete" | "unit_issue" | "data_issue";
+  diagnostics: CostingDiagnostic[];
+};
+
+export type InventoryCostAnalysis = {
+  item: InventoryItem;
+  daysOfCover: number | null;
+  reorderQuantity: number;
+  actualPurchaseUnitCost: number | null;
+  reference: ReferenceObservation | null;
+  referenceUnitCost: number | null;
+  differenceRate: number | null;
+  status: "ok" | "attention" | "urgent" | "unit_issue" | "data_issue";
+  diagnostics: CostingDiagnostic[];
+};
+
+type CostResult = { value: number | null; diagnostics: CostingDiagnostic[] };
+
+function prepOutputQuantity(prep: PrepItem): number | null {
+  const yieldRate = safeYield(prep.batchYieldRate);
+  if (!Number.isFinite(prep.outputQuantity) || prep.outputQuantity <= 0 || yieldRate === null) return null;
+  return prep.outputQuantity * yieldRate;
 }
 
-function inventoryLineCost(state: AppState, line: InventoryRecipeLine): number {
+function inventoryLineCostResult(state: AppState, line: InventoryRecipeLine, scope: CostingDiagnostic["scope"] = "menu"): CostResult {
   const item = (state.inventory ?? []).find((candidate) => candidate.id === line.inventoryItemId);
-  if (!item?.lastPurchaseUnitCost) return 0;
-  return (line.quantity / safeYield(line.yieldRate)) * item.lastPurchaseUnitCost;
+  if (!item) return {
+    value: null,
+    diagnostics: [{ code: "missing_inventory_item", scope, inventoryItemId: line.inventoryItemId, message: `Inventory item ${line.inventoryItemId} is missing.` }],
+  };
+  const quantity = convertInventoryQuantity(line.quantity, line.unit, item.unit);
+  if (quantity === null) return {
+    value: null,
+    diagnostics: [{ code: "unit_issue", scope, inventoryItemId: item.id, fromUnit: line.unit, toUnit: item.unit, message: `Cannot convert ${line.unit} to ${item.unit} for ${item.name}.` }],
+  };
+  const yieldRate = safeYield(line.yieldRate);
+  if (yieldRate === null) return {
+    value: null,
+    diagnostics: [{ code: "invalid_yield", scope, inventoryItemId: item.id, message: `Yield for ${item.name} must be greater than 0 and no more than 1.` }],
+  };
+  const unitCost = item.lastPurchaseUnitCost;
+  if (unitCost === undefined || unitCost === null || !Number.isFinite(unitCost) || unitCost < 0) return {
+    value: null,
+    diagnostics: [{ code: "missing_purchase_cost", scope, inventoryItemId: item.id, message: `Purchase cost for ${item.name} is unavailable.` }],
+  };
+  return { value: (quantity / yieldRate) * unitCost, diagnostics: [] };
+}
+
+function prepCostResult(state: AppState, prep: PrepItem): CostResult {
+  const outputQuantity = prepOutputQuantity(prep);
+  const diagnostics: CostingDiagnostic[] = [];
+  if (outputQuantity === null) diagnostics.push({ code: "invalid_yield", scope: "prep", prepItemId: prep.id, message: `Prep output for ${prep.name} is invalid.` });
+  const componentResults = prep.recipe.map((line) => inventoryLineCostResult(state, line, "prep"));
+  for (const result of componentResults) diagnostics.push(...result.diagnostics);
+  if (outputQuantity === null || diagnostics.length > 0) return { value: null, diagnostics };
+  return { value: sum(componentResults.map((result) => result.value ?? 0)), diagnostics };
 }
 
 export function prepUnitFoodCost(state: AppState, prep: PrepItem): number {
-  const batchCost = sum(prep.recipe.map((line) => inventoryLineCost(state, line)));
-  return batchCost / prepOutputQuantity(prep);
+  const outputQuantity = prepOutputQuantity(prep);
+  const batchCost = prepCostResult(state, prep);
+  return outputQuantity && batchCost.value !== null ? batchCost.value / outputQuantity : 0;
 }
 
-function addRecipeLineUsage(state: AppState, line: RecipeLine, multiplier: number, usage: Record<string, number>): void {
+function addRecipeLineUsage(
+  state: AppState,
+  line: RecipeLine,
+  multiplier: number,
+  usage: Record<string, number>,
+  diagnostics: CostingDiagnostic[],
+  menuItemId?: string,
+): void {
   if (isInventoryRecipeLine(line)) {
-    const purchasedQuantity = line.quantity / safeYield(line.yieldRate);
-    usage[line.inventoryItemId] = (usage[line.inventoryItemId] ?? 0) + multiplier * purchasedQuantity;
+    const item = (state.inventory ?? []).find((candidate) => candidate.id === line.inventoryItemId);
+    if (!item) {
+      diagnostics.push({ code: "missing_inventory_item", scope: "usage", inventoryItemId: line.inventoryItemId, menuItemId, message: `Inventory item ${line.inventoryItemId} is missing.` });
+      return;
+    }
+    const quantity = convertInventoryQuantity(line.quantity, line.unit, item.unit);
+    const yieldRate = safeYield(line.yieldRate);
+    if (quantity === null) {
+      diagnostics.push({ code: "unit_issue", scope: "usage", inventoryItemId: item.id, menuItemId, fromUnit: line.unit, toUnit: item.unit, message: `Cannot convert ${line.unit} to ${item.unit} for ${item.name}.` });
+      return;
+    }
+    if (yieldRate === null) {
+      diagnostics.push({ code: "invalid_yield", scope: "usage", inventoryItemId: item.id, menuItemId, message: `Yield for ${item.name} is invalid.` });
+      return;
+    }
+    usage[item.id] = (usage[item.id] ?? 0) + multiplier * quantity / yieldRate;
     return;
   }
   const prep = (state.prepItems ?? []).find((candidate) => candidate.id === line.prepItemId);
-  if (!prep) return;
-  const batchFraction = line.quantity / prepOutputQuantity(prep);
+  if (!prep) {
+    diagnostics.push({ code: "missing_prep_item", scope: "usage", prepItemId: line.prepItemId, menuItemId, message: `Prep item ${line.prepItemId} is missing.` });
+    return;
+  }
+  const outputQuantity = prepOutputQuantity(prep);
+  const quantity = convertInventoryQuantity(line.quantity, line.unit, prep.outputUnit);
+  if (outputQuantity === null) {
+    diagnostics.push({ code: "invalid_yield", scope: "usage", prepItemId: prep.id, menuItemId, message: `Prep output for ${prep.name} is invalid.` });
+    return;
+  }
+  if (quantity === null) {
+    diagnostics.push({ code: "unit_issue", scope: "usage", prepItemId: prep.id, menuItemId, fromUnit: line.unit, toUnit: prep.outputUnit, message: `Cannot convert ${line.unit} to ${prep.outputUnit} for ${prep.name}.` });
+    return;
+  }
+  const batchFraction = quantity / outputQuantity;
   for (const component of prep.recipe) {
-    const purchasedQuantity = component.quantity / safeYield(component.yieldRate);
-    usage[component.inventoryItemId] = (usage[component.inventoryItemId] ?? 0) + multiplier * batchFraction * purchasedQuantity;
+    const item = (state.inventory ?? []).find((candidate) => candidate.id === component.inventoryItemId);
+    const componentQuantity = item ? convertInventoryQuantity(component.quantity, component.unit, item.unit) : null;
+    const yieldRate = safeYield(component.yieldRate);
+    if (!item) {
+      diagnostics.push({ code: "missing_inventory_item", scope: "usage", inventoryItemId: component.inventoryItemId, prepItemId: prep.id, menuItemId, message: `Inventory item ${component.inventoryItemId} is missing.` });
+    } else if (componentQuantity === null) {
+      diagnostics.push({ code: "unit_issue", scope: "usage", inventoryItemId: item.id, prepItemId: prep.id, menuItemId, fromUnit: component.unit, toUnit: item.unit, message: `Cannot convert ${component.unit} to ${item.unit} for ${item.name}.` });
+    } else if (yieldRate === null) {
+      diagnostics.push({ code: "invalid_yield", scope: "usage", inventoryItemId: item.id, prepItemId: prep.id, menuItemId, message: `Yield for ${item.name} is invalid.` });
+    } else {
+      usage[item.id] = (usage[item.id] ?? 0) + multiplier * batchFraction * componentQuantity / yieldRate;
+    }
   }
 }
 
@@ -71,25 +187,86 @@ export function actualWageEstimate(state: AppState): number {
 }
 
 /** Purchased/raw inventory required by recorded sales, expanding Prep BOM into ingredient usage. */
-export function theoreticalInventoryUsage(state: AppState): Record<string, number> {
+export function analyzeTheoreticalInventoryUsage(state: AppState): { usage: Record<string, number>; diagnostics: CostingDiagnostic[] } {
   const menu = new Map((state.menu ?? []).map((item) => [item.id, item]));
   const usage: Record<string, number> = {};
+  const diagnostics: CostingDiagnostic[] = [];
   for (const snapshot of state.sales ?? []) {
     for (const sold of snapshot.itemSales) {
       const item = menu.get(sold.menuItemId);
       if (!item) continue;
-      for (const recipeLine of item.recipe) addRecipeLineUsage(state, recipeLine, sold.quantity, usage);
+      for (const recipeLine of item.recipe) addRecipeLineUsage(state, recipeLine, sold.quantity, usage, diagnostics, item.id);
     }
   }
-  return usage;
+  return { usage, diagnostics };
+}
+
+export function theoreticalInventoryUsage(state: AppState): Record<string, number> {
+  return analyzeTheoreticalInventoryUsage(state).usage;
+}
+
+function menuCostResult(state: AppState, menuItem: MenuItem): CostResult {
+  const diagnostics: CostingDiagnostic[] = [];
+  if (!Number.isFinite(menuItem.price) || menuItem.price < 0) diagnostics.push({ code: "invalid_price", scope: "menu", menuItemId: menuItem.id, message: `Selling price for ${menuItem.name} is invalid.` });
+  const values: number[] = [];
+  for (const line of menuItem.recipe) {
+    if (isInventoryRecipeLine(line)) {
+      const result = inventoryLineCostResult(state, line, "menu");
+      diagnostics.push(...result.diagnostics.map((diagnostic) => ({ ...diagnostic, menuItemId: menuItem.id })));
+      if (result.value !== null) values.push(result.value);
+      continue;
+    }
+    const prep = (state.prepItems ?? []).find((candidate) => candidate.id === line.prepItemId);
+    if (!prep) {
+      diagnostics.push({ code: "missing_prep_item", scope: "menu", prepItemId: line.prepItemId, menuItemId: menuItem.id, message: `Prep item ${line.prepItemId} is missing.` });
+      continue;
+    }
+    const outputQuantity = prepOutputQuantity(prep);
+    const quantity = convertInventoryQuantity(line.quantity, line.unit, prep.outputUnit);
+    if (outputQuantity === null) diagnostics.push({ code: "invalid_yield", scope: "menu", prepItemId: prep.id, menuItemId: menuItem.id, message: `Prep output for ${prep.name} is invalid.` });
+    if (quantity === null) diagnostics.push({ code: "unit_issue", scope: "menu", prepItemId: prep.id, menuItemId: menuItem.id, fromUnit: line.unit, toUnit: prep.outputUnit, message: `Cannot convert ${line.unit} to ${prep.outputUnit} for ${prep.name}.` });
+    const prepCost = prepCostResult(state, prep);
+    diagnostics.push(...prepCost.diagnostics.map((diagnostic) => ({ ...diagnostic, menuItemId: menuItem.id })));
+    if (outputQuantity !== null && quantity !== null && prepCost.value !== null) values.push(quantity / outputQuantity * prepCost.value);
+  }
+  return { value: diagnostics.length === 0 ? sum(values) : null, diagnostics };
+}
+
+export function analyzeMenuCosts(state: AppState): MenuCostAnalysis[] {
+  const target = state.business.targetFoodCostRatio;
+  return (state.menu ?? [])
+    .filter((item) => item.active)
+    .map((item) => {
+      const result = menuCostResult(state, item);
+      const unitFoodCost = result.value;
+      const ratio = unitFoodCost !== null && item.price > 0 ? unitFoodCost / item.price : null;
+      const validPrice = Number.isFinite(item.price) && item.price > 0;
+      const targetRatio = target !== undefined && Number.isFinite(target) ? target : null;
+      const status: MenuCostAnalysis["status"] = result.diagnostics.some((diagnostic) => diagnostic.code === "unit_issue")
+        ? "unit_issue"
+        : result.diagnostics.length > 0 || !validPrice
+          ? "data_issue"
+          : "complete";
+      return {
+        item,
+        sellingPrice: item.price,
+        unitFoodCost,
+        foodCostRatio: ratio !== null && Number.isFinite(ratio) ? ratio : null,
+        foodCostOnlyMargin: ratio !== null && Number.isFinite(ratio) ? item.price - unitFoodCost! : null,
+        targetFoodCostRatio: targetRatio,
+        varianceVsTarget: ratio !== null && targetRatio !== null ? ratio - targetRatio : null,
+        status,
+        diagnostics: result.diagnostics,
+      };
+    })
+    .sort((a, b) => {
+      const rank = (value: MenuCostAnalysis) => value.status === "unit_issue" ? 0 : value.status === "data_issue" ? 1 : 2;
+      return rank(a) - rank(b) || (b.foodCostRatio ?? -1) - (a.foodCostRatio ?? -1);
+    });
 }
 
 export function menuUnitFoodCost(state: AppState, menuItem: MenuItem): number {
-  return sum(menuItem.recipe.map((line) => {
-    if (isInventoryRecipeLine(line)) return inventoryLineCost(state, line);
-    const prep = (state.prepItems ?? []).find((candidate) => candidate.id === line.prepItemId);
-    return prep ? line.quantity * prepUnitFoodCost(state, prep) : 0;
-  }));
+  return menuCostResult(state, menuItem).value ?? 0;
 }
 
 export function estimatedFoodCost(state: AppState): number {
@@ -106,7 +283,12 @@ export function estimatedFoodCost(state: AppState): number {
 
 export function estimatedWasteCost(state: AppState): number {
   const inventory = new Map((state.inventory ?? []).map((item) => [item.id, item]));
-  return sum((state.waste ?? []).map((record) => record.quantity * (inventory.get(record.inventoryItemId)?.lastPurchaseUnitCost ?? 0)));
+  return sum((state.waste ?? []).map((record) => {
+    const item = inventory.get(record.inventoryItemId);
+    if (!item || item.lastPurchaseUnitCost === undefined || item.lastPurchaseUnitCost === null) return 0;
+    const quantity = convertInventoryQuantity(record.quantity, record.unit, item.unit);
+    return quantity === null ? 0 : quantity * item.lastPurchaseUnitCost;
+  }));
 }
 
 export function inventoryDaysOfCover(state: AppState, item: InventoryItem): number | null {
@@ -141,24 +323,77 @@ export function commodityReferenceForItem(state: AppState, item: InventoryItem):
 export function purchaseReferenceComparison(state: AppState, item: InventoryItem): {
   actualUnitCost: number;
   reference: ReferenceObservation;
+  referenceUnitCost: number;
   difference: number;
   differenceRate: number;
   degraded: boolean;
   fallbackReason?: string;
 } | null {
-  if (!item.lastPurchaseUnitCost || !item.marketReferenceKey) return null;
+  if (item.lastPurchaseUnitCost === undefined || item.lastPurchaseUnitCost === null || !Number.isFinite(item.lastPurchaseUnitCost) || !item.marketReferenceKey) return null;
   const resolved = resolveCommodityReference(state, item.marketReferenceKey);
   const reference = resolved.observation;
   if (!reference || typeof reference.value !== "number" || reference.value <= 0) return null;
-  const difference = item.lastPurchaseUnitCost - reference.value;
+  const referenceUnit = isInventoryUnit(reference.unit) ? reference.unit : item.unit;
+  const normalizedReference = convertInventoryQuantity(reference.value, referenceUnit, item.unit);
+  if (normalizedReference === null) return null;
+  const difference = item.lastPurchaseUnitCost - normalizedReference;
   return {
     actualUnitCost: item.lastPurchaseUnitCost,
     reference,
+    referenceUnitCost: normalizedReference,
     difference,
-    differenceRate: difference / reference.value,
+    differenceRate: difference / normalizedReference,
     degraded: resolved.degraded,
     fallbackReason: resolved.reason,
   };
+}
+
+export function analyzeInventoryCosts(state: AppState): InventoryCostAnalysis[] {
+  const usageAnalysis = analyzeTheoreticalInventoryUsage(state);
+  const usageDiagnosticsByItem = new Map<string, CostingDiagnostic[]>();
+  for (const diagnostic of usageAnalysis.diagnostics) {
+    if (!diagnostic.inventoryItemId) continue;
+    usageDiagnosticsByItem.set(diagnostic.inventoryItemId, [...(usageDiagnosticsByItem.get(diagnostic.inventoryItemId) ?? []), diagnostic]);
+  }
+  for (const analysis of analyzeMenuCosts(state)) {
+    for (const diagnostic of analysis.diagnostics) {
+      if (!diagnostic.inventoryItemId) continue;
+      if (diagnostic.code !== "unit_issue") continue;
+      usageDiagnosticsByItem.set(diagnostic.inventoryItemId, [...(usageDiagnosticsByItem.get(diagnostic.inventoryItemId) ?? []), { ...diagnostic, scope: "inventory" }]);
+    }
+  }
+  return (state.inventory ?? []).map((item) => {
+    const diagnostics = [...(usageDiagnosticsByItem.get(item.id) ?? [])];
+    const reference = commodityReferenceForItem(state, item);
+    const comparison = purchaseReferenceComparison(state, item);
+    const referenceUnit = reference && isInventoryUnit(reference.unit) ? reference.unit : item.unit;
+    if (reference && isInventoryUnit(reference.unit) && convertInventoryQuantity(1, referenceUnit, item.unit) === null) {
+      diagnostics.push({ code: "unit_issue", scope: "inventory", inventoryItemId: item.id, fromUnit: referenceUnit, toUnit: item.unit, message: `Cannot compare ${referenceUnit} reference with ${item.unit} purchase cost.` });
+    }
+    if (item.lastPurchaseUnitCost === undefined || item.lastPurchaseUnitCost === null || !Number.isFinite(item.lastPurchaseUnitCost)) {
+      diagnostics.push({ code: "missing_purchase_cost", scope: "inventory", inventoryItemId: item.id, message: `Purchase cost for ${item.name} is unavailable.` });
+    }
+    const daysOfCover = inventoryDaysOfCover(state, item);
+    const unitIssue = diagnostics.some((diagnostic) => diagnostic.code === "unit_issue");
+    const dataIssue = diagnostics.some((diagnostic) => diagnostic.code === "missing_purchase_cost" || diagnostic.code === "missing_inventory_item" || diagnostic.code === "invalid_yield");
+    const urgent = item.onHand <= item.reorderPoint || (daysOfCover !== null && daysOfCover <= item.leadTimeDays);
+    const attention = item.onHand <= item.parLevel || (daysOfCover !== null && daysOfCover <= item.leadTimeDays + 1);
+    const status: InventoryCostAnalysis["status"] = unitIssue ? "unit_issue" : dataIssue ? "data_issue" : urgent ? "urgent" : attention ? "attention" : "ok";
+    return {
+      item,
+      daysOfCover,
+      reorderQuantity: reorderQuantityToPar(item),
+      actualPurchaseUnitCost: item.lastPurchaseUnitCost ?? null,
+      reference,
+      referenceUnitCost: comparison?.referenceUnitCost ?? null,
+      differenceRate: comparison?.differenceRate ?? null,
+      status,
+      diagnostics,
+    };
+  }).sort((a, b) => {
+    const rank = (value: InventoryCostAnalysis) => value.status === "unit_issue" ? 0 : value.status === "data_issue" ? 1 : value.status === "urgent" ? 2 : value.status === "attention" ? 3 : 4;
+    return rank(a) - rank(b) || (a.daysOfCover ?? Number.POSITIVE_INFINITY) - (b.daysOfCover ?? Number.POSITIVE_INFINITY);
+  });
 }
 
 export function highestPurchasePremium(state: AppState) {

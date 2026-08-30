@@ -1,7 +1,7 @@
 import { getResponseOptions, type ApplicationAction, type ResponseOptionRequest } from "@/domain/actions";
 import { applyChanges, calculateImpact } from "@/domain/impact";
 import type { AppState, CapacityGap, IndustryId, MarketId, PlanKind, StaffingChange, StorePlanChange } from "@/domain/model";
-import { getDailyBrief, inventoryAtRisk, menuUnitFoodCost, purchaseReferenceComparison, storeCostMetrics } from "@/domain/store-ops";
+import { analyzeInventoryCosts, analyzeMenuCosts, getDailyBrief, inventoryAtRisk, menuUnitFoodCost, purchaseReferenceComparison, storeCostMetrics } from "@/domain/store-ops";
 import { createStorePlan } from "@/domain/store-plan";
 import { planStoreActions, type StorePlanningRequest } from "@/domain/store-planning";
 import { getIndustryProfile, isIndustryId } from "@/industry/profiles";
@@ -181,6 +181,7 @@ function storeState(state: AppState, locale: UiLocale, focus: StoreFocus = "over
   if (focus === "sales") return {
     ...base,
     sales: state.sales ?? [],
+    menuCostAnalysis: analyzeMenuCosts(state),
     menu: (state.menu ?? []).map((item) => {
       const cost = menuUnitFoodCost(state, item);
       return { ...item, estimatedUnitFoodCost: cost, estimatedFoodCostRatio: item.price > 0 ? cost / item.price : 0 };
@@ -188,6 +189,7 @@ function storeState(state: AppState, locale: UiLocale, focus: StoreFocus = "over
   };
   if (focus === "stock") return {
     ...base,
+    inventoryCostAnalysis: analyzeInventoryCosts(state),
     inventory: (state.inventory ?? []).map((item) => ({ ...item, referenceComparison: purchaseReferenceComparison(state, item) })),
     atRisk: inventoryAtRisk(state),
     suppliers: state.suppliers ?? [],
@@ -197,6 +199,8 @@ function storeState(state: AppState, locale: UiLocale, focus: StoreFocus = "over
   if (focus === "operations") return { ...base, tasks: state.tasks ?? [], incidents: state.incidents ?? [], log: state.log ?? [] };
   if (focus === "costs") return {
     ...base,
+    menuCostAnalysis: analyzeMenuCosts(state),
+    inventoryCostAnalysis: analyzeInventoryCosts(state),
     costMetrics: storeCostMetrics(state),
     occupancy: state.business.occupancy,
     operatingCosts: state.business.operatingCosts,

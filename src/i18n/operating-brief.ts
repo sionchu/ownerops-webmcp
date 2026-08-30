@@ -37,6 +37,31 @@ type BriefCopy = {
       breakEvenSales: string;
     };
   };
+  analysis: {
+    title: string;
+    menu: string;
+    inventory: string;
+    item: string;
+    status: string;
+    sellingPrice: string;
+    foodCost: string;
+    foodCostRatio: string;
+    target: string;
+    aboveTarget: string;
+    foodCostOnlyMargin: string;
+    currentInventory: string;
+    parLevel: string;
+    daysOfCover: string;
+    reorderRecommendation: string;
+    actualPurchaseUnitCost: string;
+    marketReference: string;
+    versusReference: string;
+    unitIssue: string;
+    complete: string;
+    dataIssue: string;
+    noReference: string;
+    noData: string;
+  };
   domains: Record<DailyBriefItem["domain"], string>;
   severities: Record<DailyBriefItem["severity"], string>;
 };
@@ -60,6 +85,31 @@ const COPY: Record<UiLocale, BriefCopy> = {
       states: { draft: "DRAFT", reviewed: "REVIEWED", applied: "APPLIED", rejected: "REJECTED" },
       metrics: { labor: "Labor", foodCost: "Food cost", purchaseCash: "Purchase cash", wasteExposure: "Waste exposure", breakEvenSales: "Break-even sales" },
     },
+    analysis: {
+      title: "STOCK · COST ANALYSIS",
+      menu: "Menu costing",
+      inventory: "Inventory · purchasing",
+      item: "Menu item",
+      status: "Status",
+      sellingPrice: "Selling price",
+      foodCost: "Ingredient cost",
+      foodCostRatio: "Food-cost %",
+      target: "Target",
+      aboveTarget: "Above target",
+      foodCostOnlyMargin: "Food-cost-only margin",
+      currentInventory: "On hand",
+      parLevel: "Par",
+      daysOfCover: "Days of cover",
+      reorderRecommendation: "Reorder recommendation",
+      actualPurchaseUnitCost: "Actual purchase unit cost",
+      marketReference: "Market reference",
+      versusReference: "Vs reference",
+      unitIssue: "Unit check required",
+      complete: "Complete",
+      dataIssue: "Data check required",
+      noReference: "No reference",
+      noData: "—",
+    },
     domains: { people: "PEOPLE", stock: "STOCK", sales: "SALES", operations: "OPERATIONS", context: "CONTEXT", costs: "COSTS" },
     severities: { info: "INFO", attention: "ATTENTION", urgent: "URGENT" },
   },
@@ -80,6 +130,31 @@ const COPY: Record<UiLocale, BriefCopy> = {
       purchaseNote: "구매안은 실제 입고 전까지 계획 발주로만 기록됩니다",
       states: { draft: "제안", reviewed: "검토 완료", applied: "적용됨", rejected: "거절됨" },
       metrics: { labor: "인건비", foodCost: "식재료비", purchaseCash: "구매 현금지출", wasteExposure: "폐기 손실", breakEvenSales: "손익분기 매출" },
+    },
+    analysis: {
+      title: "재고 · 원가 분석",
+      menu: "메뉴 원가",
+      inventory: "재고 · 매입",
+      item: "메뉴",
+      status: "상태",
+      sellingPrice: "판매가",
+      foodCost: "식재료 원가",
+      foodCostRatio: "원가율",
+      target: "목표",
+      aboveTarget: "목표 초과",
+      foodCostOnlyMargin: "식재료비 차감 마진",
+      currentInventory: "현재 재고",
+      parLevel: "적정재고",
+      daysOfCover: "재고 커버",
+      reorderRecommendation: "발주 권고",
+      actualPurchaseUnitCost: "실제 매입단가",
+      marketReference: "시장 기준",
+      versusReference: "기준 대비",
+      unitIssue: "단위 확인 필요",
+      complete: "완료",
+      dataIssue: "데이터 확인 필요",
+      noReference: "기준 없음",
+      noData: "—",
     },
     domains: { people: "인력", stock: "재고", sales: "매출", operations: "운영", context: "외부 상황", costs: "비용" },
     severities: { info: "참고", attention: "확인 필요", urgent: "긴급" },
@@ -102,6 +177,31 @@ const COPY: Record<UiLocale, BriefCopy> = {
       states: { draft: "提案", reviewed: "確認済み", applied: "適用済み", rejected: "却下済み" },
       metrics: { labor: "人件費", foodCost: "食材費", purchaseCash: "仕入現金支出", wasteExposure: "廃棄損失", breakEvenSales: "損益分岐売上" },
     },
+    analysis: {
+      title: "在庫 · 原価分析",
+      menu: "メニュー原価",
+      inventory: "在庫 · 仕入れ",
+      item: "メニュー",
+      status: "状態",
+      sellingPrice: "販売価格",
+      foodCost: "食材原価",
+      foodCostRatio: "原価率",
+      target: "目標",
+      aboveTarget: "目標超過",
+      foodCostOnlyMargin: "食材費控除後マージン",
+      currentInventory: "現在庫",
+      parLevel: "適正在庫",
+      daysOfCover: "在庫カバー",
+      reorderRecommendation: "発注推奨",
+      actualPurchaseUnitCost: "実仕入単価",
+      marketReference: "市場基準",
+      versusReference: "基準差",
+      unitIssue: "単位確認が必要",
+      complete: "完了",
+      dataIssue: "データ確認が必要",
+      noReference: "基準なし",
+      noData: "—",
+    },
     domains: { people: "人員", stock: "在庫", sales: "売上", operations: "運用", context: "外部状況", costs: "コスト" },
     severities: { info: "参考", attention: "要確認", urgent: "緊急" },
   },
@@ -123,6 +223,31 @@ const COPY: Record<UiLocale, BriefCopy> = {
       states: { draft: "PROPUESTA", reviewed: "REVISADO", applied: "APLICADO", rejected: "RECHAZADO" },
       metrics: { labor: "Mano de obra", foodCost: "Coste de alimentos", purchaseCash: "Caja de compras", wasteExposure: "Exposición a merma", breakEvenSales: "Ventas de equilibrio" },
     },
+    analysis: {
+      title: "INVENTARIO · ANÁLISIS DE COSTES",
+      menu: "Coste del menú",
+      inventory: "Inventario · compras",
+      item: "Menú",
+      status: "Estado",
+      sellingPrice: "Precio de venta",
+      foodCost: "Coste de ingredientes",
+      foodCostRatio: "% de coste de alimentos",
+      target: "Objetivo",
+      aboveTarget: "Sobre el objetivo",
+      foodCostOnlyMargin: "Margen tras ingredientes",
+      currentInventory: "Existencias",
+      parLevel: "Nivel par",
+      daysOfCover: "Días de cobertura",
+      reorderRecommendation: "Recomendación de pedido",
+      actualPurchaseUnitCost: "Coste unitario real",
+      marketReference: "Referencia de mercado",
+      versusReference: "Frente a referencia",
+      unitIssue: "Revisar unidad",
+      complete: "Completo",
+      dataIssue: "Revisar datos",
+      noReference: "Sin referencia",
+      noData: "—",
+    },
     domains: { people: "PERSONAS", stock: "INVENTARIO", sales: "VENTAS", operations: "OPERACIONES", context: "CONTEXTO", costs: "COSTES" },
     severities: { info: "INFO", attention: "ATENCIÓN", urgent: "URGENTE" },
   },
@@ -143,6 +268,31 @@ const COPY: Record<UiLocale, BriefCopy> = {
       purchaseNote: "采购在实际收货前仅作为计划订单记录",
       states: { draft: "提案", reviewed: "已复核", applied: "已应用", rejected: "已拒绝" },
       metrics: { labor: "人工成本", foodCost: "食材成本", purchaseCash: "采购现金支出", wasteExposure: "报废损失", breakEvenSales: "盈亏平衡销售额" },
+    },
+    analysis: {
+      title: "库存 · 成本分析",
+      menu: "菜单成本",
+      inventory: "库存 · 采购",
+      item: "菜单",
+      status: "状态",
+      sellingPrice: "售价",
+      foodCost: "食材成本",
+      foodCostRatio: "食材成本率",
+      target: "目标",
+      aboveTarget: "超过目标",
+      foodCostOnlyMargin: "扣除食材后的毛利",
+      currentInventory: "当前库存",
+      parLevel: "适量库存",
+      daysOfCover: "库存覆盖",
+      reorderRecommendation: "建议补货",
+      actualPurchaseUnitCost: "实际采购单价",
+      marketReference: "市场参考",
+      versusReference: "相对参考",
+      unitIssue: "需要确认单位",
+      complete: "完整",
+      dataIssue: "需要检查数据",
+      noReference: "无参考",
+      noData: "—",
     },
     domains: { people: "人员", stock: "库存", sales: "销售", operations: "运营", context: "外部情况", costs: "成本" },
     severities: { info: "参考", attention: "需关注", urgent: "紧急" },

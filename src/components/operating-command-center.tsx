@@ -1,6 +1,6 @@
 "use client";
 
-import { getDailyBrief, storeCostMetrics } from "@/domain/store-ops";
+import { analyzeInventoryCosts, analyzeMenuCosts, getDailyBrief, storeCostMetrics } from "@/domain/store-ops";
 import type { StoreMetricSnapshot } from "@/domain/model";
 import { getOperatingBriefCopy, localizeDailyBriefItem, operatingBriefMoney } from "@/i18n/operating-brief";
 import { useAppState } from "@/state/app-state";
@@ -19,11 +19,29 @@ function metricRows(
   ] as const;
 }
 
+function quantity(value: number | null | undefined, unit: string, locale: string): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value)} ${unit}`;
+}
+
+function percentage(value: number | null | undefined, locale: string): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(value * 100)}%`;
+}
+
+function statusColor(status: string): string {
+  if (status === "unit_issue" || status === "data_issue" || status === "urgent") return "#a84f3d";
+  if (status === "attention") return "#a36b16";
+  return "#315847";
+}
+
 export function OperatingCommandCenter() {
   const { state, runAction, locale } = useAppState();
   const ui = getOperatingBriefCopy(locale);
   const brief = getDailyBrief(state, 3);
   const costs = storeCostMetrics(state);
+  const menuAnalysis = analyzeMenuCosts(state);
+  const inventoryAnalysis = analyzeInventoryCosts(state);
   const currency = state.business.currency;
   const plan = state.storePlan;
   const resolvedCallout = [...(state.incidents ?? [])].reverse().find((incident) => incident.type === "worker_unavailable" && incident.status === "resolved");
@@ -113,6 +131,83 @@ export function OperatingCommandCenter() {
             })}
           </div>
         )}
+
+        <details data-testid="cost-analysis" style={{ borderTop: "1px solid #eee6dc", paddingTop: 8 }}>
+          <summary style={{ cursor: "pointer", color: "#315847", fontSize: 12, fontWeight: 800 }}>{ui.analysis.title}</summary>
+          <div style={{ display: "grid", gap: 12, marginTop: 10 }}>
+            <section aria-label={ui.analysis.menu} data-testid="menu-cost-table" style={{ display: "grid", gap: 6 }}>
+              <h3 style={{ margin: 0, fontSize: 12, color: "#2c2925" }}>{ui.analysis.menu}</h3>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", minWidth: 650, borderCollapse: "collapse", fontSize: 11 }}>
+                  <thead>
+                    <tr style={{ textAlign: "left", color: "#746e65", borderBottom: "1px solid #e8ded3" }}>
+                      <th style={{ padding: "5px 6px" }}>{ui.analysis.item}</th>
+                      <th style={{ padding: "5px 6px" }}>{ui.analysis.sellingPrice}</th>
+                      <th style={{ padding: "5px 6px" }}>{ui.analysis.foodCost}</th>
+                      <th style={{ padding: "5px 6px" }}>{ui.analysis.foodCostRatio}</th>
+                      <th style={{ padding: "5px 6px" }}>{ui.analysis.target}</th>
+                      <th style={{ padding: "5px 6px" }}>{ui.analysis.foodCostOnlyMargin}</th>
+                      <th style={{ padding: "5px 6px" }}>{ui.analysis.status}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {menuAnalysis.map((analysis) => {
+                      const aboveTarget = analysis.varianceVsTarget !== null && analysis.varianceVsTarget > 0;
+                      const status = analysis.status === "unit_issue" ? ui.analysis.unitIssue : analysis.status === "data_issue" ? ui.analysis.dataIssue : aboveTarget ? ui.analysis.aboveTarget : ui.analysis.complete;
+                      return <tr key={analysis.item.id} style={{ borderBottom: "1px solid #f0e9df", background: analysis.status === "unit_issue" ? "#fff5f0" : aboveTarget ? "#fffaf0" : "transparent" }}>
+                        <td style={{ padding: "6px", fontWeight: 700 }}>{analysis.item.name}</td>
+                        <td style={{ padding: "6px", whiteSpace: "nowrap" }}>{operatingBriefMoney(locale, currency, analysis.sellingPrice)}</td>
+                        <td style={{ padding: "6px", whiteSpace: "nowrap" }}>{analysis.unitFoodCost === null ? ui.analysis.noData : operatingBriefMoney(locale, currency, analysis.unitFoodCost)}</td>
+                        <td style={{ padding: "6px", fontVariantNumeric: "tabular-nums", color: aboveTarget ? "#a84f3d" : "#2c2925", fontWeight: aboveTarget ? 800 : 500 }}>{percentage(analysis.foodCostRatio, locale)}</td>
+                        <td style={{ padding: "6px", fontVariantNumeric: "tabular-nums" }}>{percentage(analysis.targetFoodCostRatio, locale)}</td>
+                        <td style={{ padding: "6px", whiteSpace: "nowrap" }}>{analysis.foodCostOnlyMargin === null ? ui.analysis.noData : operatingBriefMoney(locale, currency, analysis.foodCostOnlyMargin)}</td>
+                        <td style={{ padding: "6px", color: statusColor(analysis.status), fontWeight: 750 }}>{status}</td>
+                      </tr>;
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section aria-label={ui.analysis.inventory} data-testid="inventory-cost-table" style={{ display: "grid", gap: 6 }}>
+              <h3 style={{ margin: 0, fontSize: 12, color: "#2c2925" }}>{ui.analysis.inventory}</h3>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", minWidth: 760, borderCollapse: "collapse", fontSize: 11 }}>
+                  <thead>
+                    <tr style={{ textAlign: "left", color: "#746e65", borderBottom: "1px solid #e8ded3" }}>
+                      <th style={{ padding: "5px 6px" }}>{ui.analysis.item}</th>
+                      <th style={{ padding: "5px 6px" }}>{ui.analysis.currentInventory} / {ui.analysis.parLevel}</th>
+                      <th style={{ padding: "5px 6px" }}>{ui.analysis.daysOfCover}</th>
+                      <th style={{ padding: "5px 6px" }}>{ui.analysis.reorderRecommendation}</th>
+                      <th style={{ padding: "5px 6px" }}>{ui.analysis.actualPurchaseUnitCost}</th>
+                      <th style={{ padding: "5px 6px" }}>{ui.analysis.marketReference}</th>
+                      <th style={{ padding: "5px 6px" }}>{ui.analysis.versusReference}</th>
+                      <th style={{ padding: "5px 6px" }}>{ui.analysis.status}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inventoryAnalysis.map((analysis) => {
+                      const ref = analysis.reference && analysis.referenceUnitCost !== null
+                        ? `${operatingBriefMoney(locale, analysis.reference.currency ?? currency, analysis.referenceUnitCost)} / ${analysis.item.unit} · ${analysis.reference.provider} · ${analysis.reference.freshness}`
+                        : ui.analysis.noReference;
+                      const status = analysis.status === "unit_issue" ? ui.analysis.unitIssue : analysis.status === "data_issue" ? ui.analysis.dataIssue : analysis.status === "urgent" ? ui.severities.urgent : analysis.status === "attention" ? ui.severities.attention : ui.analysis.complete;
+                      return <tr key={analysis.item.id} style={{ borderBottom: "1px solid #f0e9df", background: analysis.status === "unit_issue" ? "#fff5f0" : analysis.status === "urgent" ? "#fff8f5" : "transparent" }}>
+                        <td style={{ padding: "6px", fontWeight: 700 }}>{analysis.item.name}</td>
+                        <td style={{ padding: "6px", whiteSpace: "nowrap" }}>{quantity(analysis.item.onHand, analysis.item.unit, locale)} / {quantity(analysis.item.parLevel, analysis.item.unit, locale)}</td>
+                        <td style={{ padding: "6px", fontVariantNumeric: "tabular-nums" }}>{analysis.daysOfCover === null ? ui.analysis.noData : `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(analysis.daysOfCover)}d`}</td>
+                        <td style={{ padding: "6px", whiteSpace: "nowrap" }}>{quantity(analysis.reorderQuantity, analysis.item.unit, locale)}</td>
+                        <td style={{ padding: "6px", whiteSpace: "nowrap", color: "#2c2925", fontWeight: 700 }}>{analysis.actualPurchaseUnitCost === null ? ui.analysis.noData : `${operatingBriefMoney(locale, currency, analysis.actualPurchaseUnitCost)} / ${analysis.item.unit}`}</td>
+                        <td style={{ padding: "6px", minWidth: 210, color: "#746e65" }}>{ref}</td>
+                        <td style={{ padding: "6px", fontVariantNumeric: "tabular-nums", color: analysis.differenceRate !== null && analysis.differenceRate > 0 ? "#a36b16" : "#315847" }}>{percentage(analysis.differenceRate, locale)}</td>
+                        <td style={{ padding: "6px", color: statusColor(analysis.status), fontWeight: 750 }}>{status}</td>
+                      </tr>;
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </details>
       </section>
     </>
   );
