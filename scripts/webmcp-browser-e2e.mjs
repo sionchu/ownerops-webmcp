@@ -88,17 +88,27 @@ async function main() {
       throw new Error(`Market ${market} did not reach DB-backed + benchmark-cache provenance.\n${JSON.stringify(overview?.business, null, 2)}`);
     };
 
-    step("verify nine registered tools");
+    step("verify nine registered tools and compact owner controls");
     const toolNames = await page.evaluate(() => Object.keys(window.__owneropsWebMcpTools ?? {}).sort());
     assert(JSON.stringify(toolNames) === JSON.stringify(EXPECTED_TOOLS), "Expected exactly nine canonical tools.", toolNames);
+    const marketSelect = page.getByTestId("market-select");
+    const storeStatus = page.getByTestId("store-truth-status");
+    const referenceStatus = page.getByTestId("reference-status");
+    const resetButton = page.getByTestId("demo-reset");
+    await marketSelect.waitFor({ state: "visible", timeout: 10_000 });
+    await storeStatus.waitFor({ state: "visible", timeout: 10_000 });
+    await referenceStatus.waitFor({ state: "visible", timeout: 10_000 });
+    await resetButton.waitFor({ state: "visible", timeout: 10_000 });
 
-    step("verify all five markets hydrate from DB and disclose benchmark provenance");
+    step("verify all five markets via rendered selector and compact provenance icons");
     const marketEvidence = [];
     for (const market of MARKETS) {
-      await invoke("configure_demo_store", { industry: "coffee", market: market.id, uiLocale: "ko" });
+      await marketSelect.selectOption(market.id);
       const overview = await waitForDbMarket(market.id);
       assert(overview.business.currency === market.currency, `Currency mismatch for ${market.id}.`, overview.business);
       assert(overview.business.dataProvenance?.disclosure?.includes("not a live provider quote"), `Missing non-live reference disclosure for ${market.id}.`, overview.business.dataProvenance);
+      assert((await storeStatus.getAttribute("title"))?.includes("DB"), `DB status icon missing for ${market.id}.`);
+      assert((await referenceStatus.getAttribute("title"))?.includes("Benchmark"), `Benchmark status icon missing for ${market.id}.`);
       assert(finite(overview.metrics?.foodCostRatio) && overview.metrics.foodCostRatio >= 0 && overview.metrics.foodCostRatio < 1, `Food-cost ratio is invalid for ${market.id}.`, overview.metrics);
 
       const sales = await invoke("get_store_state", { focus: "sales" });
@@ -231,6 +241,19 @@ async function main() {
     assert(appliedOrder, "Purchase action did not create a planned PO.", stockAfter.purchaseOrders);
     assert(stockAfter.inventory.find((item) => item.id === "whole-milk")?.onHand === baselineMilkOnHand, "Planned PO faked a physical receipt.");
 
+    step("reset icon reloads the current canonical DB store");
+    await resetButton.click();
+    const resetOverview = await waitForDbMarket("kr-seoul");
+    const resetPeople = await invoke("get_store_state", { focus: "people" });
+    const resetStock = await invoke("get_store_state", { focus: "stock" });
+    const restoredShift = resetPeople.shifts.find((shift) => shift.id === calloutShift.id);
+    assert(restoredShift?.workerId === "minsoo" && restoredShift?.status === "scheduled", "Demo reset did not restore committed DB schedule.", restoredShift);
+    assert(resetPeople.activeIncident == null, "Demo reset retained a local incident.");
+    assert((resetStock.purchaseOrders?.length ?? 0) === baselinePurchaseOrders, "Demo reset retained local planned purchase orders.", resetStock.purchaseOrders);
+    assert(resetOverview.business.dataProvenance?.storeTruth === "database", "Demo reset did not return to DB-backed truth.", resetOverview.business.dataProvenance);
+    assert((await storeStatus.getAttribute("title"))?.includes("DB"), "Store status icon did not return to DB state.");
+    assert((await referenceStatus.getAttribute("title"))?.includes("Benchmark"), "Reference status icon did not return to benchmark state.");
+
     const finalNames = await page.evaluate(() => Object.keys(window.__owneropsWebMcpTools ?? {}).sort());
     assert(JSON.stringify(finalNames) === JSON.stringify(EXPECTED_TOOLS), "Tool surface drifted during E2E.", finalNames);
     assert(pageErrors.length === 0, "Page errors occurred.", pageErrors);
@@ -241,6 +264,7 @@ async function main() {
       url: BASE_URL,
       tools: finalNames,
       markets: marketEvidence,
+      resetRestoredDatabase: true,
       seoul: {
         storeSource: apiEvidence.store.body.source,
         referenceSource: apiEvidence.references.body.source,
