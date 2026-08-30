@@ -1,15 +1,17 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { AssistantAvatar } from "@/components/assistant-avatar";
 import { DEMO_WEEK } from "@/domain/fixtures";
 import { applyChanges } from "@/domain/impact";
 import type { AppState, PlanImpact, Shift } from "@/domain/model";
 import { scheduleActualWageVariance, scheduleCostSummary, scheduleDayRange, scheduledWageForShift } from "@/domain/schedule-cost";
+import { scheduleHistoryState, type ScheduleHistoryWeek } from "@/domain/schedule-history";
 import { INTL_LOCALE, getLocalizedIndustryProfile, getUiCopy, type UiLocale } from "@/i18n";
 import { capacityGapCopy, disruptionBody, getOutreachCopy, liveOperatingSummary, markUnavailableLabel, marketScheduleContext, minimumWageLabel, outreachDraft, suggestedIncidentPrompt, unavailableLabel, weekRebuildCopy, weekRebuildTimelineCopy } from "@/i18n/dynamic";
 import { getIndustryProfile } from "@/industry/profiles";
 import { getMarketLocation, getMarketProfile } from "@/market/profiles";
+import { storeIdForState } from "@/persistence/store-projection";
 import { getScheduleHierarchyCopy } from "@/i18n/schedule-hierarchy";
 import { parseSnapshot, serializeSnapshot } from "@/snapshot/snapshot";
 import { useAppState } from "@/state/app-state";
@@ -219,16 +221,33 @@ function monthWeekStartsFor(date: string): string[] {
   }).filter((week, index) => index === 0 || new Date(`${week}T12:00:00`).getMonth() === month || new Date(`${week}T12:00:00`).getDate() <= 7);
 }
 
-function MonthScheduleOverview({ state, locale, selectedDate, onSelectWeek }: { state: AppState; locale: UiLocale; selectedDate: string; onSelectWeek: (date: string) => void }) {
+function shiftMonth(date: string, delta: number): string {
+  const anchor = new Date(`${date.slice(0, 7)}-15T12:00:00`);
+  anchor.setMonth(anchor.getMonth() + delta);
+  return dateOnly(anchor);
+}
+
+function historyModeLabel(locale: UiLocale, week: ScheduleHistoryWeek) {
+  if (week.source === "demo") return week.salesMode === "actual"
+    ? (locale === "ko" ? "DEMO · 실적" : locale === "ja" ? "DEMO · 実績" : locale === "es" ? "DEMO · REAL" : locale === "zh-CN" ? "DEMO · 实绩" : "DEMO · ACTUAL")
+    : (locale === "ko" ? "DEMO · 계획" : locale === "ja" ? "DEMO · 計画" : locale === "es" ? "DEMO · PLAN" : locale === "zh-CN" ? "DEMO · 计划" : "DEMO · PLAN");
+  return week.source.toUpperCase();
+}
+
+function MonthScheduleOverview({ state, locale, selectedDate, historyWeeks, currentWeekStart, onSelectWeek }: { state: AppState; locale: UiLocale; selectedDate: string; historyWeeks: ScheduleHistoryWeek[]; currentWeekStart: string; onSelectWeek: (date: string) => void }) {
   const copy = getScheduleHierarchyCopy(locale);
   return <div data-testid="schedule-month-overview" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 8, padding: "12px 14px", borderBottom: "1px solid var(--line)" }}>
     {monthWeekStartsFor(selectedDate).map((weekStart) => {
       const days = weekDatesFor(weekStart);
-      const summary = scheduleCostSummary(state, weekRange(days), { scheduleBasis: "candidate" });
-      return <button type="button" data-testid={`month-week-${weekStart}`} key={weekStart} onClick={() => onSelectWeek(weekStart)} style={{ textAlign: "left", border: "1px solid var(--line)", background: "var(--surface-strong)", borderRadius: 9, padding: 11, cursor: "pointer", color: "inherit" }}>
-        <span style={{ display: "block", color: "var(--muted)", fontSize: 10, fontWeight: 750 }}>{copy.weekSummary}</span>
+      const historyWeek = historyWeeks.find((week) => week.weekStart === weekStart);
+      const weekState = weekStart === currentWeekStart ? state : historyWeek ? scheduleHistoryState(state, historyWeek) : null;
+      const summary = weekState ? scheduleCostSummary(weekState, weekRange(days)) : null;
+      const ratio = summary ? (historyWeek?.salesMode === "actual" && summary.actualSalesBasis > 0 ? summary.actualLaborRatio : summary.laborRatio) : 0;
+      const badge = weekStart === currentWeekStart ? "DB" : historyWeek ? historyModeLabel(locale, historyWeek) : null;
+      return <button type="button" disabled={!weekState} data-testid={`month-week-${weekStart}`} key={weekStart} onClick={() => weekState && onSelectWeek(weekStart)} style={{ textAlign: "left", border: "1px solid var(--line)", background: "var(--surface-strong)", borderRadius: 9, padding: 11, cursor: weekState ? "pointer" : "default", color: "inherit", opacity: weekState ? 1 : 0.55 }}>
+        <span style={{ display: "flex", justifyContent: "space-between", gap: 8, color: "var(--muted)", fontSize: 10, fontWeight: 750 }}><span>{copy.weekSummary}</span>{badge && <em style={{ fontStyle: "normal", letterSpacing: ".04em" }}>{badge}</em>}</span>
         <strong style={{ display: "block", marginTop: 3 }}>{days[0].slice(5).replace("-", "/")}–{days[6].slice(5).replace("-", "/")}</strong>
-        {summary.scheduledHours > 0 ? <><span style={{ display: "block", marginTop: 7, fontSize: 11 }}>{formatHours(locale, summary.scheduledHours)} h · {formatMoney(state, locale, summary.salesBasis)}</span><small style={{ display: "block", marginTop: 3, color: "var(--muted)" }}>{formatPercent(locale, summary.laborRatio)} · {summary.warningCount} ⚑</small></> : <small style={{ display: "block", marginTop: 8, color: "var(--faint)" }}>{copy.noSchedule}</small>}
+        {summary && summary.scheduledHours > 0 ? <><span style={{ display: "block", marginTop: 7, fontSize: 11 }}>{formatHours(locale, summary.scheduledHours)} h · {formatMoney(weekState!, locale, summary.salesBasis)}</span><small style={{ display: "block", marginTop: 3, color: "var(--muted)" }}>{formatPercent(locale, ratio)}</small></> : <small style={{ display: "block", marginTop: 8, color: "var(--faint)" }}>{copy.noSchedule}</small>}
       </button>;
     })}
   </div>;
@@ -309,21 +328,40 @@ function ScheduleGrid() {
   const businessDate = state.context?.businessDate ?? DEMO_WEEK[4];
   const [view, setView] = useState<ScheduleView>("week");
   const [selectedDate, setSelectedDate] = useState(businessDate);
+  const [historyWeeks, setHistoryWeeks] = useState<ScheduleHistoryWeek[]>([]);
   const weekDays = useMemo(() => weekDatesFor(selectedDate), [selectedDate]);
+  const currentWeekStart = weekDatesFor(businessDate)[0];
+  const selectedWeekStart = weekDays[0];
+  const historyStoreId = storeIdForState(state);
+  const historyWeek = historyWeeks.find((week) => week.storeId === historyStoreId && week.weekStart === selectedWeekStart);
+  const historicalWeek = selectedWeekStart !== currentWeekStart;
+  const scheduleState = useMemo(() => historicalWeek
+    ? historyWeek ? scheduleHistoryState(state, historyWeek) : { ...state, shifts: [], sales: [], timeEntries: [], incident: null, preview: null, storePlan: null, business: { ...state.business, peakWindows: [] } }
+    : state, [historicalWeek, historyWeek, state]);
   const hierarchy = getScheduleHierarchyCopy(locale);
   const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
-  const displayShifts = useMemo(() => state.preview ? applyChanges(state.shifts, state.preview.changes) : state.shifts, [state]);
-  const previewIds = new Set(state.preview?.changes.map((change) => change.shiftId) ?? []);
-  const previewKind = state.preview ? candidateStage(state) : null;
+  const displayShifts = useMemo(() => scheduleState.preview ? applyChanges(scheduleState.shifts, scheduleState.preview.changes) : scheduleState.shifts, [scheduleState]);
+  const previewIds = new Set(scheduleState.preview?.changes.map((change) => change.shiftId) ?? []);
+  const previewKind = scheduleState.preview ? candidateStage(scheduleState) : null;
   const previewTag = previewKind === "human-edit" ? ui.preview.humanEdit : previewKind === "reviewed" ? ui.preview.reviewed : ui.preview.agentProposal;
-  const selectedShift = displayShifts.find((item) => item.id === selectedShiftId) ?? null;
+  const selectedShift = historicalWeek ? null : displayShifts.find((item) => item.id === selectedShiftId) ?? null;
   const activeDate = weekDays.includes(selectedDate) ? selectedDate : weekDays.includes(businessDate) ? businessDate : weekDays[0];
   const visibleDays = view === "day" ? [activeDate] : weekDays;
-  const focusDay = state.incident ? shiftDay(state.shifts.find((item) => item.id === state.incident?.shiftId) ?? state.shifts[0]) : businessDate;
+  const focusDay = historicalWeek ? "" : state.incident ? shiftDay(state.shifts.find((item) => item.id === state.incident?.shiftId) ?? state.shifts[0]) : businessDate;
   const heading = view === "month" ? hierarchy.monthTitle(formatDay(locale, selectedDate, { month: "long", year: "numeric" })) : view === "day" ? ui.schedule.dayTitle.replace("{date}", scheduleDayLabel(locale, activeDate)) : ui.schedule.weekTitle;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(`/api/schedule-history?storeId=${encodeURIComponent(historyStoreId)}&from=2026-06-29&to=2026-10-05`, { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => response.ok ? response.json() as Promise<{ weeks?: ScheduleHistoryWeek[] }> : null)
+      .then((payload) => { if (!controller.signal.aborted) setHistoryWeeks(payload?.weeks ?? []); })
+      .catch((error) => { if (!(error instanceof DOMException && error.name === "AbortError")) setHistoryWeeks([]); });
+    return () => controller.abort();
+  }, [historyStoreId]);
 
   const onDrop = (event: React.DragEvent, workerId: string, day: string) => {
     event.preventDefault();
+    if (historicalWeek) return;
     const shiftId = event.dataTransfer.getData("text/ownerops-shift");
     if (shiftId) runAction({ type: "reassign_shift", shiftId, workerId, targetDay: day });
   };
@@ -332,29 +370,29 @@ function ScheduleGrid() {
     <section className="schedule-panel" aria-label={heading}>
       <div className="section-heading">
         <div className="schedule-heading-main">
-          <div><span className="eyebrow">{marketScheduleContext(locale, profile.copy.scheduleContext, location)}</span><h1>{heading}</h1></div>
+          <div><span className="eyebrow">{marketScheduleContext(locale, profile.copy.scheduleContext, location)}</span><div style={{ display: "flex", alignItems: "center", gap: 8 }}><h1>{heading}</h1>{view === "month" && <span style={{ display: "inline-flex", gap: 4 }}><button data-testid="schedule-prev-month" className="icon-button" disabled={selectedDate.slice(0, 7) <= "2026-07"} onClick={() => setSelectedDate(shiftMonth(selectedDate, -1))} aria-label="Previous month">‹</button><button data-testid="schedule-next-month" className="icon-button" disabled={selectedDate.slice(0, 7) >= "2026-09"} onClick={() => setSelectedDate(shiftMonth(selectedDate, 1))} aria-label="Next month">›</button></span>}{view !== "month" && historicalWeek && historyWeek && <span data-testid="schedule-history-mode" style={{ fontSize: 10, fontWeight: 800, color: "var(--muted)", border: "1px solid var(--line)", borderRadius: 999, padding: "3px 7px" }}>{historyModeLabel(locale, historyWeek)}</span>}</div></div>
           <div className="schedule-view-toggle" role="group" aria-label={ui.schedule.viewSelector}><button data-testid="schedule-view-month" type="button" aria-pressed={view === "month"} className={view === "month" ? "active" : ""} onClick={() => setView("month")}>{hierarchy.month}</button><button data-testid="schedule-view-week" type="button" aria-pressed={view === "week"} className={view === "week" ? "active" : ""} onClick={() => setView("week")}>{ui.schedule.week}</button><button data-testid="schedule-view-day" type="button" aria-pressed={view === "day"} className={view === "day" ? "active" : ""} onClick={() => setView("day")}>{ui.schedule.day}</button></div>
         </div>
         <div className="schedule-legend"><span><i className="legend-scheduled"/>{ui.schedule.committed}</span><span><i className="legend-preview"/>{ui.schedule.agentProposal}</span><span><i className="legend-human"/>{ui.schedule.humanEdit}</span><span><i className="legend-gap"/>{ui.schedule.uncovered}</span></div>
       </div>
-      {view === "month" && <MonthScheduleOverview state={state} locale={locale} selectedDate={selectedDate} onSelectWeek={(date) => { setSelectedDate(date); setView("week"); }} />}
+      {view === "month" && <MonthScheduleOverview state={state} locale={locale} selectedDate={selectedDate} historyWeeks={historyWeeks} currentWeekStart={currentWeekStart} onSelectWeek={(date) => { setSelectedDate(date); setView("week"); }} />}
       {view === "day" && <div className="schedule-day-picker" aria-label={ui.schedule.selectDate}>{weekDays.map((day) => <button type="button" key={day} aria-pressed={day === activeDate} className={day === activeDate ? "active" : ""} onClick={() => setSelectedDate(day)}>{scheduleDayLabel(locale, day)}</button>)}</div>}
-      {view !== "month" && <ScheduleCostSummaryStrip state={state} locale={locale} view={view} selectedDate={activeDate} weekDays={weekDays}/>}
-      {view !== "month" && <SchedulePlanCost state={state} locale={locale} weekDays={weekDays}/>}
+      {view !== "month" && <ScheduleCostSummaryStrip state={scheduleState} locale={locale} view={view} selectedDate={activeDate} weekDays={weekDays}/>} 
+      {view !== "month" && !historicalWeek && <SchedulePlanCost state={state} locale={locale} weekDays={weekDays}/>} 
       <div className="schedule-scroll" style={{ display: view === "month" ? "none" : undefined }}>
         <div className={`schedule-grid ${view === "day" ? "day-view" : "week-view"}`} style={{ gridTemplateColumns: `176px repeat(${visibleDays.length}, minmax(104px, 1fr))` }}>
           <div className="grid-corner">{ui.schedule.teamMember}</div>
           {visibleDays.map((day) => {
-            const daySummary = scheduleCostSummary(state, scheduleDayRange(day), { scheduleBasis: "candidate" });
+            const daySummary = scheduleCostSummary(scheduleState, scheduleDayRange(day), { scheduleBasis: "candidate" });
             return <button type="button" key={day} onClick={() => { setSelectedDate(day); setView("day"); }} className={`day-head ${day === focusDay ? "focus-day" : ""}`} style={{ border: 0, font: "inherit", cursor: "pointer", color: "inherit" }}><strong>{formatDay(locale, day, { weekday: "short" })}</strong><span>{day.slice(5).replace("-", "/")}</span><small className="day-cost-summary">{formatHours(locale, daySummary.scheduledHours)}{ui.schedule.costSummary.hoursSuffix} · {daySummary.workerCount}{ui.schedule.costSummary.peopleSuffix}</small>{day === focusDay && state.incident && <em>{profile.copy.incidentLabel}</em>}</button>;
           })}
-          {state.workers.map((worker) => (
+          {scheduleState.workers.map((worker) => (
             <div className="worker-row-fragment" key={worker.id}>
               <div className="worker-label"><span className={`worker-avatar role-${worker.role}`}>{worker.name.slice(0, 1)}</span><div><strong>{worker.name}</strong><span>{profile.roleLabels[worker.role]} · {formatMoney(state, locale, worker.hourlyRate)}/h</span></div></div>
               {visibleDays.map((day) => {
                 const shifts = displayShifts.filter((item) => item.workerId === worker.id && shiftDay(item) === day);
                 return <div key={day} className={`schedule-cell ${day === focusDay ? "focus-day" : ""}`} onDragOver={(event) => event.preventDefault()} onDrop={(event) => onDrop(event, worker.id, day)}>
-                  {shifts.map((item) => { const isPreview = previewIds.has(item.id); return <button draggable key={item.id} className={`shift-chip ${isPreview ? `preview candidate-${previewKind}` : ""}`} onDragStart={(event) => { event.dataTransfer.setData("text/ownerops-shift", item.id); event.dataTransfer.effectAllowed = "move"; }} title={isPreview ? `${previewTag}` : ui.schedule.reassign} onClick={() => setSelectedShiftId(item.id)}>{isPreview && <small className="chip-tag">{previewTag}</small>}<strong className="shift-worker-name">{worker.name}</strong><span className="shift-time">{formatTime(item.start)}–{formatTime(item.end)}</span></button>; })}
+                  {shifts.map((item) => { const isPreview = previewIds.has(item.id); return <button draggable={!historicalWeek} key={item.id} className={`shift-chip ${isPreview ? `preview candidate-${previewKind}` : ""}`} onDragStart={(event) => { if (historicalWeek) return; event.dataTransfer.setData("text/ownerops-shift", item.id); event.dataTransfer.effectAllowed = "move"; }} title={historicalWeek ? historyModeLabel(locale, historyWeek!) : isPreview ? `${previewTag}` : ui.schedule.reassign} onClick={() => !historicalWeek && setSelectedShiftId(item.id)}>{isPreview && <small className="chip-tag">{previewTag}</small>}<strong className="shift-worker-name">{worker.name}</strong><span className="shift-time">{formatTime(item.start)}–{formatTime(item.end)}</span></button>; })}
                 </div>;
               })}
             </div>
@@ -366,8 +404,8 @@ function ScheduleGrid() {
           })}
         </div>
       </div>
-      {view !== "month" && <p className="drag-help">{ui.schedule.dragHelp}</p>}
-      {view !== "month" && selectedShift && <ManualShiftEditor key={selectedShift.id} shift={selectedShift} onClose={() => setSelectedShiftId(null)} onSave={(workerId, targetDay, startTime, endTime) => { runAction({ type: "reassign_shift", shiftId: selectedShift.id, workerId, targetDay, start: `${targetDay}T${startTime}:00`, end: `${targetDay}T${endTime}:00` }); setSelectedShiftId(null); }} />}
+      {view !== "month" && !historicalWeek && <p className="drag-help">{ui.schedule.dragHelp}</p>}
+      {view !== "month" && !historicalWeek && selectedShift && <ManualShiftEditor key={selectedShift.id} shift={selectedShift} onClose={() => setSelectedShiftId(null)} onSave={(workerId, targetDay, startTime, endTime) => { runAction({ type: "reassign_shift", shiftId: selectedShift.id, workerId, targetDay, start: `${targetDay}T${startTime}:00`, end: `${targetDay}T${endTime}:00` }); setSelectedShiftId(null); }} />}
     </section>
   );
 }
