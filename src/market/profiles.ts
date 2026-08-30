@@ -52,7 +52,9 @@ export const MARKET_PROFILES: Record<MarketId, MarketProfile> = {
       sourceUrl: "https://www.minimumwage.go.kr/",
     },
     wageRounding: 500,
-    salesRounding: 50000,
+    // Menu prices are quoted in won; rounding at 50,000 would collapse the
+    // 12,000–19,500 demo prices to zero and make food-cost ratios meaningless.
+    salesRounding: 500,
     defaultOccupancy: { baseRentMonthly: 3000000, recurringFeesMonthly: 420000, deposit: 30000000, leaseStart: "2026-04-01", leaseEnd: "2027-03-31", nextEscalationDate: "2027-01-01", nextEscalationRate: 0.05 },
     referenceProviders: {
       commodity: "KAMIS",

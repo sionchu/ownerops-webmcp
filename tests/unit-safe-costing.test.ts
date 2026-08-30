@@ -94,8 +94,10 @@ describe("unit-safe costing", () => {
     for (const industry of ["coffee", "pizza", "salon", "sushi", "curry", "diner"] as const) {
       const analyses = analyzeMenuCosts(createDemoState(industry, "kr-seoul"));
       for (const analysis of analyses) {
+        expect(analysis.sellingPrice).toBeGreaterThan(0);
         if (analysis.foodCostRatio !== null) expect(Number.isFinite(analysis.foodCostRatio)).toBe(true);
-        expect(analysis.foodCostRatio === null || analysis.foodCostRatio < 100).toBe(true);
+        expect(analysis.status).toBe("complete");
+        expect(analysis.foodCostRatio === null || analysis.foodCostRatio < 1).toBe(true);
       }
     }
   });
