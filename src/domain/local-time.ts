@@ -1,11 +1,19 @@
 /** Business-wall-clock helpers. DB timestamptz offsets are transport metadata here. */
-const PARTS = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2})(?::(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?)?)?)?/;
+const PARTS = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2})(?::(\d{2}))?(?::(\d{2}))?(?:\.(\d{1,3}))?)?/;
 
 function parse(value: string) {
   const match = PARTS.exec(value);
   if (!match) return null;
   const [, year, month, day, hour = "0", minute = "0", second = "0", millis = "0"] = match;
-  return { year: Number(year), month: Number(month), day: Number(day), hour: Number(hour), minute: Number(minute), second: Number(second), millis: Number(millis.padEnd(3, "0")) };
+  return {
+    year: Number(year),
+    month: Number(month),
+    day: Number(day),
+    hour: Number(hour),
+    minute: Number(minute),
+    second: Number(second),
+    millis: Number(millis.padEnd(3, "0")),
+  };
 }
 
 export function businessTimestamp(value: string): number {
