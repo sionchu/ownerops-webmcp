@@ -42,7 +42,7 @@ export function OperatingCommandCenter() {
       <section aria-label={ui.ariaLabel} style={{ borderBottom: "1px solid #e5ded1", background: "#fffdf9", padding: "14px 22px", display: "grid", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontSize: 11, letterSpacing: ".09em", fontWeight: 800, color: "#746e65", textTransform: "uppercase" }}>{ui.eyebrow}</div>
+            <div style={{ fontSize: 11, letterSpacing: ".09em", fontWeight: 800, color: "#746e65" }}>{ui.eyebrow}</div>
             <div style={{ fontSize: 18, fontWeight: 760, color: "#2c2925", marginTop: 2 }}>{state.business.name} · {state.context?.businessDate ?? ui.currentWeek}</div>
           </div>
           <div style={{ display: "flex", gap: 18, fontSize: 12, color: "#746e65", flexWrap: "wrap" }}>
