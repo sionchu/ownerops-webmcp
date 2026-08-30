@@ -20,9 +20,10 @@ describe("profitability-first workforce semantics", () => {
   it("never labels a partial-week actual wage ratio against the whole week's sales", () => {
     const state = createDemoState("coffee", "kr-seoul");
     const summary = scheduleCostSummary(state, { start: "2026-08-24T00:00:00", end: "2026-08-31T00:00:00" });
-    expect(summary.actualWage).toBeGreaterThan(0);
-    expect(summary.actualComparableWage).toBeGreaterThan(0);
-    expect(summary.actualSalesBasis).toBe(state.sales?.find((sale) => sale.date === "2026-08-24")?.netSales);
+    expect(summary.actualWage).toBeCloseTo(279_900);
+    expect(summary.actualComparableWage).toBeCloseTo(279_900);
+    expect(summary.actualSalesBasis).toBe(1_300_000);
+    expect(summary.actualLaborRatio).toBeCloseTo(279_900 / 1_300_000);
     expect(summary.actualLaborRatio).toBeCloseTo(summary.actualComparableWage / summary.actualSalesBasis);
     expect(summary.actualLaborRatio).not.toBeCloseTo(summary.actualWage / summary.salesBasis);
   });
