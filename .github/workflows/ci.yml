@@ -100,3 +100,5 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Run DB-backed Preview WebMCP browser E2E
         run: node scripts/webmcp-browser-e2e.mjs
+      - name: Run late-injection / resume WebMCP E2E
+        run: node scripts/webmcp-late-injection-e2e.mjs
