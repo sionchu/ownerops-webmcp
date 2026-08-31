@@ -27,11 +27,9 @@ Signature flow: **read live store → prioritize issues → plan actions → pre
 10. `docs/09_ACCEPTANCE_TESTS.md`
 11. `docs/10_REFERENCE_RESEARCH.md`
 12. `docs/11_DEVPOST_SUBMISSION.md`
-13. `docs/12_HANDOFF_PROTOCOL.md`
-14. `docs/13_PAPERTHIN_REVIEW.md`
-15. `docs/14_CODEX_EXECUTION_PLAN.md`
-16. `docs/15_DECISION_LOG.md`
-17. `docs/16_AGENT_OPERATING_MANUAL.md`
+13. `docs/13_PAPERTHIN_REVIEW.md`
+14. `docs/15_DECISION_LOG.md`
+15. `docs/16_AGENT_OPERATING_MANUAL.md`
 
 ## Non-negotiable engineering rules
 - Preserve **one business truth**. PostgreSQL/Supabase is durable canonical persistence; browser `StoreState` is a working projection used by UI/WebMCP.
@@ -51,20 +49,6 @@ Signature flow: **read live store → prioritize issues → plan actions → pre
 - Do not turn OwnerOps into payroll filing, tax, bookkeeping, ATS, LMS, or legal-compliance software.
 - Avoid menu-per-feature SaaS bloat. Capabilities broaden while the primary UI remains an operating command center.
 - Prefer editing canonical artifacts over adding `v2`, `new`, `final`, duplicate registries, or wrapper-on-wrapper abstractions.
-
-## Execution authorization / setup permissions
-The owner prefers execution to continue through ordinary setup instead of stopping on conservative permission assumptions.
-
-- **Do not invent blockers or approval gates the owner did not request.** Once a task is approved, treat ordinary setup required to complete that task as authorized.
-- If a required third-party organization, project, database, development environment, branch, preview resource, or equivalent task-scoped resource does not exist, create the **minimum necessary** resource under the user's authorized account instead of stopping solely because it is absent.
-- It is acceptable to install required CLIs/dependencies, link an authenticated account, create a task-scoped project, choose a reasonable non-destructive region/name/default, initialize schemas, and grant the **minimum permissions/scopes necessary** to finish the approved task.
-- If interactive login, MFA, CAPTCHA, passkey, device confirmation, or another human-only authentication step is required, start/open that flow and ask the user to complete **only that step**. After authentication succeeds, resume the original task automatically; do not ask for permission again to continue the already-approved work.
-- Prefer using an existing suitable organization/project/resource when clearly available. If none exists, creating a new task-scoped one is allowed unless the user explicitly prohibited creation.
-- Never request that secrets be pasted into chat when they can be entered through the provider UI, environment variables, secret manager, CLI login, or another protected input path.
-- Never expose service-role keys, API secrets, passwords, recovery codes, or private tokens in commits, logs, screenshots, browser bundles, or user-visible output.
-- **Do stop** before actions that create an unapproved financial charge or paid-plan upgrade, delete or irreversibly overwrite unrelated user data, transfer ownership, weaken security beyond the minimum required scope, publish/private-share resources contrary to the user's stated intent, or require accepting materially consequential legal/commercial terms on the user's behalf.
-- Free-tier/task-scoped resource creation, normal authentication, schema initialization, and minimal configuration are **setup actions, not reasons to stop**.
-- When an external environment genuinely makes progress impossible, report the precise blocker only after attempting the reasonable authorized setup path.
 
 ## Backend/data boundary
 Current persistence target:

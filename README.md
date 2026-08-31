@@ -170,6 +170,8 @@ Current migrations:
 - `001_ownerops_store_ssot.sql` — normalized store truth + external reference cache;
 - `002_working_store_projection_rpc.sql` — transactional server-only working projection load/replace RPC;
 - `003_fnb_template_catalog.sql` — market/industry benchmark template catalog.
+- `004_owner_store_master_rls.sql` — authenticated owner boundary for store-master edits;
+- `005_schedule_history.sql` — read-only schedule history outside current StoreState metrics.
 
 Runtime endpoints are read-only:
 - `/api/store-state?storeId=...` — persisted store hydration;

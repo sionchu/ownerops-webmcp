@@ -54,21 +54,8 @@ PostgreSQL/Supabase is the durable persistence/reference-cache target. Determini
 
 Public unauthenticated browser writes are intentionally **not** persisted with the service-role key. Owner-level write persistence waits for authenticated identity/RLS.
 
-## Live Supabase / Preview evidence
-Live P0 DB setup was completed on 2026-08-30:
-
-- Supabase organization/project: `OwnerOps / ownerops`;
-- region: Seoul (`ap-northeast-2`);
-- migrations 001 → 002 → 003 applied to the real Supabase project;
-- Seoul canonical benchmark/template imported successfully, including 44 ingredient benchmark rows and the remaining catalog groups;
-- `demo-kr-seoul-coffee` working StoreProjection seeded and round-tripped successfully;
-- Preview deployment reached Ready;
-- `/api/store-state?storeId=demo-kr-seoul-coffee` returned HTTP 200 with `source: database`;
-- `/api/references?market=kr-seoul` returned HTTP 200 with `source: database-cache`;
-- Supabase URL and service-role secret are configured only for the Vercel Preview environment; Production has no OwnerOps Supabase secret;
-- PR #15 remains Draft and `master` remains unchanged.
-
-The route currently accepts `storeId`; `/api/store-state?industry=coffee&market=kr-seoul` is not the current contract and returns 400. Do not claim otherwise unless the route contract is intentionally changed.
+## Persistence verification
+The SQL migrations have been exercised against a Supabase-backed preview environment. A seeded working StoreProjection and cached reference reads completed through the server-side routes. Server-only credentials remain outside browser bundles, and deterministic seed data remains the fallback when database or provider configuration is absent.
 
 ## F&B master integration
 The supplied master workbook is benchmark/template data, not merchant truth.
@@ -102,26 +89,17 @@ Primary route:
 
 Snapshot is backup/restore only.
 
-## Latest repository baseline
-Current branch head before this status update:
+## Verification baseline
+The release candidate is verified through the data-source registry, master-template importer dry-run, test suite, lint, typecheck, production build, and database projection round-trip. The deterministic browser harness also exercises DB-backed and late-injection WebMCP paths. Fresh local verification results are recorded with each release-hygiene change.
 
-`44ca03f4bd3e62c7b1f5aa4ecc63fede17de5248`
-
-Compared with the live-DB-verified runtime source `1cbb885c106b9612a30ef0bf5917681beb4e9656`, the only change is 14 added lines in `AGENTS.md` authorizing ordinary task-enabling setup/account actions. There is **no runtime code difference**.
-
-Verification for `44ca03f`:
-- GitHub Actions `OwnerOps CI` run `33289021609` — PASS;
-- Vercel status — SUCCESS.
-
-Previously verified application/database baseline includes:
-- data source registry — PASS;
-- Master template importer dry-run — PASS;
-- 57/57 tests across 7 files — PASS;
-- lint — 0 errors;
-- typecheck — PASS;
-- production build — PASS;
-- PostgreSQL 16 migrations 001 → 002 → 003 — PASS;
-- working StoreProjection replace/get round-trip — PASS.
+## Release-hygiene verification
+- `npm run data:sources` and the master-template importer dry-run passed;
+- `npm test` passed: 97 tests across 18 files;
+- `npm run lint` completed with 0 errors and 6 existing warnings;
+- `npm run typecheck`, `npm run build`, and `npm audit` passed;
+- the late-injection/resume WebMCP browser harness passed against the preview URL;
+- the DB-backed browser harness stopped because the current preview did not render its expected `DEMO · 실적` control. This requires deployment/harness alignment and is not a substitute for the real ChatGPT acceptance run;
+- local database verification was not run because no local PostgreSQL service was available.
 
 ## Remaining live gates
 ### P0
