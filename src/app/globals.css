@@ -333,7 +333,118 @@ h2 { font-size: 16px; letter-spacing: -.02em; }
   .workspace { min-height: calc(100vh - 104px); }
 }
 
+/* Owner-facing information architecture and Store Master. */
+.owner-navigation { position: sticky; top: 0; z-index: 40; display: flex; justify-content: center; gap: 4px; padding: 7px 12px; background: rgb(255 253 249 / .94); border-bottom: 1px solid #e5ded1; backdrop-filter: blur(10px); }
+.owner-navigation a { color: #5d5851; text-decoration: none; font-size: 12px; font-weight: 760; padding: 7px 11px; border-radius: 7px; }
+.owner-navigation a:hover { color: #315847; background: #edf3ef; }
+.operating-pnl-grid { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 1px; margin-top: 10px; overflow: hidden; border: 1px solid #e8ded3; border-radius: 9px; background: #e8ded3; }
+.operating-pnl-grid > div { min-width: 0; padding: 10px; background: #fff; }
+.operating-pnl-grid span { display: block; color: #746e65; font-size: 10px; font-weight: 700; }
+.operating-pnl-grid strong { display: block; margin-top: 4px; color: #2c2925; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.operating-pnl-grid .operating-pnl-primary { background: #edf3ef; }
+.operating-pnl-grid .operating-pnl-primary strong { color: #315847; font-size: 17px; }
+.store-surface { max-width: 1240px; margin: 30px auto 60px; padding: 0 22px; color: #2c2925; }
+.store-surface-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; padding: 20px 22px; border: 1px solid #e5ded1; border-radius: 13px 13px 0 0; background: #fffdf9; }
+.store-surface-header span { color: #746e65; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.store-surface-header h2 { margin: 4px 0 0; font-size: 24px; letter-spacing: -.03em; }
+.store-surface-header p { margin: 4px 0 0; color: #746e65; font-size: 12px; }
+.store-mode-actions { display: flex; gap: 7px; }
+.store-mode-actions button, .store-auth button, .store-tabs button { border: 1px solid #d9d0c5; border-radius: 7px; background: #fff; color: #2c2925; padding: 7px 11px; font-size: 11px; font-weight: 760; cursor: pointer; }
+.store-mode-actions .primary { border-color: #315847; background: #315847; color: #fff; }
+.store-mode-actions button:disabled { opacity: .55; cursor: wait; }
+.store-auth { display: flex; align-items: center; justify-content: flex-end; min-height: 42px; gap: 10px; padding: 7px 14px; border: 1px solid #e5ded1; border-top: 0; background: #fff; }
+.store-auth form { display: flex; align-items: center; gap: 7px; }
+.store-auth input { width: 170px; }
+.store-auth p { margin: 0 auto 0 0; color: #a84f3d; font-size: 11px; }
+.store-auth span, .store-auth strong { font-size: 11px; }
+.store-tabs { display: flex; gap: 0; overflow-x: auto; border: 1px solid #e5ded1; border-top: 0; background: #f8f4ee; }
+.store-tabs button { flex: 1 0 max-content; border: 0; border-right: 1px solid #e5ded1; border-radius: 0; background: transparent; padding: 11px 14px; color: #746e65; }
+.store-tabs button[aria-selected="true"] { color: #315847; background: #fff; box-shadow: inset 0 -2px #315847; }
+.store-review-note { display: flex; gap: 12px; padding: 10px 15px; border: 1px solid #cdb98f; border-top: 0; background: #fffaf0; font-size: 11px; }
+.store-section { min-height: 240px; padding: 18px; border: 1px solid #e5ded1; border-top: 0; border-radius: 0 0 13px 13px; background: #fff; }
+.store-section h3 { margin: 18px 0 8px; font-size: 13px; }
+.store-section input, .store-section select, .store-auth input { border: 1px solid #d9d0c5; border-radius: 6px; background: #fff; color: #2c2925; padding: 7px 8px; font: inherit; font-size: 12px; }
+.store-section input:disabled { border-color: transparent; background: #f8f6f2; color: #5d5851; }
+.store-section[data-mode="review"] input:disabled { border-color: #e6d7ba; background: #fffaf0; color: #2c2925; }
+.store-fields, .store-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.store-fields label, .store-row label, .store-cost-groups label { display: grid; gap: 5px; min-width: 0; }
+.store-fields label > span, .store-row label > span, .store-cost-groups label > span { color: #746e65; font-size: 10px; font-weight: 700; }
+.opening-hours { display: grid; grid-template-columns: repeat(7, minmax(110px, 1fr)); gap: 7px; overflow-x: auto; }
+.opening-hours > div { display: grid; gap: 6px; padding: 9px; border: 1px solid #eee6dc; border-radius: 8px; }
+.opening-hours label { color: #746e65; font-size: 10px; }
+.store-list { display: grid; gap: 9px; }
+.store-list article { padding: 13px; border: 1px solid #eee6dc; border-radius: 9px; }
+.store-list details { margin-top: 10px; }
+.store-list summary { color: #315847; font-size: 11px; font-weight: 760; cursor: pointer; }
+.recipe-line { display: grid; grid-template-columns: minmax(150px, 1fr) 110px 90px; gap: 8px; align-items: center; padding: 7px 0; border-bottom: 1px solid #f1ebe3; }
+.recipe-line code { overflow: hidden; color: #746e65; font-size: 10px; text-overflow: ellipsis; }
+.store-check { display: flex!important; align-items: center; justify-content: center; flex-direction: row; }
+.readonly-facts { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 10px; color: #746e65; font-size: 10px; }
+.readonly-facts strong { color: #2c2925; }
+.store-boundary { margin: 0 0 10px; color: #746e65; font-size: 11px; }
+.supplier-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 9px; }
+.supplier-grid article { display: grid; gap: 5px; padding: 13px; border: 1px solid #eee6dc; border-radius: 9px; }
+.supplier-grid span { color: #746e65; font-size: 11px; }
+.store-cost-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.store-cost-groups fieldset { display: grid; gap: 10px; margin: 0; padding: 14px; border: 1px solid #eee6dc; border-radius: 9px; }
+.store-cost-groups legend { padding: 0 6px; color: #315847; font-size: 11px; font-weight: 800; }
+
+@media (max-width: 800px) {
+  .operating-pnl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .store-surface { padding: 0 12px; }
+  .store-surface-header { align-items: flex-start; flex-direction: column; }
+  .store-auth, .store-auth form { align-items: stretch; flex-direction: column; }
+  .store-auth input { width: auto; }
+  .store-cost-groups { grid-template-columns: 1fr; }
+  .opening-hours { grid-template-columns: repeat(7, 110px); }
+}
+
 /* Keep the context in the operating header rather than a second hero row. */
+
+/* Day / Week schedule-cost surface. Monetary evidence stays in the compact
+   summary/header rather than being repeated inside each shift chip. */
+.schedule-heading-main { display: flex; align-items: flex-end; gap: 18px; min-width: 0; }
+.schedule-view-toggle { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--oo-border, var(--line)); border-radius: 9px; background: color-mix(in srgb, var(--oo-surface-elevated, #fff) 88%, var(--oo-accent-soft)); }
+.schedule-view-toggle button, .schedule-day-picker button { border: 0; cursor: pointer; color: var(--oo-secondary-ink, var(--muted)); background: transparent; font-size: 11px; font-weight: 760; border-radius: 6px; padding: 6px 10px; }
+.schedule-view-toggle button.active, .schedule-day-picker button.active { color: var(--oo-ink, var(--ink)); background: var(--oo-surface-elevated, #fff); box-shadow: 0 2px 6px color-mix(in srgb, var(--oo-accent) 13%, transparent); }
+.schedule-day-picker { display: flex; gap: 5px; padding: 10px 22px 0; overflow-x: auto; }
+.schedule-day-picker button { white-space: nowrap; padding: 6px 8px; }
+.schedule-cost-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; margin: 0 22px; padding: 15px 0 14px; border-bottom: 1px solid color-mix(in srgb, var(--oo-accent) 9%, var(--line)); }
+.schedule-cost-item { min-width: 0; padding: 0 13px; border-right: 1px solid color-mix(in srgb, var(--oo-accent) 9%, var(--line)); }
+.schedule-cost-item:first-child { padding-left: 0; }
+.schedule-cost-item:last-child { border-right: 0; padding-right: 0; }
+.schedule-cost-item > span, .schedule-plan-cost > span { display: block; color: var(--oo-secondary-ink, var(--faint)); font-size: 10px; font-weight: 750; letter-spacing: .025em; }
+.schedule-cost-item strong { display: block; margin-top: 4px; color: var(--oo-ink, var(--ink)); font-size: 17px; letter-spacing: -.035em; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.schedule-cost-item small { display: block; margin-top: 4px; color: var(--oo-secondary-ink, var(--muted)); font-size: 10px; line-height: 1.3; white-space: normal; }
+.schedule-cost-primary strong { color: var(--oo-accent, var(--accent)); }
+.schedule-cost-item.warning strong { color: var(--warning); }
+.schedule-plan-cost { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 12px; margin: 0 22px 10px; padding: 10px 12px; border: 1px solid var(--oo-proposal-border, var(--line)); border-radius: var(--oo-radius-shift, 8px); background: var(--oo-proposal-fill, var(--surface-muted)); }
+.schedule-plan-cost strong { color: var(--oo-ink, var(--ink)); font-size: 13px; font-variant-numeric: tabular-nums; }
+.schedule-plan-cost small { color: var(--oo-accent, var(--accent)); font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.day-cost-summary { display: block; margin-top: 3px; color: var(--oo-secondary-ink, var(--muted)); font-size: 9px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.schedule-grid.day-view { min-width: 520px; }
+
+@media (max-width: 900px) {
+  .schedule-cost-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 14px; }
+  .schedule-cost-item:nth-child(3) { border-right: 0; }
+  .schedule-cost-item:nth-child(-n+3) { padding-bottom: 0; }
+}
+@media (max-width: 650px) {
+  .section-heading { flex-direction: column; gap: 12px; }
+  .schedule-heading-main { width: 100%; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .schedule-legend { justify-content: flex-start; max-width: none; }
+  .schedule-cost-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0 14px; padding-top: 13px; }
+  .schedule-cost-item { padding: 0 9px; border-right: 0; }
+  .schedule-cost-item:nth-child(odd) { padding-left: 0; }
+  .schedule-cost-item:nth-child(-n+4) { padding-bottom: 12px; border-bottom: 1px solid color-mix(in srgb, var(--oo-accent) 9%, var(--line)); }
+  .schedule-cost-item:nth-child(even) { padding-right: 0; }
+  .schedule-cost-item strong { font-size: 16px; }
+  .schedule-day-picker { padding-left: 14px; padding-right: 14px; }
+  .schedule-plan-cost { margin-left: 14px; margin-right: 14px; }
+  .schedule-grid.day-view { min-width: 520px; }
+  .shift-dialog-backdrop { place-items: end center; padding: 0; }
+  .shift-dialog-backdrop .shift-editor { width: 100%; max-width: none; border-radius: 16px 16px 0 0; border-bottom: 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); box-shadow: 0 -12px 32px rgba(22, 33, 29, .18); }
+}
 .topbar { height: 154px; min-height: 154px; grid-template-rows: 36px; overflow: hidden; }
 .context-stage { position: absolute; left: 30px; bottom: 13px; margin: 0; }
 .context-stage h1 { font-size: clamp(28px, 2.1vw, 32px); line-height: 1.06; }

@@ -1,7 +1,9 @@
+import { workerAvailableForInterval } from "./availability";
+import { businessHoursBetween, businessTimestamp } from "./local-time";
 import type { AppState, PlanImpact, RuleWarning, Shift, StaffingChange, Worker } from "./model";
 
 export function hoursBetween(start: string, end: string): number {
-  return (new Date(end).getTime() - new Date(start).getTime()) / 3_600_000;
+  return businessHoursBetween(start, end);
 }
 
 export function weeklyHours(workers: Worker[], shifts: Shift[]): Record<string, number> {
@@ -15,13 +17,9 @@ export function estimatedPayroll(workers: Worker[], shifts: Shift[]): number {
   return shifts.reduce((sum, item) => (item.workerId && item.status === "scheduled" ? sum + hoursBetween(item.start, item.end) * (rates.get(item.workerId) ?? 0) : sum), 0);
 }
 
-function overlaps(startA: string, endA: string, startB: string, endB: string): boolean {
-  return new Date(startA) < new Date(endB) && new Date(endA) > new Date(startB);
-}
-
 function nightOverlap(shift: Shift): boolean {
-  const startHour = new Date(shift.start).getHours();
-  const endHour = new Date(shift.end).getHours();
+  const startHour = Number(shift.start.slice(11, 13));
+  const endHour = Number(shift.end.slice(11, 13));
   return startHour < 6 || endHour > 22 || (endHour === 0 && hoursBetween(shift.start, shift.end) > 0);
 }
 
@@ -41,8 +39,9 @@ export function collectWarnings(state: AppState, shifts = state.shifts): { warni
   const hours = weeklyHours(state.workers, shifts);
 
   for (const worker of state.workers) {
-    if ((hours[worker.id] ?? 0) > state.business.weeklyHourWarningThreshold) {
-      warnings.push({ code: "weekly_hours", severity: "warning", workerId: worker.id, message: `${worker.name} is scheduled for ${hours[worker.id]} hours, above the configured ${state.business.weeklyHourWarningThreshold}-hour review threshold.` });
+    const configuredLimit = Math.min(state.business.weeklyHourWarningThreshold, worker.maxWeeklyHours ?? state.business.weeklyHourWarningThreshold);
+    if ((hours[worker.id] ?? 0) > configuredLimit) {
+      warnings.push({ code: "weekly_hours", severity: "warning", workerId: worker.id, message: `${worker.name} is scheduled for ${hours[worker.id]} hours, above the configured ${configuredLimit}-hour review limit.` });
     }
   }
 
@@ -53,7 +52,10 @@ export function collectWarnings(state: AppState, shifts = state.shifts): { warni
     if (worker.role !== item.role && !(worker.role === "manager" && item.role === "barista")) {
       warnings.push({ code: "role_mismatch", severity: "warning", workerId: worker.id, shiftId: item.id, message: `${worker.name}'s role does not match this ${item.role} shift.` });
     }
-    if (worker.availability?.some((window) => !window.available && overlaps(item.start, item.end, window.start, window.end))) {
+    if ((item.requiredSkills?.length ?? 0) > 0 && !item.requiredSkills!.every((skill) => worker.skills?.includes(skill))) {
+      warnings.push({ code: "role_mismatch", severity: "warning", workerId: worker.id, shiftId: item.id, message: `${worker.name} does not have the required skills for this shift.` });
+    }
+    if (!workerAvailableForInterval(worker, item.start, item.end)) {
       warnings.push({ code: "availability", severity: "warning", workerId: worker.id, shiftId: item.id, message: `${worker.name} is unavailable during this shift.` });
     }
     if (nightOverlap(item)) {
@@ -63,12 +65,12 @@ export function collectWarnings(state: AppState, shifts = state.shifts): { warni
 
   let uncoveredPeakMinutes = 0;
   for (const peak of state.business.peakWindows) {
-    const peakStart = new Date(`${peak.day}T${peak.start}:00`).getTime();
-    const peakEnd = new Date(`${peak.day}T${peak.end}:00`).getTime();
+    const peakStart = businessTimestamp(`${peak.day}T${peak.start}:00`);
+    const peakEnd = businessTimestamp(`${peak.day}T${peak.end}:00`);
     let shortfall = 0;
     for (let time = peakStart; time < peakEnd; time += 30 * 60_000) {
       const segmentEnd = time + 30 * 60_000;
-      const coverage = shifts.filter((item) => item.workerId && item.status === "scheduled" && new Date(item.start).getTime() < segmentEnd && new Date(item.end).getTime() > time).length;
+      const coverage = shifts.filter((item) => item.workerId && item.status === "scheduled" && businessTimestamp(item.start) < segmentEnd && businessTimestamp(item.end) > time).length;
       if (coverage < peak.minCoverage) shortfall += 30;
     }
     if (shortfall > 0) {

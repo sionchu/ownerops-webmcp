@@ -1,64 +1,59 @@
-# 08 — Portable State Snapshot Spec
+# 08 — Portable Store Snapshot Spec
 
 ## Purpose
-Allow an owner to copy the current OwnerOps state into a future ChatGPT conversation or another browser session without requiring backend persistence.
+Provide explicit backup/restore and portable handoff for OwnerOps StoreState. Snapshot is **not** a live planning transport between normal agent steps.
 
 ## SSOT rule
-The snapshot is a serialized representation of canonical AppState. It is never maintained independently.
+A snapshot is a serialized representation of canonical StoreState truth and is never maintained independently. Transient candidates/activity are not portable truth.
 
-## Format goals
-- human-readable,
-- agent-readable,
-- deterministic,
-- versioned,
-- easy to paste,
-- strict enough to round-trip safely.
+## Version
+Portable format: `OWNEROPS_SNAPSHOT v2` with `snapshotVersion: 2`.
 
-## Recommended format
-Use a plain-text versioned document or a compact JSON block wrapped in human labels. Example:
+During the StoreState RE0 the application model remains `schemaVersion: 1`; snapshot format version and application schema version are intentionally separate. Do not bump the whole application schema merely to change the portable envelope.
 
-```text
-OWNEROPS_SNAPSHOT v1
-BUSINESS
-name: Paperthin Cafe
-employee_count: 6
-target_labor_ratio: 0.22
+The v2 snapshot includes store-operating truth needed to restore the demo:
+- store profile/market/occupancy/cost policy inputs;
+- people and availability;
+- shifts/time entries/incidents;
+- sales fixtures;
+- menu/recipes;
+- inventory/suppliers/received purchases/planned purchase orders/waste;
+- tasks/log;
+- context/reference observations.
 
-WORKER
-id: minsoo
-name: Minsoo
-role: barista
-hourly_rate: 13000
+It does **not** persist:
+- current staffing preview;
+- current multi-domain StorePlan;
+- assistant activity;
+- derived impact, BEP totals or Daily Brief output.
 
-SHIFT
-id: fri-minsoo-18
-worker_id: minsoo
-start: 2026-08-28T18:00
-end: 2026-08-28T22:00
-role: barista
-status: scheduled
-
-DEMAND
-2026-08-28 expected_sales: 2400000
-peak: 19:00-21:00 min_coverage=2
-END_OWNEROPS_SNAPSHOT
-```
-
-Choose the simplest robust format and document it.
+Those values are recalculated from restored truth.
 
 ## Requirements
-- `schemaVersion`/version marker required.
-- Stable worker and shift IDs required.
-- Computed values do not need to be authoritative; recompute after import.
-- Parser rejects unsupported versions and malformed required fields.
-- Import is transactional: validate first, mutate second.
-- Round-trip test: `parse(serialize(state))` preserves snapshot-governed state.
+- version marker required;
+- stable IDs required across related entities;
+- validation occurs before mutation;
+- import is transactional;
+- unsupported versions or broken worker/shift references are rejected;
+- computed impact/brief is recalculated after restore;
+- external reference observations preserve provider/geography/time/unit/freshness and are never upgraded to `live` merely because they were restored;
+- secrets/API keys are never serialized.
+
+## v1 migration
+Legacy `OWNEROPS_SNAPSHOT v1` is supported through one bounded migration path:
+1. parse and validate the legacy business/workers/shifts/demand/incident truth;
+2. create the matching deterministic market/industry StoreState seed;
+3. overlay the legacy portable truth onto that seed;
+4. clear preview/StorePlan and recompute derived state.
+
+A legacy snapshot missing industry/market metadata migrates to the historical legacy defaults (`coffee`, `kr-seoul`). This is compatibility only, not a parallel v1 business model.
 
 ## UI
-Provide:
-- `Copy snapshot`
-- `Import snapshot`
+Snapshot controls are visually secondary/admin-like:
+- `Copy backup`
+- `Restore backup`
 
-Local persistence and snapshot serve different purposes:
-- localStorage = same-browser convenience.
-- snapshot = portable handoff between chats/sessions/devices.
+Do not position Snapshot as a primary navigation/action competing with the daily operating workspace.
+
+## WebMCP routing
+`restore_store_snapshot` is used only when the user explicitly asks to restore/import or provides a snapshot document. Normal analysis/planning uses `get_store_state`, `get_daily_brief`, `plan_store_actions`, and StorePlan preview/review/apply.

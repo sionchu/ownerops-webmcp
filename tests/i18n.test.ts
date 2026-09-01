@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { dispatchApplicationAction } from "@/domain/actions";
 import { createDemoState } from "@/domain/fixtures";
 import type { AppState } from "@/domain/model";
-import { getLocalizedIndustryProfile, normalizeUiLocale, type UiLocale } from "@/i18n";
+import { getLocalizedIndustryProfile, getUiCopy, normalizeUiLocale, SUPPORTED_UI_LOCALES, type UiLocale } from "@/i18n";
 import { getOutreachCopy, liveOperatingSummary, outreachDraft } from "@/i18n/dynamic";
 import { getIndustryProfile } from "@/industry/profiles";
 import { createToolExecutors } from "@/webmcp/register-tools";
@@ -86,6 +86,23 @@ describe("thin UI locale layer", () => {
     expect(draft).toContain("18:00–22:00");
   });
 
+  it("provides complete and cumulative wage evidence copy in every supported locale", () => {
+    for (const locale of SUPPORTED_UI_LOCALES) {
+      const copy = getUiCopy(locale).schedule.costSummary;
+      expect(copy.actualWage).not.toBe("");
+      expect(copy.actualWageCumulative).not.toBe("");
+      expect(copy.scheduledToday).not.toBe("");
+      expect(copy.currentActualWageCumulative).not.toBe("");
+      expect(copy.expectedVsActual).not.toBe("");
+    }
+    expect(getUiCopy("ko").schedule.costSummary).toMatchObject({
+      actualWageCumulative: "실근무 임금 누계",
+      scheduledToday: "오늘 예정",
+      currentActualWageCumulative: "현재 실근무 누계",
+      expectedVsActual: "예정 대비",
+    });
+  });
+
   it("lets state-changing WebMCP tools carry UI locale separately from AppState", () => {
     let state: AppState = createDemoState();
     let locale: UiLocale = "en";
@@ -122,6 +139,6 @@ describe("thin UI locale layer", () => {
     expect(JSON.stringify(state)).toBe(before);
     expect(result.business.market).toBe("us-nyc");
     expect(result.business.industry).toBe("pizza");
-    expect(result.incident).not.toBeNull();
+    expect(result.activeIncident).not.toBeNull();
   });
 });

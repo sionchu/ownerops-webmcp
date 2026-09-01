@@ -1,73 +1,113 @@
 # 10 — Reference Research
 
-This file is implementation/design reference, not permission to expand scope.
+This file records evidence that should shape implementation and demo choices. It is not permission to copy proprietary UX or claim third-party/reference data as OwnerOps truth.
 
-## WebMCP
-### Current community specification
-https://webmachinelearning.github.io/webmcp/
-Use for current `document.modelContext`, `registerTool`, schemas, annotations, execution/cancellation semantics.
+## Product-demand evidence
+### Toast IQ Q1 2026 restaurant AI usage
+https://pos.toasttab.com/blog/data/q1-2026-restaurant-ai-pos-trends
 
-### Chrome developer guide
-https://developer.chrome.com/docs/ai/webmcp
-Use for testing and current browser guidance.
+Toast analyzed anonymized, aggregated Toast IQ inputs from more than 125,000 U.S. restaurant locations using the assistant in Q1 2026. Reported conversation categories included sales/revenue, menu/inventory, guest/marketing, operations/reporting, and labor efficiency. The top prompt was a concise daily business briefing. Product lesson: OwnerOps should prioritize **daily operating insight and action**, not remain staffing-only.
 
-## Hackathon product/design references
-### OpenAI Showcase
-https://developers.openai.com/showcase
-Use to calibrate polish and avoid building a generic wrapper.
+### Square AI / seller research
+https://squareup.com/us/en/ai
+https://squareup.com/us/en/the-bottom-line/inside-square/managerbot-ai-business-manager
+https://squareup.com/us/en/the-bottom-line/inside-square/building-square-ai
 
-### Linear UI refresh
-https://linear.app/changelog/2026-03-12-ui-refresh
-Design lesson: calmer consistency, scanability, dimmer navigation chrome, focused primary workspace.
+Product lesson: small-business owners have data but limited time to navigate reports and formulate perfect analytical questions. OwnerOps should proactively surface priorities and ground answers in connected store data.
 
-### Linear command/menu design
-https://linear.app/changelog/2019-12-18-new-command-menu
-Design lesson: contextual actions grouped around user focus rather than scattered controls.
+### Workforce references
+Homebase: https://www.joinhomebase.com/employee-scheduling
+7shifts: https://www.7shifts.com/
+Deputy: https://www.deputy.com/
 
-## Workforce/small-business references
-### Homebase scheduling
-https://www.joinhomebase.com/employee-scheduling
-Useful mental model: drag/drop schedule + coverage/conflict handling.
+Borrow the operational concepts—availability, scheduling, time/attendance, shift swap, labor visibility, tasks/logs—without recreating their module-by-module SaaS navigation.
 
-### Homebase auto-scheduling
-https://www.joinhomebase.com/employee-scheduling/auto-scheduling
-Useful mental model: suggestions and review rather than opaque automation.
+## User-supplied operating-cost reference pack
+The project also has a user-supplied global restaurant cost guide/dashboard/workbook covering 31 menu examples across Tokyo, New York, Seoul, Barcelona-oriented Spain, and Shanghai. It is **reference material**, not a live market-price or legal-compliance source.
 
-### Homebase labor forecasting
-https://www.joinhomebase.com/employee-scheduling/labor-forecasting
-Useful mental model: labor cost and expected sales visible together in the schedule workflow.
+Implementation lessons extracted from it:
+- recipe cost must support preparation **yield rate**, not just raw quantity × unit cost;
+- packaging/consumables belong in operating cost, not hidden inside ingredients;
+- food cost should be visible as per-serving cost and food-cost ratio;
+- menu engineering can compare popularity/margin separately from store actual recipe truth;
+- short-horizon BEP separates food/other variable cost from labor + occupancy + other fixed/semi-fixed costs;
+- FL Cost is useful as an operating diagnostic but is not a universal legal/accounting threshold;
+- local payroll/tax examples in the workbook must **not** be generalized across markets or presented as legal advice.
 
-## Assistant animation references
-### Rive state machines
-https://rive.app/docs/editor/state-machine/state-machine
-Use if a state-driven 2D/2.5D assistant asset is available.
+`src/industry/menu-cost-reference.ts` stores the 31 menu examples as a benchmark registry with explicit geography/source labels. The Barcelona-oriented Spain examples remain labeled as Barcelona references even though OwnerOps's configured Spanish market is Madrid.
 
-### Rive React runtime
-https://rive.app/docs/runtimes/react/react
-Use for React integration.
+## Commodity / wholesale reference sources
+These are candidate **reference providers**, not store purchase truth.
 
-### Spline viewer
-https://docs.spline.design/exporting-your-scene/web/exporting-as-spline-viewer
-Use only for an optional lightweight 3D assistant experiment.
+### Korea — KAMIS
+https://www.kamis.or.kr/customer/reference/openapi_list.do
 
-### Spline Code API
-https://docs.spline.design/exporting-your-scene/web/code-api-for-web
-Use only if interactive 3D state can be controlled without critical-path risk.
+KAMIS provides agricultural/livestock/fisheries wholesale and retail price APIs, including item, period, recent-price trend, and regional queries. Seoul is supported in regional filters. Use for defensibly matched fresh-food SKUs; keep supplier invoice/receipt cost authoritative.
 
-## Codex workflow references
-### How OpenAI uses Codex
-https://openai.com/business/guides-and-resources/how-openai-uses-codex/
-Use for scoped tasks, GitHub-Issue-like prompts, environment setup, and persistent `AGENTS.md` context.
+### United States — USDA AMS MyMarketNews
+https://mymarketnews.ams.usda.gov/mymarketnews-api
+https://www.ams.usda.gov/market-news/fruits-vegetables
 
-### Codex agent context / AGENTS.md behavior
-https://openai.com/index/unrolling-the-codex-agent-loop/
-Use to understand how repository instructions are loaded.
+USDA AMS publishes wholesale/terminal-market data for many commodities and exposes MyMarketNews API access. New York Terminal Market reports are a strong NYC reference for produce where package/unit normalization is explicit.
+
+### Japan — MAFF wholesale market statistics
+https://www.maff.go.jp/j/tokei/syohi/shikyou/index.html
+https://www.maff.go.jp/j/tokei/syohi/oroshi_kakaku/index.html
+
+MAFF publishes fruit/vegetable wholesale quantities and prices, including Tokyo markets and daily/periodic statistics. Use a market/city/item match rather than generic national averages when possible.
+
+### Spain — MAPA food-chain price observatory
+https://www.mapa.gob.es/es/alimentacion/temas/observatorio-cadena/cadenas-valor/sistema-de-precios-om
+
+MAPA's origin-wholesale system tracks weekly prices for selected significant fresh-food products. Only mapped products should receive a reference.
+
+### China — Ministry of Agriculture and Rural Affairs
+https://data.moa.gov.cn/nyb/pc/index.jsp
+https://zdscxx.moa.gov.cn/nyb/pc/200zs.jsp
+
+MOA publishes agricultural wholesale price/index data and monitored product prices. Use the source's actual geography/product granularity; do not imply a Shanghai-specific price if the available observation is national.
+
+## Commercial-rent benchmark
+### Korea — Korea Real Estate Board / KOSIS
+https://www.reb.or.kr/reb/cm/cntnts/cntntsView.do?cntntsId=1052
+https://kosis.kr/
+
+The Commercial Real Estate Rental Trend Survey publishes quarterly rent, rent-price index, vacancy and related data at national/city/commercial-district levels. OwnerOps should use it as a benchmark/trend only; actual lease terms in StoreState are authoritative.
+
+For non-Korean markets, seed a benchmark with explicit `seed` freshness until a stable, appropriately granular provider is implemented. Do not use residential rent data as a commercial-store proxy.
+
+## Weather
+### OpenWeather reference adapter
+https://openweathermap.org/api/current
+
+A provider such as OpenWeather can supply current/forecast context by city/geography. Weather is evidence for an operating recommendation, not a demand guarantee. The hackathon must retain deterministic seeded weather so no API failure can break the demo.
+
+## Industry inventory design
+Industry seed catalogs are not generic ERP catalogs. They should contain the **small set of items that materially drive owner decisions**:
+- perishable/high-velocity inputs;
+- high-cost ingredients/materials;
+- common consumables that can stock out;
+- items with recipe/service linkage;
+- items with plausible supplier-price changes or waste.
+
+Public commodity references are most useful for fresh/basic commodities. Branded packaging, chemicals, salon products, sauces, or specialty goods usually rely on recent supplier purchase history.
+
+## Occupancy / break-even design
+OwnerOps should treat base rent and recurring fees as store-entered/seeded fixed-cost truth. External rent observations are only context. The useful natural-language jobs are:
+- “월세 내고 남는 돈?”
+- “임대료 10% 오르면?”
+- “손익분기 매출 얼마?”
+
+This is operating planning, not accounting or commercial property valuation.
 
 ## Design synthesis
 OwnerOps should combine:
-- Linear’s calm information density,
-- Homebase’s familiar staff scheduling grid,
-- a restrained Rive/SVG-style assistant status surface,
-- WebMCP’s structured shared-state actions.
+- Toast/Square-style data-grounded operating questions;
+- workforce constraints from mature staff tools;
+- inventory/vendor/waste reasoning;
+- public market/weather/rent references with provenance;
+- yield-aware menu cost and BEP reasoning;
+- WebMCP shared-state execution;
+- Linear-like calm density.
 
-It should **not** combine their entire feature sets.
+It should **not** combine their full feature menus. The differentiator is a natural-language operating manager that coordinates capabilities on one live store state.

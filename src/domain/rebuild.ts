@@ -1,3 +1,4 @@
+import { workerEligibleForShift } from "./availability";
 import { applyChanges, calculateImpact, hoursBetween } from "./impact";
 import type { AppState, CapacityGap, Shift, StaffingChange, StaffingScenario, Worker } from "./model";
 
@@ -15,19 +16,15 @@ function overlaps(a: Shift, b: Shift): boolean {
   return new Date(a.start) < new Date(b.end) && new Date(a.end) > new Date(b.start);
 }
 
-function isUnavailable(worker: Worker, shift: Shift): boolean {
-  return Boolean(worker.availability?.some((window) => !window.available && new Date(window.start) < new Date(shift.end) && new Date(window.end) > new Date(shift.start)));
-}
-
-function eligibleForShift(worker: Worker, shift: Shift): boolean {
-  return worker.role === shift.role || (worker.role === "manager" && shift.role === "barista");
-}
-
 function assignmentCost(state: AppState, shifts: Shift[]): number {
   const rates = new Map(state.workers.map((worker) => [worker.id, worker.hourlyRate]));
   return shifts.reduce((sum, shift) => shift.workerId && shift.status === "scheduled"
     ? sum + hoursBetween(shift.start, shift.end) * (rates.get(shift.workerId) ?? 0)
     : sum, 0);
+}
+
+function workerHourLimit(worker: Worker, requestedLimit: number): number {
+  return Math.min(requestedLimit, worker.maxWeeklyHours ?? requestedLimit);
 }
 
 function managerCapacityGap(state: AppState, maxWeeklyHours: number): CapacityGap | null {
@@ -38,29 +35,23 @@ function managerCapacityGap(state: AppState, maxWeeklyHours: number): CapacityGa
   if (managerWorkers.length === 0 || managerShifts.length === 0) return null;
 
   const requiredHours = managerShifts.reduce((sum, shift) => sum + hoursBetween(shift.start, shift.end), 0);
-  const availableHours = managerWorkers.length * maxWeeklyHours;
+  const availableHours = managerWorkers.reduce((sum, worker) => sum + workerHourLimit(worker, maxWeeklyHours), 0);
   const gapHours = Math.max(0, requiredHours - availableHours);
   if (gapHours <= 0) return null;
 
   const shiftIds: string[] = [];
-  let coveredHours = 0;
-  let consumedCapacity = 0;
-  for (const shift of managerShifts) {
-    const shiftHours = hoursBetween(shift.start, shift.end);
-    if (consumedCapacity + shiftHours <= availableHours) {
-      consumedCapacity += shiftHours;
-      continue;
-    }
-    shiftIds.push(shift.id);
-    coveredHours += shiftHours;
-    if (coveredHours >= gapHours) break;
+  let overflow = gapHours;
+  for (const shift of [...managerShifts].reverse()) {
+    shiftIds.unshift(shift.id);
+    overflow -= hoursBetween(shift.start, shift.end);
+    if (overflow <= 0) break;
   }
 
   return {
     role: "manager",
     hoursPerWeek: gapHours,
     shiftIds,
-    reason: `Current manager-qualified capacity is ${gapHours} hours short of the ${maxWeeklyHours}-hour weekly limit while preserving the published manager shifts.`,
+    reason: `Current manager-qualified capacity is ${gapHours} hours short of the requested weekly limit while preserving the published manager coverage.`,
   };
 }
 
@@ -77,24 +68,24 @@ function planFullWeek(state: AppState, maxWeeklyHours: number, strategy: Exclude
   for (const shift of flexible) {
     const duration = hoursBetween(shift.start, shift.end);
     const candidates = state.workers.filter((worker) => {
-      if (!eligibleForShift(worker, shift) || isUnavailable(worker, shift)) return false;
-      if ((hours[worker.id] ?? 0) + duration > maxWeeklyHours) return false;
       const candidateShift = { ...shift, workerId: worker.id, status: "scheduled" as const };
+      if (!workerEligibleForShift(worker, candidateShift)) return false;
+      if ((hours[worker.id] ?? 0) + duration > workerHourLimit(worker, maxWeeklyHours)) return false;
       return !planned.some((item) => item.workerId === worker.id && overlaps(item, candidateShift));
     });
 
-    const fallback = state.workers.find((worker) => worker.id === shift.workerId);
+    const fallback = state.workers.find((worker) => worker.id === shift.workerId && workerEligibleForShift(worker, shift));
     const selected = candidates.length > 0
       ? [...candidates].sort((a, b) => {
           if (strategy === "balance") {
             return (hours[a.id] ?? 0) - (hours[b.id] ?? 0)
-              || a.hourlyRate - b.hourlyRate
               || Number(a.id !== shift.workerId) - Number(b.id !== shift.workerId)
+              || a.hourlyRate - b.hourlyRate
               || a.id.localeCompare(b.id);
           }
           return a.hourlyRate - b.hourlyRate
-            || (hours[a.id] ?? 0) - (hours[b.id] ?? 0)
             || Number(a.id !== shift.workerId) - Number(b.id !== shift.workerId)
+            || (hours[a.id] ?? 0) - (hours[b.id] ?? 0)
             || a.id.localeCompare(b.id);
         })[0]
       : fallback;
@@ -116,10 +107,11 @@ function minimalChangePlan(state: AppState, maxWeeklyHours: number): Shift[] {
     if (!currentWorker) continue;
     for (const worker of state.workers) {
       if (worker.id === currentWorker.id || worker.hourlyRate >= currentWorker.hourlyRate) continue;
-      if (!eligibleForShift(worker, shift) || isUnavailable(worker, shift)) continue;
-      const proposed = state.shifts.map((item) => item.id === shift.id ? { ...item, workerId: worker.id, status: "scheduled" as const } : item);
+      const candidateShift = { ...shift, workerId: worker.id, status: "scheduled" as const };
+      if (!workerEligibleForShift(worker, candidateShift)) continue;
+      const proposed = state.shifts.map((item) => item.id === shift.id ? candidateShift : item);
       const impact = calculateImpact(state, proposed);
-      if ((impact.workerWeeklyHours[worker.id] ?? 0) > maxWeeklyHours || impact.uncoveredPeakMinutes > 0) continue;
+      if ((impact.workerWeeklyHours[worker.id] ?? 0) > workerHourLimit(worker, maxWeeklyHours) || impact.uncoveredPeakMinutes > 0) continue;
       if (impact.warnings.some((warning) => warning.code === "role_mismatch" || warning.code === "availability")) continue;
       candidates.push(proposed);
     }
@@ -145,10 +137,10 @@ function scenario(state: AppState, strategy: Strategy, proposed: Shift[], maxWee
     id: `week-rebuild-${strategy}-${maxWeeklyHours}`,
     kind: "week_rebuild",
     title: label,
-    summary: `${changes.length} shift assignments change while configured peak coverage stays intact.`,
+    summary: `${changes.length} shift assignments change while worker availability and configured peak coverage are checked.`,
     rationale: gap
-      ? `Rebuilds the published week around a ${maxWeeklyHours}-hour limit and exposes the remaining qualified-role capacity gap instead of hiding it.`
-      : `Rebuilds the published week around a ${maxWeeklyHours}-hour limit using the current team only.`,
+      ? `Rebuilds the published week around a ${maxWeeklyHours}-hour request while preserving employee availability and exposes the remaining qualified-role capacity gap instead of hiding it.`
+      : `Rebuilds the published week around a ${maxWeeklyHours}-hour request using current worker availability and skills.`,
     changes,
     impact,
     capacityGap: gap,

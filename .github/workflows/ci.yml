@@ -1,0 +1,105 @@
+name: OwnerOps CI
+
+on:
+  push:
+    branches:
+      - master
+      - "re0/**"
+      - "feature/**"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Data source registry
+        run: npm run data:sources
+      - name: Master template importer
+        run: npm run data:import-master -- --file tests/fixtures/fnb-master-mini.json --dry-run
+      - name: Test
+        run: npm test
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ownerops_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ownerops_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGPASSWORD: postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Apply database migrations
+        run: |
+          psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -c "create role anon nologin; create role authenticated nologin; create schema auth; create function auth.uid() returns uuid language sql stable as \$\$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid \$\$; grant usage on schema auth to anon, authenticated; grant execute on function auth.uid() to anon, authenticated;"
+          psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -f supabase/migrations/001_ownerops_store_ssot.sql
+          psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -f supabase/migrations/002_working_store_projection_rpc.sql
+          psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -f supabase/migrations/003_fnb_template_catalog.sql
+          psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -f supabase/migrations/004_owner_store_master_rls.sql
+          psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -f supabase/migrations/005_schedule_history.sql
+      - name: Verify database objects
+        run: |
+          psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -c "select public.oo_get_working_store_projection('missing-store') is null as missing_store_is_null;"
+          psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -c "select count(*) >= 8 as source_registry_seeded from public.oo_price_sources;"
+      - name: Round-trip working StoreState projection
+        run: psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -f tests/sql/working_store_projection.sql
+      - name: Verify Store Master ownership and RLS
+        run: psql -h 127.0.0.1 -U postgres -d ownerops_test -v ON_ERROR_STOP=1 -f tests/sql/store_master_rls.sql
+
+  webmcp-browser-e2e:
+    needs:
+      - verify
+      - database
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OWNEROPS_E2E_URL: https://ownerops-webmcp-git-re0-ai-store-manager-sionchu1-4343.vercel.app/
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install app dependencies
+        run: npm ci
+      - name: Install Playwright browser harness
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Run DB-backed Preview WebMCP browser E2E
+        run: node scripts/webmcp-browser-e2e.mjs
+      - name: Run late-injection / resume WebMCP E2E
+        run: node scripts/webmcp-late-injection-e2e.mjs

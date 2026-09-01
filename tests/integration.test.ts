@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { dispatchApplicationAction } from "@/domain/actions";
 import { createDemoState } from "@/domain/fixtures";
-import { applyChanges, calculateImpact } from "@/domain/impact";
 import type { AppState } from "@/domain/model";
 import type { UiLocale } from "@/i18n";
-import { createToolExecutors } from "@/webmcp/register-tools";
-import { registerOwnerOpsTools } from "@/webmcp/register-tools";
+import { createToolExecutors, registerOwnerOpsTools, siteToolsOnlyBoundary } from "@/webmcp/register-tools";
 
 function bridge(initial = createDemoState()) {
   let state: AppState = initial;
@@ -18,188 +16,197 @@ function bridge(initial = createDemoState()) {
   };
 }
 
-describe("shared UI and WebMCP application path", () => {
-  it("equivalent UI and tool actions produce equivalent canonical state", () => {
-    const ui = dispatchApplicationAction(createDemoState(), { type: "mark_unavailable", workerId: "minsoo", shiftId: "fri-minsoo-18", reason: "Last-minute absence" });
-    const web = bridge();
-    createToolExecutors(web).markWorkerUnavailable({ workerId: "minsoo", shiftId: "fri-minsoo-18", reason: "Last-minute absence", uiLocale: "en" });
+describe("shared UI and WebMCP StoreState path", () => {
+  it("keeps equivalent human and tool call-out actions on the same canonical path", () => {
+    const ui = dispatchApplicationAction(createDemoState("coffee"), {
+      type: "mark_unavailable",
+      workerId: "minsoo",
+      shiftId: "fri-minsoo-18",
+      reason: "Last-minute absence",
+    });
+    const web = bridge(createDemoState("coffee"));
+    createToolExecutors(web).markWorkerUnavailable({
+      workerId: "minsoo",
+      shiftId: "fri-minsoo-18",
+      reason: "Last-minute absence",
+      uiLocale: "en",
+    });
     expect(web.getState()).toEqual(ui);
   });
 
-  it("creates a profile-aware demo draft without changing stable fixture ids", () => {
+  it("configures industry and market independently from UI language", () => {
     const web = bridge();
-    const before = web.getState();
-    const result = createToolExecutors(web).createScheduleDraft({ preset: "demo", industry: "pizza", uiLocale: "en" });
-    expect(result.business.industry).toBe("pizza");
-    expect(result.business.industryLabel).toBe("Neighborhood pizza shop");
-    expect(result.business.name).toBe("Slice House");
-    expect(result.workers.find((worker) => worker.id === "jiyoung")?.roleLabel).toBe("Counter crew");
-    expect(result.shifts.find((shift) => shift.id === "fri-minsoo-18")?.roleLabel).toBe("Counter crew");
-    expect(web.getState().workers.map((worker) => worker.id)).toEqual(before.workers.map((worker) => worker.id));
-    expect(web.getState().shifts.map((shift) => shift.id)).toEqual(before.shifts.map((shift) => shift.id));
+    const result = createToolExecutors(web).configureDemoStore({ industry: "pizza", market: "us-nyc", uiLocale: "es" });
+    expect(web.getState().business.industry).toBe("pizza");
+    expect(web.getState().business.market).toBe("us-nyc");
+    expect(web.getState().business.currency).toBe("USD");
+    expect(web.getLocale()).toBe("es");
+    expect(result.business.marketLabel).toBe("Nueva York");
+    expect(web.getState().inventory?.some((item) => item.id === "mozzarella")).toBe(true);
   });
 
-  it("keeps UI language independent from labor market", () => {
-    const web = bridge();
+  it("preserves live staffing work when only industry changes", () => {
+    const web = bridge(createDemoState("coffee", "kr-seoul"));
     const executors = createToolExecutors(web);
-    const spanishNyc = executors.createScheduleDraft({ preset: "demo", industry: "pizza", market: "us-nyc", uiLocale: "es" });
-    expect(spanishNyc.uiLocale).toBe("es");
-    expect(spanishNyc.business.market).toBe("us-nyc");
-    expect(spanishNyc.business.marketLabel).toBe("Nueva York");
-    expect(spanishNyc.business.currency).toBe("USD");
-    expect(spanishNyc.business.wageReference.hourly).toBe(17);
-    expect(spanishNyc.workers.find((worker) => worker.id === "minsoo")?.name).toBe("Mason");
-    expect(spanishNyc.workers.find((worker) => worker.id === "minsoo")?.demoContact).toContain("555");
-
-    const japaneseUiSameMarket = executors.createScheduleDraft({ preset: "demo", industry: "salon", uiLocale: "ja" });
-    expect(japaneseUiSameMarket.uiLocale).toBe("ja");
-    expect(japaneseUiSameMarket.business.market).toBe("us-nyc");
-    expect(japaneseUiSameMarket.business.marketLabel).toBe("ニューヨーク");
-    expect(japaneseUiSameMarket.business.currency).toBe("USD");
-    expect(japaneseUiSameMarket.workers.find((worker) => worker.id === "minsoo")?.name).toBe("Mason");
-
-    const englishTokyo = executors.createScheduleDraft({ preset: "demo", market: "jp-tokyo", uiLocale: "en" });
-    expect(englishTokyo.business.market).toBe("jp-tokyo");
-    expect(englishTokyo.business.currency).toBe("JPY");
-    expect(englishTokyo.workers.find((worker) => worker.id === "minsoo")?.name).toBe("蓮");
-  });
-
-  it("requires uiLocale at runtime instead of silently accepting a cached old schema", () => {
-    const web = bridge();
-    expect(() => createToolExecutors(web).createScheduleDraft({ preset: "demo", industry: "salon" })).toThrow(/uiLocale is required/i);
-    expect(web.getState().business.industry).toBe("diner");
-  });
-
-  it("evaluate_current_plan reads a human-edited live state", () => {
-    const web = bridge();
-    web.runAction({ type: "reassign_shift", shiftId: "mon-minsoo-open", workerId: "hana", targetDay: "2026-08-25" });
-    const result = createToolExecutors(web).evaluateCurrentPlan();
-    expect(result.impact.workerWeeklyHours.hana).toBe(34);
-    expect(result.impact.workerWeeklyHours.minsoo).toBe(18);
-  });
-
-  it("validates the complete pizza-to-Hana reviewed staffing flow", () => {
-    const web = bridge();
-    const executors = createToolExecutors(web);
-    const draft = executors.createScheduleDraft({ preset: "demo", industry: "pizza", uiLocale: "en" });
-    expect(draft.business.industry).toBe("pizza");
-    expect(draft.business.name).toBe("Slice House");
-    expect(web.getState().workers.some((worker) => worker.id === "minsoo")).toBe(true);
-    expect(web.getState().workers.some((worker) => worker.id === "hana")).toBe(true);
-    expect(web.getState().shifts.some((shift) => shift.id === "fri-minsoo-18")).toBe(true);
-
-    executors.markWorkerUnavailable({ workerId: "minsoo", shiftId: "fri-minsoo-18", reason: "Last-minute absence", uiLocale: "en" });
-    expect(web.getState().incident).toMatchObject({ workerId: "minsoo", shiftId: "fri-minsoo-18" });
-    expect(web.getState().shifts.find((shift) => shift.id === "fri-minsoo-18")).toMatchObject({ workerId: null, status: "uncovered" });
-    expect(web.getState().preview).toBeNull();
-
+    executors.markWorkerUnavailable({ workerId: "minsoo", shiftId: "fri-minsoo-18", uiLocale: "ko" });
     const options = executors.getResponseOptions();
-    expect(options.count).toBe(3);
-    const bestOption = options.options[0];
-    const proposed = executors.previewStaffingChange({ scenarioId: bestOption.id, uiLocale: "en" });
-    expect(proposed.preview).toMatchObject({ scenarioId: bestOption.id, version: 1 });
-    expect(web.getState().shifts.find((shift) => shift.id === "fri-minsoo-18")).toMatchObject({ workerId: null, status: "uncovered" });
-    const proposedState = executors.getBusinessState();
-    expect(proposedState.shifts.find((shift) => shift.id === "fri-minsoo-18")?.workerId).toBe(bestOption.changes[0].workerId);
+    executors.previewStaffingChange({ scenarioId: options.options[0].id, uiLocale: "ko" });
+    const previewId = web.getState().preview?.id;
 
-    web.runAction({ type: "reassign_shift", shiftId: "fri-minsoo-18", workerId: "hana" });
-    expect(web.getState().preview?.version).toBe(2);
-    expect(web.getState().preview?.changes[0]?.workerId).toBe("hana");
-    expect(web.getState().activity.state).toBe("reviewNeeded");
-    expect(web.getState().shifts.find((shift) => shift.id === "fri-minsoo-18")).toMatchObject({ workerId: null, status: "uncovered" });
-
-    const editedState = executors.getBusinessState();
-    expect(editedState.shifts.find((shift) => shift.id === "fri-minsoo-18")?.workerId).toBe("hana");
-    const previewBeforeReview = web.getState().preview!;
-    const beforeRejectedApply = JSON.stringify(web.getState());
-    expect(() => executors.applyStaffingChange({ previewId: previewBeforeReview.id, version: previewBeforeReview.version, uiLocale: "en" })).toThrow(/review required/i);
-    expect(JSON.stringify(web.getState())).toBe(beforeRejectedApply);
-
-    const expectedImpact = calculateImpact(web.getState(), applyChanges(web.getState().shifts, previewBeforeReview.changes));
-    const reviewed = executors.evaluateCurrentPlan();
-    expect(reviewed.impact).toEqual(expectedImpact);
-    expect(web.getState().activity.state).toBe("reviewed");
-    expect(web.getState().preview?.changes[0]?.workerId).toBe("hana");
-    expect(web.getState().shifts.find((shift) => shift.id === "fri-minsoo-18")?.workerId).toBeNull();
-
-    const preview = web.getState().preview;
-    expect(preview).not.toBeNull();
-    const applied = executors.applyStaffingChange({ previewId: preview!.id, version: preview!.version, uiLocale: "en" });
-    expect(applied.preview).toBeNull();
-    expect(web.getState().shifts.find((shift) => shift.id === "fri-minsoo-18")).toMatchObject({ workerId: "hana", status: "scheduled" });
-    expect(web.getState().incident).toBeNull();
-    expect(web.getState().activity.state).toBe("applied");
+    executors.configureDemoStore({ industry: "pizza", uiLocale: "ko" });
+    expect(web.getState().business.industry).toBe("pizza");
+    expect(web.getState().incident?.workerId).toBe("minsoo");
+    expect(web.getState().preview?.id).toBe(previewId);
+    expect(web.getState().inventory?.some((item) => item.id === "mozzarella")).toBe(true);
   });
 
-  it("lets WebMCP rebuild a full week, preview many shifts, and keep a new human edit inside the candidate", () => {
-    const web = bridge(createDemoState("sushi", "jp-tokyo"));
+  it("returns focused stock/cost state instead of a raw StoreState dump", () => {
+    const web = bridge(createDemoState("coffee", "kr-seoul"));
     const executors = createToolExecutors(web);
-    const result = executors.getResponseOptions({ objective: "rebuild_week", maxWeeklyHours: 40, prioritize: "cost", allowCapacityGap: true });
-    expect(result.count).toBe(3);
-    expect(result.recommendedPreview?.changes.length).toBeGreaterThan(3);
-    expect(result.recommendedPreview?.capacityGap).toMatchObject({ role: "manager", hoursPerWeek: 8 });
-    const preview = executors.previewStaffingChange({ ...result.recommendedPreview!, uiLocale: "ko" });
-    expect(preview.preview?.kind).toBe("week_rebuild");
-    expect(preview.preview?.changes.length).toBeGreaterThan(3);
-    const untouched = web.getState().shifts.find((shift) => !preview.preview?.changes.some((change) => change.shiftId === shift.id) && shift.role === "barista")!;
-    const replacement = web.getState().workers.find((worker) => worker.role === "barista" && worker.id !== untouched.workerId)!;
-    const committedBefore = web.getState().shifts.find((shift) => shift.id === untouched.id)?.workerId;
-    web.runAction({ type: "reassign_shift", shiftId: untouched.id, workerId: replacement.id });
-    expect(web.getState().activity.state).toBe("reviewNeeded");
-    expect(web.getState().preview?.changes.some((change) => change.shiftId === untouched.id && change.workerId === replacement.id)).toBe(true);
-    expect(web.getState().shifts.find((shift) => shift.id === untouched.id)?.workerId).toBe(committedBefore);
-    const reviewed = executors.evaluateCurrentPlan();
-    expect(reviewed.impact.scheduleChangeCount).toBeGreaterThan(3);
-    expect(web.getState().activity.context).toBe("week_rebuild");
+    const stock = executors.getStoreState({ focus: "stock" }) as {
+      inventory: Array<{ id: string; referenceComparison?: unknown }>;
+      atRisk: unknown[];
+      purchaseOrders: unknown[];
+      workers?: unknown;
+    };
+    expect(stock.inventory.some((item) => item.id === "whole-milk")).toBe(true);
+    expect(stock.atRisk.length).toBeGreaterThan(0);
+    expect(stock.workers).toBeUndefined();
+
+    const costs = executors.getStoreState({ focus: "costs" }) as { costMetrics: { weeklyBreakEvenSales: number; flCostRatio: number } };
+    expect(costs.costMetrics.weeklyBreakEvenSales).toBeGreaterThan(0);
+    expect(costs.costMetrics.flCostRatio).toBeGreaterThan(0);
   });
 
-  it("registers the exact eight-tool WebMCP contract with JSON Schemas", async () => {
+  it("creates a prioritized multi-domain daily brief", () => {
+    const web = bridge(createDemoState("coffee", "kr-seoul"));
+    const executors = createToolExecutors(web);
+    executors.recordOperatingEvent({ eventType: "worker_unavailable", workerId: "minsoo", shiftId: "fri-minsoo-18", reason: "Call-out", uiLocale: "ko" });
+    const brief = executors.getDailyBrief({ limit: 5 });
+    expect(brief.items.length).toBeGreaterThanOrEqual(3);
+    expect(brief.items[0].domain).toBe("people");
+    expect(brief.items.some((item) => item.domain === "stock")).toBe(true);
+  });
+
+  it("plans, previews, reviews and applies a cross-domain prepare-today plan", () => {
+    const web = bridge(createDemoState("coffee", "kr-seoul"));
+    const executors = createToolExecutors(web);
+    executors.recordOperatingEvent({ eventType: "worker_unavailable", workerId: "minsoo", shiftId: "fri-minsoo-18", reason: "Call-out", uiLocale: "ko" });
+
+    const planned = executors.planStoreActions({ objective: "prepare_today" });
+    expect(planned.plans).toHaveLength(1);
+    expect(planned.recommendedPreview).not.toBeNull();
+    const changes = planned.recommendedPreview!.changes;
+    expect(changes.some((change) => change.type === "staffing")).toBe(true);
+    expect(changes.some((change) => change.type === "purchase")).toBe(true);
+
+    const previewed = executors.previewStorePlan({
+      planId: planned.recommendedPreview!.id,
+      title: planned.recommendedPreview!.title,
+      changes,
+      uiLocale: "ko",
+    });
+    expect(previewed.storePlan?.state).toBe("preview");
+    expect(previewed.storePlan?.impact.before).toBeTruthy();
+    expect(previewed.storePlan?.impact.after).toBeTruthy();
+    expect(previewed.storePlan?.impact.delta.purchaseCashOutlay).toBeGreaterThan(0);
+    expect(web.getState().purchaseOrders ?? []).toHaveLength(0);
+
+    const reviewed = executors.evaluateCurrentPlan();
+    expect(reviewed.storePlan?.state).toBe("reviewed");
+    const plan = web.getState().storePlan!;
+    const applied = executors.applyStorePlan({ planId: plan.id, version: plan.version, uiLocale: "ko" });
+    expect(web.getState().storePlan).toBeNull();
+    expect(web.getState().incident).toBeNull();
+    expect(web.getState().incidents?.some((incident) => incident.type === "worker_unavailable" && incident.status === "resolved")).toBe(true);
+    expect(web.getState().purchaseOrders?.some((order) => order.status === "planned")).toBe(true);
+    expect("dailyBrief" in applied.state ? applied.state.dailyBrief : undefined).toBeTruthy();
+  });
+
+  it("does not increase on-hand inventory when a purchase plan is merely applied", () => {
+    const web = bridge(createDemoState("coffee", "kr-seoul"));
+    const executors = createToolExecutors(web);
+    const milkBefore = web.getState().inventory?.find((item) => item.id === "whole-milk")?.onHand;
+    const planned = executors.planStoreActions({ objective: "inventory_reorder", inventoryItemId: "whole-milk" });
+    const plan = planned.plans[0];
+    expect(plan).toBeTruthy();
+    executors.previewStorePlan({ planId: plan.id, title: plan.title, changes: plan.changes, uiLocale: "ko" });
+    executors.evaluateCurrentPlan();
+    const reviewed = web.getState().storePlan!;
+    executors.applyStorePlan({ planId: reviewed.id, version: reviewed.version, uiLocale: "ko" });
+    expect(web.getState().inventory?.find((item) => item.id === "whole-milk")?.onHand).toBe(milkBefore);
+    expect(web.getState().purchaseOrders?.some((order) => order.inventoryItemId === "whole-milk" && order.status === "planned")).toBe(true);
+  });
+
+  it("keeps human edits inside the StorePlan candidate before review", () => {
+    const web = bridge(createDemoState("coffee", "kr-seoul"));
+    const executors = createToolExecutors(web);
+    executors.markWorkerUnavailable({ workerId: "minsoo", shiftId: "fri-minsoo-18", uiLocale: "ko" });
+    const planned = executors.planStoreActions({ objective: "staff_recovery" });
+    const plan = planned.plans[0];
+    executors.previewStorePlan({ planId: plan.id, title: plan.title, changes: plan.changes, uiLocale: "ko" });
+
+    const beforeVersion = web.getState().storePlan!.version;
+    web.runAction({ type: "reassign_shift", shiftId: "fri-minsoo-18", workerId: "hana" });
+    expect(web.getState().storePlan?.version).toBe(beforeVersion + 1);
+    expect(web.getState().storePlan?.changes.some((change) => change.type === "staffing" && change.shiftId === "fri-minsoo-18" && change.workerId === "hana")).toBe(true);
+    expect(web.getState().activity.state).toBe("reviewNeeded");
+    executors.evaluateCurrentPlan();
+    expect(web.getState().storePlan?.state).toBe("reviewed");
+  });
+
+  it("requires uiLocale for state-changing Store tools", () => {
     const web = bridge();
-    const registrations: Array<{ tool: { name: string; inputSchema?: unknown; annotations?: { readOnlyHint?: boolean } }; signal?: AbortSignal }> = [];
+    const executors = createToolExecutors(web);
+    expect(() => executors.configureDemoStore({ industry: "coffee" })).toThrow(/uiLocale is required/i);
+    expect(() => executors.recordOperatingEvent({ eventType: "manager_note", summary: "test" })).toThrow(/uiLocale is required/i);
+  });
+
+  it("registers exactly the nine intent-level WebMCP tools", async () => {
+    const web = bridge();
+    const registrations: Array<{ tool: { name: string; inputSchema?: unknown; annotations?: { readOnlyHint?: boolean }; description: string }; signal?: AbortSignal }> = [];
     Object.defineProperty(globalThis, "document", {
       configurable: true,
-      value: { modelContext: { registerTool: async (tool: { name: string; inputSchema?: unknown; annotations?: { readOnlyHint?: boolean } }, options?: { signal?: AbortSignal }) => { registrations.push({ tool, signal: options?.signal }); } } },
+      value: {
+        modelContext: {
+          registerTool: async (tool: { name: string; inputSchema?: unknown; annotations?: { readOnlyHint?: boolean }; description: string }, options?: { signal?: AbortSignal }) => {
+            registrations.push({ tool, signal: options?.signal });
+          },
+        },
+      },
     });
+
     const registration = registerOwnerOpsTools(web);
     await Promise.resolve();
     expect(registrations.map(({ tool }) => tool.name)).toEqual([
-      "get_business_state",
-      "create_schedule_draft",
-      "mark_worker_unavailable",
-      "get_response_options",
-      "preview_staffing_change",
+      "configure_demo_store",
+      "get_store_state",
+      "get_daily_brief",
+      "record_operating_event",
+      "plan_store_actions",
+      "preview_store_plan",
       "evaluate_current_plan",
-      "apply_staffing_change",
-      "import_schedule_snapshot",
+      "apply_store_plan",
+      "restore_store_snapshot",
     ]);
-    expect(registrations.every(({ tool }) => typeof tool.inputSchema === "object")).toBe(true);
-    const draftSchema = registrations.find(({ tool }) => tool.name === "create_schedule_draft")?.tool.inputSchema as { properties?: { industry?: { enum?: unknown[] }; market?: { enum?: unknown[] }; uiLocale?: { enum?: unknown[] } }; required?: unknown[] };
-    expect(draftSchema.properties?.industry?.enum).toEqual(["diner", "pizza", "coffee", "salon", "sushi", "curry"]);
-    expect(draftSchema.properties?.market?.enum).toEqual(["kr-seoul", "us-nyc", "jp-tokyo", "es-madrid", "cn-shanghai"]);
-    expect(draftSchema.properties?.uiLocale?.enum).toEqual(["en", "ko", "ja", "es", "zh-CN"]);
-    expect(draftSchema.required).toEqual(["preset", "uiLocale"]);
-    for (const tool of registrations.filter(({ tool }) => tool.annotations?.readOnlyHint === false).map(({ tool }) => tool)) {
-      const schema = tool.inputSchema as { required?: unknown[] };
-      expect(schema.required).toContain("uiLocale");
-    }
-    expect(registrations).toHaveLength(8);
-    expect(registrations.filter(({ tool }) => tool.annotations?.readOnlyHint === true)).toHaveLength(3);
+    expect(registrations).toHaveLength(9);
+    expect(registrations.every(({ tool }) => tool.description.includes(siteToolsOnlyBoundary))).toBe(true);
+    expect(registrations.filter(({ tool }) => tool.annotations?.readOnlyHint === true)).toHaveLength(4);
     expect(registrations.filter(({ tool }) => tool.annotations?.readOnlyHint === false)).toHaveLength(5);
+    expect(registrations.find(({ tool }) => tool.name === "get_store_state")?.tool.description).toMatch(/PRIMARY READ PATH/);
+    expect(registrations.find(({ tool }) => tool.name === "plan_store_actions")?.tool.description).toMatch(/PRIMARY PLANNING PATH/);
+    expect(registrations.find(({ tool }) => tool.name === "restore_store_snapshot")?.tool.description).toMatch(/BACKUP\/RESTORE ONLY/);
+    for (const name of ["get_store_state", "plan_store_actions", "apply_store_plan"]) {
+      const description = registrations.find(({ tool }) => tool.name === name)?.tool.description ?? "";
+      expect(description).toMatch(/not implemented in the current OwnerOps version/);
+      expect(description).toMatch(/future expansion area without a release date/);
+      expect(description).toMatch(/closest supported analysis, draft, or preview/);
+      expect(description).toMatch(/never claim an external filing, payment, message, order, or price change was submitted/);
+    }
+    expect(registrations.every(({ tool }) => typeof tool.inputSchema === "object")).toBe(true);
+
     registration.dispose();
     expect(registrations.every(({ signal }) => signal?.aborted)).toBe(true);
     delete (globalThis as { document?: unknown }).document;
-  });
-
-  it("rejects invalid worker or shift ids without mutating state", () => {
-    const web = bridge();
-    const before = JSON.stringify(web.getState());
-    const executors = createToolExecutors(web);
-    expect(() => executors.markWorkerUnavailable({ workerId: "missing-worker", shiftId: "fri-minsoo-18", uiLocale: "en" })).toThrow(/match/);
-    expect(() => executors.markWorkerUnavailable({ workerId: "minsoo", shiftId: "missing-shift", uiLocale: "en" })).toThrow(/match/);
-    expect(() => executors.previewStaffingChange({ changes: [{ shiftId: "missing-shift", workerId: "minsoo" }], uiLocale: "en" })).toThrow(/not found/);
-    expect(() => executors.previewStaffingChange({ changes: [{ shiftId: "fri-minsoo-18", workerId: "missing-worker" }], uiLocale: "en" })).toThrow(/not found/);
-    expect(() => executors.createScheduleDraft({ preset: "demo", industry: "hospital", uiLocale: "en" })).toThrow(/unsupported industry/i);
-    expect(() => executors.createScheduleDraft({ preset: "demo", market: "mars", uiLocale: "en" })).toThrow(/unsupported market/i);
-    expect(JSON.stringify(web.getState())).toBe(before);
   });
 });

@@ -1,9 +1,18 @@
 # OwnerOps — Codex Operating Contract
 
-This repository is governed by the documents in `docs/`. Read this file first, then read the documents in the order listed below before making code changes.
+This repository is governed by the canonical documents in `docs/`. Read this file first, then the documents below before changing product behavior.
 
 ## Mission
-Build a polished WebMCP hackathon product called **OwnerOps**: an operations copilot for small-business owners who manage hourly staff. The canonical demo is a last-minute staffing disruption in a café. The human edits a real schedule UI; the agent reads and acts on the same application state through WebMCP; the product compares operational and labor-cost impact before the human commits a change.
+Build **OwnerOps — an AI Store Manager for independent small businesses**. The owner speaks naturally; an external ChatGPT/WebMCP agent reads the exact live store state, identifies what matters, prepares coordinated actions, and materializes those actions in the same visual workspace the owner uses.
+
+The canonical café/restaurant demo connects:
+- **People** — staff, skills, availability, schedule, attendance, wages.
+- **Sales** — sales/orders/item mix and operating demand.
+- **Stock** — ingredients, Prep/BOM, inventory, purchase cost, waste, suppliers.
+- **Operations** — incidents, tasks, opening/closing checks, manager log.
+- **Context & Costs** — weather/events, occupancy, market price references, BEP/FL Cost.
+
+Signature flow: **read live store → prioritize issues → plan actions → preview → human edit/review → apply**.
 
 ## Required reading order
 1. `docs/00_PROJECT_CHARTER.md`
@@ -18,35 +27,48 @@ Build a polished WebMCP hackathon product called **OwnerOps**: an operations cop
 10. `docs/09_ACCEPTANCE_TESTS.md`
 11. `docs/10_REFERENCE_RESEARCH.md`
 12. `docs/11_DEVPOST_SUBMISSION.md`
-13. `docs/12_HANDOFF_PROTOCOL.md`
-14. `docs/13_PAPERTHIN_REVIEW.md`
-15. `docs/14_CODEX_EXECUTION_PLAN.md`
-16. `docs/15_DECISION_LOG.md`
+13. `docs/13_PAPERTHIN_REVIEW.md`
+14. `docs/15_DECISION_LOG.md`
+15. `docs/16_AGENT_OPERATING_MANUAL.md`
 
 ## Non-negotiable engineering rules
-- **Scope is frozen.** Do not invent features because they look useful.
-- Prefer editing an existing canonical artifact over adding another helper, wrapper, manager, service, `v2`, `new`, `final`, or parallel implementation.
-- One canonical `AppState` is the source of truth for UI, calculations, persistence, snapshot serialization, and WebMCP tools.
-- Human UI actions and WebMCP actions must call the **same domain actions**. Never implement a second agent-only business-logic path.
-- Domain calculations must be deterministic TypeScript. Do not use an LLM API inside the app.
-- Do not add a backend, database, auth, RAG, vector DB, external MCP server, OR solver, POS integration, payroll provider, weather API, or messaging integration for the hackathon MVP.
-- `localStorage` is allowed for convenience; the portable schedule snapshot is the cross-session/cross-chat handoff mechanism.
-- WebMCP tools are user-intent tools, not micro-helpers. Do not expose `calculateFoo` for every calculation.
-- Treat labor-rule results as **warnings/estimates**, not legal compliance guarantees.
-- Avoid “AI SaaS” visual tropes: excessive gradients, glassmorphism, giant KPI cards, sparkle icons, floating neon orbs, mascot-first layouts, and gratuitous rounded cards.
-- The assistant avatar is a functional activity/status surface, not a decorative character.
-- If an external animated avatar asset would block progress, ship a high-quality local SVG/CSS 2.5D avatar first. Rive is an enhancement, not a dependency on the critical path.
-- Use real sample values and visible before/after outcomes so the demo feels operational, not conceptual.
+- Preserve **one business truth**. PostgreSQL/Supabase is durable canonical persistence; browser `StoreState` is a working projection used by UI/WebMCP.
+- Do not create separate agent truth, chat truth, inventory truth, payroll truth, snapshot truth, or external-price truth.
+- Human UI actions and WebMCP actions use the same deterministic domain/application-action path.
+- Preview `StorePlan` is not committed truth until reviewed/applied.
+- Natural-language reasoning belongs to the external agent. Validation, calculations, planning impact, materialization, and state transitions belong in deterministic TypeScript.
+- WebMCP tools are store-level user intents, not DB/calculator micro-tools.
+- Store actuals outrank all references: supplier invoice, stock count, wage, attendance, lease, sales and availability are authoritative.
+- External data is cached **reference/context**. Every observation carries provider, geography, unit, observed/fetched time, confidence/freshness and source provenance.
+- Runtime is **cache-first**. Do not make arbitrary web/API calls for every owner question. Provider sync writes raw/normalized observations; runtime reads DB cache and falls back to deterministic seed when unavailable.
+- Preserve the three-tier external price pipeline: `raw → normalized → effective/reference`. Never mix it with store purchase truth.
+- Procurement form matters. Whole/raw, trimmed/fillet, cooked/prepped and packaged forms can have different yields.
+- Support `ingredient → Prep → Menu BOM`; do not flatten intermediate prep costs into magic menu constants.
+- Backend/service credentials stay server-side. Browser code must not receive Supabase service-role keys or provider secrets.
+- Stateful changes use preview/review/apply when they materially affect staffing, purchasing, prep or tasks.
+- Do not turn OwnerOps into payroll filing, tax, bookkeeping, ATS, LMS, or legal-compliance software.
+- Avoid menu-per-feature SaaS bloat. Capabilities broaden while the primary UI remains an operating command center.
+- Prefer editing canonical artifacts over adding `v2`, `new`, `final`, duplicate registries, or wrapper-on-wrapper abstractions.
+
+## Backend/data boundary
+Current persistence target:
+- Supabase/PostgreSQL tables under `oo_*` from `supabase/migrations/`.
+- Next.js server repositories/routes are the application backend.
+- `scripts/fnb-data-sync.mjs` performs offline/scheduled provider ingestion and can persist raw/normalized observations when DB credentials exist.
+- Deterministic seed data remains a demo/failure fallback, not the production source of truth.
+
+Future extraction is allowed only when evidence justifies it: Python/dlt/FastAPI may become a separate ingestion platform, but do not duplicate the current TypeScript domain or WebMCP business logic.
 
 ## Verification discipline
 Before declaring completion:
-1. Run tests.
-2. Run lint.
-3. Run type check.
-4. Run production build.
-5. Re-read the final diff.
-6. Remove unused files, dependencies, duplicate constants, stale comments, and temporary workarounds.
-7. Test the canonical demo manually in browser.
-8. Test WebMCP with the supported browser environment if available.
+1. run tests;
+2. run lint;
+3. run typecheck;
+4. run production build;
+5. re-read the final diff;
+6. remove dead/duplicate artifacts;
+7. verify DB-unconfigured and reference-provider-failure fallbacks;
+8. verify DB-cached reference hydration when configured;
+9. manually run the canonical natural-language demo in a WebMCP-capable browser when available.
 
 Do not claim a check passed unless it was actually run.

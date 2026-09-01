@@ -1,14 +1,13 @@
 # 04 — Assistant Avatar and Activity Model
 
 ## Purpose
-The assistant visual is a functional state indicator for the operations copilot. It should make agent activity legible without turning the product into a mascot experience.
+The assistant visual is a functional state indicator for the **AI Store Manager**. It makes live-store analysis, planning, human review and apply status legible without becoming a mascot or duplicate chat client.
 
-## Preferred implementation order
-### Tier 1 — required fallback: local 2.5D SVG/CSS avatar
-Ship this first so the critical path never depends on an external design tool.
-Design a simple bust/orb-person hybrid with modest dimensional cues (shadow, layered shapes, small head/eye motion). It should feel like a product assistant, not a cartoon employee.
+## Visual implementation
+Keep the current local SVG/CSS assistant as the required fallback. Rive or other animation remains optional and must not block store logic.
 
-States:
+## Semantic activity states
+The current state set may remain during migration:
 - `idle`
 - `listening`
 - `checking`
@@ -19,52 +18,101 @@ States:
 - `applied`
 - `error`
 
-Implementation can use CSS transforms/opacity and SVG groups. Keep motion subtle and deterministic.
+If the generic StorePlan requires clearer naming later, migrate coherently rather than adding a second avatar state model.
 
-### Tier 2 — optional enhancement: Rive
-References:
-- https://rive.app/docs/editor/state-machine/state-machine
-- https://rive.app/docs/runtimes/react/react
-Rive state machines are appropriate because the avatar has explicit semantic states and can be driven from app state. If a `.riv` asset can be created without blocking delivery, wire a single state machine to the states above.
+## Activity source
+Avatar/activity derives from canonical application activity only. It never owns business truth.
 
-Do not make Rive a blocker. If the runtime or asset increases build risk, keep Tier 1.
+Examples:
+- reading StoreState / building Daily Brief → `checking`;
+- actionable store risk without candidate → `warning`;
+- Agent StorePlan materialized → `proposalReady`;
+- human edits candidate → `reviewNeeded`;
+- `evaluate_current_plan` re-reads exact candidate → `reviewed`;
+- reviewed StorePlan committed → `applied` briefly, then idle/ready.
 
-### Tier 3 — optional experiment: Spline 3D
-References:
-- https://docs.spline.design/exporting-your-scene/web/exporting-as-spline-viewer
-- https://docs.spline.design/exporting-your-scene/web/code-api-for-web
-Spline can embed an interactive 3D scene and expose code-controlled interactions. Use only if performance, visual quality, and implementation time are clearly better than the 2.5D/Rive path.
+## Generic activity timeline
+The rail no longer hardcodes the staffing-only sequence.
 
-For this product, 2.5D/Rive is preferred over full 3D because the avatar is secondary to the schedule.
+Canonical action flow:
+```text
+Read live store
+→ Prioritized issues
+→ Planned actions
+→ Candidate preview
+→ Human review/edit
+→ Agent re-review
+→ Apply reviewed plan
+```
 
-## Avatar state source
-The avatar state derives from canonical UI/application activity, never from its own independent state machine of business truth.
+Read-only flow:
+```text
+Read live store
+→ Checked relevant evidence
+→ Answer ready
+```
 
-Example mapping:
-- no active operation → `idle`
-- WebMCP/read evaluation in progress → `checking`
-- preview scenario available → `proposalReady`
-- human changes a candidate preview → `reviewNeeded`
-- `evaluate_current_plan` reviews the current candidate → `reviewed`
-- current plan has work-rule warning → `warning`
-- apply completed → `applied` briefly, then `idle`
+## Domain evidence
+The activity rail may show compact checked-domain evidence when useful:
+- People
+- Sales
+- Stock
+- Operations
+- Context
+- Costs
 
-## Activity rail copy
-Use short operational messages:
-- “Checking the current schedule…”
-- “Agent proposal ready.”
-- “Human edit detected. Agent review pending.”
-- “Agent reviewed live plan. Ready to apply.”
-- “Plan applied.”
+Only mark a domain as checked when the current operation actually used that data.
 
-The rail presents the timeline `Agent proposal → Human edit → Agent reviewed → Apply` without introducing an in-app chat history. Local deterministic impact can update immediately after a human edit, but the reviewed state is set only by the shared `evaluate_current_plan` action.
+## Activity copy
+Use short operational language:
+- “Reading the live store…”
+- “Three issues need attention.”
+- “Store plan ready. Nothing committed.”
+- “Human edit detected. Review needed.”
+- “Current candidate re-checked.”
+- “Reviewed plan applied.”
+- “External reference unavailable; using seeded context.”
 
-Avoid personality-heavy chatter, emojis, or fake human emotions.
+Avoid personality-heavy chatter, emojis and fake human emotion.
 
-## Current local implementation
-The shipped Tier 1 avatar is an inline SVG with semantic groups for shadow, body, head/face/eyes/mouth, accessory, and signal. CSS supplies a barely visible breathing/blink rhythm and state signal; the component uses the native Web Animations API for one-shot attentive, scan, notice, review, warning, and apply gestures. `prefers-reduced-motion` disables ambient and semantic motion. The same base assistant receives a small registry-driven work-context detail: diner cap/name tag, pizza chef cap, coffee apron, salon apron/tool mark, sushi headband, or curry apron/badge.
+## Candidate attribution
+When a StorePlan exists, preserve clear labels:
+- `AGENT PLAN`
+- `HUMAN EDIT`
+- `REVIEWED`
 
-The rail is a contained operational surface rather than a chatbot: it shows connection evidence, the current activity, a short timeline, candidate impact, and the next allowed action. The avatar keeps its stable face/body colors; only the accessory, one trim detail, and a low-opacity profile `agentGlow` change. In an active Friday incident it uses the existing checking/warning signal, scans before review, and gives its restrained approval gesture only after a reviewed plan is applied. Reduced-motion users receive the same state labels without ambient or one-shot movement.
+The rail may summarize multi-domain changes rather than pretend the first worker/shift represents the whole plan.
+
+Example:
+```text
+AGENT PLAN
+3 changes
+People · Stock · Prep
+
+Coverage    restored
+Stock cover through Monday
+Review flags 0
+```
+
+## External reference status
+The rail may show data-source state when material:
+- `LIVE REFERENCE`
+- `RECENT REFERENCE`
+- `SEEDED FALLBACK`
+- `STALE`
+
+This is functional trust feedback, not decoration.
+
+## Motion
+Use short one-shot gestures for:
+- issue found;
+- candidate ready;
+- review needed;
+- reviewed;
+- applied;
+- provider/fallback warning.
+
+Ambient motion stays subtle and is disabled by `prefers-reduced-motion`.
 
 ## WebMCP linkage
-A tool execution may set a transient activity status before/after calling the shared domain action. This visual status is UI feedback only; the tool must not modify business state through an avatar-specific path.
+Tool execution may set transient activity before/after shared application actions. The tool must never mutate store truth through an avatar-specific path.

@@ -12,13 +12,39 @@ export type AvailabilityWindow = {
   available: boolean;
 };
 
+export type EmploymentType = "hourly_part_time" | "hourly_full_time" | "manager";
+
+export type AvailabilityRule = {
+  weekday: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  start: string;
+  end: string;
+  available: boolean;
+};
+
+export type AvailabilityException = {
+  id: string;
+  start: string;
+  end: string;
+  available: boolean;
+  reason?: string;
+  source: "owner" | "worker" | "incident";
+};
+
 export type Worker = {
   id: string;
   name: string;
   displayName?: string;
+  contactLabel?: string;
   role: WorkerRole;
   hourlyRate: number;
+  /** Legacy one-off availability exceptions kept during StoreState migration. */
   availability?: AvailabilityWindow[];
+  employmentType?: EmploymentType;
+  skills?: string[];
+  regularAvailability?: AvailabilityRule[];
+  availabilityExceptions?: AvailabilityException[];
+  preferredWeeklyHours?: number;
+  maxWeeklyHours?: number;
 };
 
 export type Shift = {
@@ -27,7 +53,17 @@ export type Shift = {
   start: string;
   end: string;
   role: WorkerRole;
-  status: "scheduled" | "uncovered";
+  requiredSkills?: string[];
+  status: "scheduled" | "uncovered" | "completed";
+};
+
+export type TimeEntry = {
+  id: string;
+  workerId: string;
+  shiftId?: string;
+  clockIn: string;
+  clockOut?: string;
+  source: "demo" | "manual" | "timeclock";
 };
 
 export type PeakWindow = {
@@ -35,6 +71,42 @@ export type PeakWindow = {
   start: string;
   end: string;
   minCoverage: number;
+};
+
+export type OccupancyCost = {
+  baseRentMonthly: number;
+  recurringFeesMonthly: number;
+  deposit?: number;
+  leaseStart?: string;
+  leaseEnd?: string;
+  nextEscalationDate?: string;
+  nextEscalationRate?: number;
+};
+
+/**
+ * Operating-cost inputs intentionally stop short of bookkeeping/tax accounting.
+ * Variable rates support operational what-if analysis; fixed monthly costs support BEP.
+ */
+export type StoreOperatingCosts = {
+  variableRates: {
+    packagingAndConsumables: number;
+    paymentProcessing: number;
+    deliveryAndMarketplace: number;
+  };
+  fixedMonthly: {
+    utilities: number;
+    softwareSecurityRentals: number;
+    marketing: number;
+    other: number;
+  };
+};
+
+export type CalloutPayPolicy = "unpaid_hours" | "paid_scheduled_hours" | "manual_review";
+
+export type StorePolicies = {
+  calloutPayPolicy: CalloutPayPolicy;
+  externalContactMode: "draft_only";
+  complianceMode: "review_flags_only";
 };
 
 export type Business = {
@@ -47,6 +119,12 @@ export type Business = {
   weeklyHourWarningThreshold: number;
   expectedSalesByDay: Record<string, number>;
   peakWindows: PeakWindow[];
+  timezone?: string;
+  openingHours?: Record<string, { open: string; close: string } | null>;
+  occupancy?: OccupancyCost;
+  operatingCosts?: StoreOperatingCosts;
+  targetFoodCostRatio?: number;
+  policies?: StorePolicies;
 };
 
 export type DemandWindow = {
@@ -61,6 +139,19 @@ export type StaffingIncident = {
   type: "worker_unavailable";
   workerId: string;
   shiftId: string;
+  reason?: string;
+};
+
+export type OperationalIncidentType = "worker_unavailable" | "stockout_risk" | "equipment_issue" | "abnormal_waste" | "other";
+export type OperationalIncident = {
+  id: string;
+  type: OperationalIncidentType;
+  status: "open" | "mitigated" | "resolved";
+  createdAt: string;
+  resolvedAt?: string;
+  workerId?: string;
+  shiftId?: string;
+  inventoryItemId?: string;
   reason?: string;
 };
 
@@ -118,6 +209,245 @@ export type StaffingPreview = {
   capacityGap?: CapacityGap | null;
 };
 
+export type SalesSnapshot = {
+  id: string;
+  date: string;
+  hour?: number;
+  grossSales: number;
+  netSales: number;
+  orderCount: number;
+  itemSales: Array<{ menuItemId: string; quantity: number; netSales: number }>;
+  source: "demo" | "pos";
+};
+
+export type InventoryUnit = "g" | "kg" | "ml" | "l" | "ea" | "pack" | "box";
+export type IngredientPurchaseForm = "raw" | "trimmed" | "fillet" | "prepped" | "packaged" | "unknown";
+
+export type InventoryRecipeLine = {
+  inventoryItemId: string;
+  prepItemId?: never;
+  quantity: number;
+  unit: InventoryUnit;
+  /** Optional line-specific usable output / purchased input. */
+  yieldRate?: number;
+};
+
+export type PrepRecipeLine = {
+  prepItemId: string;
+  inventoryItemId?: never;
+  quantity: number;
+  unit: InventoryUnit;
+};
+
+export type RecipeLine = InventoryRecipeLine | PrepRecipeLine;
+
+export type PrepItem = {
+  id: string;
+  name: string;
+  category: string;
+  outputQuantity: number;
+  outputUnit: InventoryUnit;
+  recipe: InventoryRecipeLine[];
+  /** Yield of the prep batch after cooking/processing. Defaults to 1 when not modeled. */
+  batchYieldRate?: number;
+  active: boolean;
+};
+
+export type MenuItem = {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  recipe: RecipeLine[];
+  active: boolean;
+};
+
+export type InventoryItem = {
+  id: string;
+  name: string;
+  category: string;
+  unit: InventoryUnit;
+  onHand: number;
+  parLevel: number;
+  reorderPoint: number;
+  leadTimeDays: number;
+  supplierId?: string;
+  lastPurchaseUnitCost?: number;
+  marketReferenceKey?: string;
+  perishable?: boolean;
+  purchaseForm?: IngredientPurchaseForm;
+};
+
+export type YieldBenchmark = {
+  id: string;
+  ingredientKey: string;
+  inputForm: IngredientPurchaseForm;
+  outputForm: IngredientPurchaseForm;
+  yieldRate: number;
+  geography?: string;
+  note?: string;
+  source: string;
+  quality: "verified_reference" | "reference_only" | "qa_required";
+};
+
+export type Supplier = {
+  id: string;
+  name: string;
+  contactLabel?: string;
+  defaultLeadTimeDays: number;
+};
+
+export type PurchaseRecord = {
+  id: string;
+  supplierId: string;
+  inventoryItemId: string;
+  receivedAt: string;
+  quantity: number;
+  unit: InventoryUnit;
+  totalCost: number;
+};
+
+export type PurchaseOrder = {
+  id: string;
+  supplierId: string;
+  inventoryItemId: string;
+  createdAt: string;
+  expectedAt?: string;
+  quantity: number;
+  unit: InventoryUnit;
+  estimatedUnitCost?: number;
+  status: "planned" | "ordered" | "received" | "cancelled";
+};
+
+export type WasteRecord = {
+  id: string;
+  inventoryItemId: string;
+  recordedAt: string;
+  quantity: number;
+  unit: InventoryUnit;
+  reason: "expired" | "prep" | "remake" | "damage" | "count_variance" | "other";
+};
+
+export type StoreTask = {
+  id: string;
+  title: string;
+  dueAt?: string;
+  shiftId?: string;
+  workerId?: string;
+  status: "open" | "done";
+};
+
+export type StoreLogEntry = {
+  id: string;
+  createdAt: string;
+  type: "incident" | "stock" | "task" | "attendance" | "note";
+  summary: string;
+  relatedIds?: string[];
+};
+
+export type ReferenceFreshness = "live" | "recent" | "cached" | "seed" | "stale";
+export type ReferenceObservation = {
+  id: string;
+  kind: "commodity_price" | "wage_reference" | "rent_benchmark" | "weather" | "event" | "menu_price";
+  provider: string;
+  referenceKey: string;
+  geography: string;
+  observedAt: string;
+  fetchedAt: string;
+  value: number | string;
+  unit?: string;
+  currency?: CurrencyCode;
+  sourceUrl?: string;
+  freshness: ReferenceFreshness;
+};
+
+export type OperatingContext = {
+  businessDate: string;
+  weather?: {
+    provider: string;
+    summary: string;
+    temperatureC?: number;
+    precipitationProbability?: number;
+    observedAt: string;
+    freshness: ReferenceFreshness;
+  };
+  localEvents?: Array<{ id: string; name: string; start: string; end: string; expectedEffect?: string }>;
+};
+
+export type StorePlanChange =
+  | { type: "staffing"; shiftId: string; workerId: string; start?: string; end?: string }
+  | { type: "purchase"; inventoryItemId: string; supplierId?: string; quantity: number; unit: InventoryUnit; estimatedUnitCost?: number }
+  | { type: "prep"; menuItemId: string; targetQuantity: number }
+  | { type: "task"; task: StoreTask }
+  | { type: "shift_release"; shiftId: string; newEnd: string };
+
+export type StoreMetricSnapshot = {
+  netSales: number;
+  foodCost: number;
+  laborCost: number;
+  variableOperatingCost: number;
+  occupancyCost: number;
+  fixedOperatingCost: number;
+  estimatedOperatingProfit: number;
+  operatingMargin: number;
+  flCostRatio: number;
+  purchaseCashOutlay: number;
+  estimatedWasteCost: number;
+  uncoveredPeakMinutes: number;
+  reviewFlagCount: number;
+  breakEvenSales: number;
+};
+
+export type StoreMetricDelta = {
+  [K in keyof StoreMetricSnapshot]: number;
+};
+
+export type StorePlanDomainImpact = {
+  people?: {
+    scheduleChanges: number;
+    laborCostDelta: number;
+    uncoveredPeakMinutesDelta: number;
+  };
+  stock?: {
+    purchaseCashOutlay: number;
+    affectedInventoryItemIds: string[];
+    estimatedWasteCostDelta: number;
+  };
+  sales?: {
+    netSalesDelta: number;
+  };
+  operations?: {
+    taskChanges: number;
+    prepChanges: number;
+  };
+  costs?: {
+    foodCostDelta: number;
+    variableOperatingCostDelta: number;
+    fixedOperatingCostDelta: number;
+    operatingProfitDelta: number;
+    operatingMarginDelta: number;
+    flCostRatioDelta: number;
+    breakEvenSalesDelta: number;
+  };
+};
+
+export type StorePlanImpact = {
+  before: StoreMetricSnapshot;
+  after: StoreMetricSnapshot;
+  delta: StoreMetricDelta;
+  domains: StorePlanDomainImpact;
+  reviewFlags: string[];
+};
+
+export type StorePlan = {
+  id: string;
+  version: number;
+  title: string;
+  changes: StorePlanChange[];
+  impact: StorePlanImpact;
+  state: "preview" | "reviewed";
+};
+
 export type AssistantState = "idle" | "listening" | "checking" | "proposalReady" | "reviewNeeded" | "reviewed" | "warning" | "applied" | "error";
 
 export type Activity = {
@@ -136,6 +466,25 @@ export type AppState = {
   preview: StaffingPreview | null;
   incident: StaffingIncident | null;
   activity: Activity;
+  /** StoreState migration domains. Optional until snapshot/WebMCP/UI migration is complete. */
+  timeEntries?: TimeEntry[];
+  incidents?: OperationalIncident[];
+  sales?: SalesSnapshot[];
+  menu?: MenuItem[];
+  prepItems?: PrepItem[];
+  inventory?: InventoryItem[];
+  yieldBenchmarks?: YieldBenchmark[];
+  suppliers?: Supplier[];
+  purchases?: PurchaseRecord[];
+  purchaseOrders?: PurchaseOrder[];
+  waste?: WasteRecord[];
+  tasks?: StoreTask[];
+  log?: StoreLogEntry[];
+  references?: ReferenceObservation[];
+  context?: OperatingContext;
+  storePlan?: StorePlan | null;
 };
+
+export type StoreState = AppState;
 
 export type SnapshotState = Pick<AppState, "schemaVersion" | "business" | "workers" | "shifts" | "demand" | "incident">;
