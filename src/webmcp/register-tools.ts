@@ -48,6 +48,7 @@ const marketField = {
 const focusValues = ["overview", "people", "sales", "stock", "operations", "costs", "context"] as const;
 type StoreFocus = typeof focusValues[number];
 const capabilityBoundaryDescription = "CAPABILITY BOUNDARY. Actual payroll or payslip/social-insurance/tax filing, audited bookkeeping/general-ledger work, termination legal workflows, bank payment, real supplier transmission/contact, real POS price mutation, and statutory compliance guarantees are not implemented in the current OwnerOps version. Describe the exact limitation as a future expansion area without a release date, state the closest supported analysis, draft, or preview, offer that supported capability, and never claim an external filing, payment, message, order, or price change was submitted.";
+export const siteToolsOnlyBoundary = "SITE TOOLS ONLY. For OwnerOps state reads and changes, while the relevant OwnerOps Site Tools are available, the Agent must use registered OwnerOps Site Tools only: do not use browser clicks, DOM inspection, screenshots, keyboard automation, or Computer Use. Direct visual UI interaction is reserved for human candidate edits and human approval/Apply. If a required Site Tool is unavailable or fails, report the limitation and stop; never fall back to browser automation.";
 
 const storePlanChangeSchema: JsonSchema = {
   oneOf: [
@@ -360,7 +361,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "configure_demo_store",
     title: "Configure OwnerOps demo store",
-    description: "Configure the demo industry/market for explicit setup changes. Preserve the current market unless explicitly changed. Never infer market from the user's language.",
+    description: `${siteToolsOnlyBoundary} Configure the demo industry/market for explicit setup changes. Preserve the current market unless explicitly changed. Never infer market from the user's language.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -378,7 +379,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "get_store_state",
     title: "Read current live OwnerOps store state",
-    description: `PRIMARY READ PATH. Read exact canonical StoreState directly through this Site Tool. When this tool is available, do not use browser/DOM inspection, computer-use, screenshots, or automatic clicking to read OwnerOps data. Use focus=overview, people, sales, stock, operations, costs, or context so the agent receives focused evidence instead of a giant raw state dump. Answer supported questions directly without asking the owner to navigate modules. Never open/export Snapshot UI for live work. ${capabilityBoundaryDescription}`,
+    description: `${siteToolsOnlyBoundary} PRIMARY READ PATH. Read exact canonical StoreState directly through this Site Tool. Use focus=overview, people, sales, stock, operations, costs, or context so the agent receives focused evidence instead of a giant raw state dump. Answer supported questions directly without asking the owner to navigate modules. Never open/export Snapshot UI for live work. ${capabilityBoundaryDescription}`,
     inputSchema: {
       type: "object",
       properties: { focus: { type: "string", enum: focusValues, description: "Operating domain needed for the current intent." } },
@@ -391,7 +392,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "get_daily_brief",
     title: "Get today's OwnerOps operating brief",
-    description: "Preferred first tool for 'prepare today', 'what do I need to know', or 'what is risky'. Use this Site Tool directly instead of browser/computer-use when available. Return only the highest-priority evidence across people, stock, costs, operations, and context, with dataProvenance for source/freshness reasoning.",
+    description: `${siteToolsOnlyBoundary} Preferred first tool for 'prepare today', 'what do I need to know', or 'what is risky'. Return only the highest-priority evidence across people, stock, costs, operations, and context, with dataProvenance for source/freshness reasoning.`,
     inputSchema: { type: "object", properties: { limit: { type: "number", minimum: 1, maximum: 5 } }, additionalProperties: false },
     annotations: { readOnlyHint: true },
     execute: async (input) => tools.getDailyBrief({ limit: typeof input.limit === "number" ? input.limit : undefined }),
@@ -400,7 +401,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "record_operating_event",
     title: "Record a store operating fact",
-    description: "Record an owner-supplied fact in canonical StoreState without inventing a recovery plan. Supports worker call-out, stock count, task completion, manager note, and equipment issue. Plan actions separately when the owner asks for action.",
+    description: `${siteToolsOnlyBoundary} Record an owner-supplied fact in canonical StoreState without inventing a recovery plan. Supports worker call-out, stock count, task completion, manager note, and equipment issue. Plan actions separately when the owner asks for action.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -424,7 +425,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "plan_store_actions",
     title: "Plan OwnerOps store actions",
-    description: `PRIMARY PLANNING PATH. Generate only the deterministic StorePlans supported by this schema and live state. Commit-ready objectives currently include staff_recovery, rebuild_week, reduce_labor_cost, inventory_reorder, and prepare_today. If an objective or quantified effect is unsupported or uncalibrated, return an explicit limitation and the closest supported analysis/draft/preview instead of fabricating a plan. ${capabilityBoundaryDescription}`,
+    description: `${siteToolsOnlyBoundary} PRIMARY PLANNING PATH. Generate only the deterministic StorePlans supported by this schema and live state. Commit-ready objectives currently include staff_recovery, rebuild_week, reduce_labor_cost, inventory_reorder, and prepare_today. If an objective or quantified effect is unsupported or uncalibrated, return an explicit limitation and the closest supported analysis/draft/preview instead of fabricating a plan. ${capabilityBoundaryDescription}`,
     inputSchema: {
       type: "object",
       properties: {
@@ -444,7 +445,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "preview_store_plan",
     title: "Preview cross-domain OwnerOps plan",
-    description: "Materialize a StorePlan without committing it. Use recommendedPreview from plan_store_actions. Staffing projects into the schedule UI; stock/task/cost effects remain in the same StorePlan with Before/After/Delta impact. Never round-trip through Snapshot text.",
+    description: `${siteToolsOnlyBoundary} Materialize a StorePlan without committing it. Use recommendedPreview from plan_store_actions. Staffing projects into the schedule UI; stock/task/cost effects remain in the same StorePlan with Before/After/Delta impact. Never round-trip through Snapshot text.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -463,7 +464,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "evaluate_current_plan",
     title: "Evaluate exact current OwnerOps plan",
-    description: "Re-read and review the exact live candidate after human edits. For StorePlan, recompute cross-domain Before/After/Delta and review flags. For a staffing-only candidate, recompute the exact schedule. Do not inspect Snapshot text.",
+    description: `${siteToolsOnlyBoundary} Re-read and review the exact live candidate after human edits. For StorePlan, recompute cross-domain Before/After/Delta and review flags. For a staffing-only candidate, recompute the exact schedule. Do not inspect Snapshot text.`,
     inputSchema: emptySchema,
     annotations: { readOnlyHint: true },
     execute: async () => tools.evaluateCurrentPlan(),
@@ -472,7 +473,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "apply_store_plan",
     title: "Apply reviewed OwnerOps store plan",
-    description: `Commit only the current reviewed StorePlan when id/version still match. Apply changes only to canonical StoreState. Purchase actions become planned purchase orders and never fake receipt or on-hand inventory. No external supplier order, message, payment, filing, POS mutation, or legal submission occurs. ${capabilityBoundaryDescription}`,
+    description: `${siteToolsOnlyBoundary} Commit only the current reviewed StorePlan when id/version still match. Apply changes only to canonical StoreState. Purchase actions become planned purchase orders and never fake receipt or on-hand inventory. No external supplier order, message, payment, filing, POS mutation, or legal submission occurs. ${capabilityBoundaryDescription}`,
     inputSchema: {
       type: "object",
       properties: { planId: stringField("Current reviewed StorePlan id."), version: { type: "number", minimum: 1 }, uiLocale: uiLocaleField },
@@ -486,7 +487,7 @@ export function registerOwnerOpsTools(bridge: ToolBridge): { supported: boolean;
   register(document.modelContext.registerTool({
     name: "restore_store_snapshot",
     title: "Restore provided OwnerOps snapshot",
-    description: "BACKUP/RESTORE ONLY. Use only when the user explicitly asks to restore/import a snapshot or directly provides complete OWNEROPS_SNAPSHOT text. Never use Snapshot export/import to inspect, optimize, plan, or pass live state between agent steps.",
+    description: `${siteToolsOnlyBoundary} BACKUP/RESTORE ONLY. Use only when the user explicitly asks to restore/import a snapshot or directly provides complete OWNEROPS_SNAPSHOT text. Never use Snapshot export/import to inspect, optimize, plan, or pass live state between agent steps.`,
     inputSchema: {
       type: "object",
       properties: { snapshotText: { type: "string", minLength: 40, maxLength: 200000 }, uiLocale: uiLocaleField },

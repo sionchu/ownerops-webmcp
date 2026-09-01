@@ -3,7 +3,7 @@ import { dispatchApplicationAction } from "@/domain/actions";
 import { createDemoState } from "@/domain/fixtures";
 import type { AppState } from "@/domain/model";
 import type { UiLocale } from "@/i18n";
-import { createToolExecutors, registerOwnerOpsTools } from "@/webmcp/register-tools";
+import { createToolExecutors, registerOwnerOpsTools, siteToolsOnlyBoundary } from "@/webmcp/register-tools";
 
 function bridge(initial = createDemoState()) {
   let state: AppState = initial;
@@ -190,6 +190,7 @@ describe("shared UI and WebMCP StoreState path", () => {
       "restore_store_snapshot",
     ]);
     expect(registrations).toHaveLength(9);
+    expect(registrations.every(({ tool }) => tool.description.includes(siteToolsOnlyBoundary))).toBe(true);
     expect(registrations.filter(({ tool }) => tool.annotations?.readOnlyHint === true)).toHaveLength(4);
     expect(registrations.filter(({ tool }) => tool.annotations?.readOnlyHint === false)).toHaveLength(5);
     expect(registrations.find(({ tool }) => tool.name === "get_store_state")?.tool.description).toMatch(/PRIMARY READ PATH/);
