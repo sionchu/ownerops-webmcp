@@ -1,7 +1,7 @@
 # Implementation Status
 
 ## Current phase
-OwnerOps completed the **RE0 from staffing workbench → AI Store Manager** on release candidate `f1395941e9b8699add3fff1f05e85c69e1fc2e14` and is prepared for PR #15 release integration.
+OwnerOps completed the **RE0 from staffing workbench → AI Store Manager** on release candidate `f1395941e9b8699add3fff1f05e85c69e1fc2e14`. PR #15 was squash-merged into `master` as the public hackathon release.
 
 The current product connects one live working store projection across:
 - People / availability / schedule / attendance / wages;
