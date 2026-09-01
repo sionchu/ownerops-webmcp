@@ -275,4 +275,4 @@ npm run build
 - `scripts/import-fnb-master.mjs` — benchmark/template admin import
 - `supabase/migrations/` — normalized database schema/RPC/template catalog
 
-Product/implementation truth is governed by `AGENTS.md` and `docs/`. The major RE0 remains on `re0/ai-store-manager` / Draft PR #15 until the remaining live DB/provider/browser gates are verified.
+Product and implementation truth is governed by `AGENTS.md` and `docs/`. External provider observations remain explicitly separate from the deterministic demo and database benchmark/seed evidence.

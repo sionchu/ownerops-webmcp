@@ -1,7 +1,7 @@
 # Implementation Status
 
 ## Current phase
-OwnerOps is in a **RE0 from staffing workbench → AI Store Manager** on branch `re0/ai-store-manager` / Draft PR #15.
+OwnerOps completed the **RE0 from staffing workbench → AI Store Manager** on release candidate `f1395941e9b8699add3fff1f05e85c69e1fc2e14` and is prepared for PR #15 release integration.
 
 The current product connects one live working store projection across:
 - People / availability / schedule / attendance / wages;
@@ -101,10 +101,12 @@ The release candidate is verified through the data-source registry, master-templ
 - the DB-backed browser harness stopped because the current preview did not render its expected `DEMO · 실적` control. This requires deployment/harness alignment and is not a substitute for the real ChatGPT acceptance run;
 - local database verification was not run because no local PostgreSQL service was available.
 
-## Remaining live gates
-### P0
-- Fresh nine-tool WebMCP natural-language E2E in a capable browser against the DB-backed Preview.
+## Live acceptance
+- Authentic ChatGPT/WebMCP acceptance completed in take `rc-proof-09` against the nine-tool release candidate.
+- The accepted sequence demonstrated real Site Tools → Agent StorePlan preview → human direct edit → Review required → `evaluate_current_plan` → exact edited candidate retained → `REVIEWED` → human Apply.
+- The accepted proof remains in the private `ownerops-film` production repository; it is not reconstructed product UI.
 
+## Remaining non-release enhancements
 ### P1
 - Real KAMIS credential sync and normalized reference verification.
 - Authenticated owner identity/RLS before enabling browser → DB writes.
@@ -117,11 +119,10 @@ The release candidate is verified through the data-source registry, master-templ
 ## Git / release state
 - Repository: `sionchu/ownerops-webmcp`
 - RE0 branch: `re0/ai-store-manager`
-- Draft PR: #15 `RE0: expand OwnerOps into AI store manager`
+- PR: #15 `RE0: expand OwnerOps into AI store manager`
 - Base branch: `master`
-- Preview only; Production/Master are unchanged.
-- PR stays Draft until the WebMCP E2E gate is verified.
+- Release-candidate verification and authentic WebMCP acceptance are complete.
 - Final integration should squash the RE0 working history before merging to master.
 
 ## Next best action
-**Run the nine-tool WebMCP end-to-end flow against the DB-backed Preview, including a human edit → `evaluate_current_plan` re-read → reviewed apply.**
+**Squash-merge PR #15, verify the merged `master`, then align the canonical public deployment.**
